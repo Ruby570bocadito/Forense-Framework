@@ -80,11 +80,19 @@ class Option:
             raise ModuleError("error.option_invalid", option=self.name, value=raw) from None
 
 
-def mask_secret(value: Any) -> Optional[str]:
-    """``***`` plus the first 12 hex digits of the SHA-256: proves which key was used without storing it."""
+def mask_secret(value: Any, salt: str = "") -> Optional[str]:
+    """``***`` plus a short fingerprint: proves which key was used without storing it.
+
+    With a ``salt`` (each case has its own) the fingerprint is PBKDF2-HMAC-SHA256,
+    so it cannot be looked up in precomputed tables or compared across cases.
+    """
     if value in (None, ""):
         return None
-    return "*** (sha256:" + hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:12] + ")"
+    data = str(value).encode("utf-8", "surrogatepass")
+    if salt:
+        digest = hashlib.pbkdf2_hmac("sha256", data, salt.encode("ascii"), 200_000).hex()
+        return f"*** (pbkdf2:{digest[:12]})"
+    return "*** (sha256:" + hashlib.sha256(data).hexdigest()[:12] + ")"
 
 
 class ResultSink:
@@ -122,6 +130,21 @@ def combine_result_hashes(records: str, events: str, findings: str) -> str:
     return hashlib.sha256(f"{records}:{events}:{findings}".encode("ascii")).hexdigest()
 
 
+def clean(value: Any) -> Any:
+    """Make text storable as UTF-8: undecodable bytes of file names (surrogates) become ``\\xNN`` escapes."""
+    if isinstance(value, str):
+        try:
+            value.encode("utf-8")
+            return value
+        except UnicodeEncodeError:
+            return value.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+    if isinstance(value, dict):
+        return {clean(k): clean(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [clean(v) for v in value]
+    return value
+
+
 class AnalysisContext:
     """Everything a module needs while it runs."""
 
@@ -148,6 +171,7 @@ class AnalysisContext:
 
     # -- output ---------------------------------------------------------
     def record(self, artifact: str, data: dict) -> None:
+        data = clean(data)
         self._records.append((artifact, data))
         self._hashers["records"].update(record_line(artifact, canonical(data)))
         self.counts["records"] += 1
@@ -162,8 +186,8 @@ class AnalysisContext:
             ts = None
         if not ts:
             return
-        item = {"timestamp": ts, "source": self.module, "type": type, "details": details or "",
-                "path": path or "", "severity": severity}
+        item = {"timestamp": ts, "source": self.module, "type": type, "details": clean(details or ""),
+                "path": clean(path or ""), "severity": severity}
         self._events.append(item)
         self._hashers["events"].update(item_line(item))
         self.counts["events"] += 1
@@ -177,7 +201,7 @@ class AnalysisContext:
             ts = normalize_ts(timestamp)
         except (ValueError, OverflowError, OSError):
             ts = None
-        item = {"code": code, "severity": severity, "timestamp": ts, "params": params}
+        item = {"code": code, "severity": severity, "timestamp": ts, "params": clean(params)}
         self._findings.append(item)
         self._hashers["findings"].update(item_line(item))
         self.counts["findings"] += 1
@@ -185,7 +209,7 @@ class AnalysisContext:
 
     def error(self, path: Any, exc: Any) -> None:
         message = f"{type(exc).__name__}: {exc}" if isinstance(exc, BaseException) else str(exc)
-        self.errors.append({"path": str(path), "error": message})
+        self.errors.append({"path": clean(str(path)), "error": clean(message)})
 
     def add_artifact(self, path: Path) -> None:
         self.artifacts.append(Path(path).relative_to(self.output_dir).as_posix())

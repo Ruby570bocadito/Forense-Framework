@@ -8,6 +8,7 @@
     <div><label>{{ _('web.report_language') }}</label>
       <select name="language">{% for code in languages %}<option value="{{ code }}" {{ 'selected' if code == lang }}>{{ _('language.' + code) }}</option>{% endfor %}</select></div>
     <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="verify" style="width:auto"> {{ _('cli.opt.report_verify') }}</label></div>
+    <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="pdf" style="width:auto" {{ 'disabled' if not pdf_available }}> {{ _('web.report_pdf') }}{% if not pdf_available %} ({{ _('error.pdf_no_browser') }}){% endif %}</label></div>
     <div style="flex:0 0 auto"><button type="submit">{{ _('web.generate_report') }}</button></div>
   </div>
   <p class="muted">{{ _('web.report_help') }}</p>
@@ -18,4 +19,12 @@
   {% for f in files %}<tr><td><a href="{{ url_for('report_file', slug=slug, name=f.name) }}" target="_blank" rel="noopener">{{ f.name }}</a></td><td>{{ f.stat().st_size }} B</td></tr>{% endfor %}
 </table></div>
 {% else %}<div class="panel empty">{{ _('web.no_reports') }}</div>{% endif %}
+<h2>{{ _('web.exports') }}</h2>
+<div class="panel actions">
+  {% for what in ['findings', 'timeline', 'execution', 'stix', 'custody'] %}
+  <form method="post" action="{{ url_for('export', slug=slug, what=what) }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export.' + what) }}</button>
+  </form>
+  {% endfor %}
+</div>
 {% endblock %}

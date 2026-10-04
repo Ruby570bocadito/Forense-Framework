@@ -4,6 +4,7 @@
 <h1>{{ _('nav.findings') }} ({{ findings | length }})</h1>
 <div class="subtitle">{{ _('web.findings_help') }}</div>
 {% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }}</p>{% endif %}
+{% if technique %}<p class="flash info">{{ _('web.filtered_by_technique', technique=technique) }} · <a href="{{ url_for('findings', slug=slug, severity=severity, status=status) }}">{{ _('web.clear_filter') }}</a></p>{% endif %}
 <div class="row" style="margin-bottom:12px">
   <div class="tabs">
     <a href="{{ url_for('findings', slug=slug, status=status) }}" class="{{ 'active' if not severity }}">{{ _('common.all') }}</a>
@@ -26,7 +27,8 @@
     <td>{{ sevbadge(f.severity) }}</td>
     <td class="mono">{{ f.timestamp | ts }}</td>
     <td class="wrap"><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}
-      <div class="muted">{{ f.evidence_id }} · <a href="{{ url_for('analysis', slug=slug, analysis_id=f.analysis_id) }}">#{{ f.analysis_id }}</a></div></td>
+      <div class="muted">{{ f.evidence_id }} · <a href="{{ url_for('analysis', slug=slug, analysis_id=f.analysis_id) }}">#{{ f.analysis_id }}</a>
+        {% for tech in f.techniques %} <a class="tag" href="{{ url_for('findings', slug=slug, technique=tech) }}" title="MITRE ATT&amp;CK">{{ tech }}</a>{% endfor %}</div></td>
     <td style="min-width: 240px">
       {{ reviewbadge(f.review.status) }}
       {% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}

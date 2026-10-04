@@ -29,11 +29,12 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.exceptions import NotFound
 
 from forense import __version__
 from forense.core.case import Case
 from forense.core.errors import ForenseError
-from forense.core.utils import normalize_ts
+from forense.core.utils import normalize_ts, range_end, stamped_path
 from forense.i18n import SUPPORTED, detect_language, label, normalize, set_language, t
 from forense.modules.base import SEVERITIES, available_modules, get_module
 from forense.presentation import (
@@ -73,7 +74,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     def _before() -> Optional[Response]:
         if app.config["PASSWORD"]:
             auth = request.authorization
-            if not auth or not hmac.compare_digest(auth.password or "", app.config["PASSWORD"]):
+            if not auth or not hmac.compare_digest((auth.password or "").encode("utf-8", "surrogatepass"),
+                                                   app.config["PASSWORD"].encode("utf-8")):
                 return Response(t("web.auth_required"), 401, {"WWW-Authenticate": 'Basic realm="Forense-Framework"'})
         lang = normalize(request.args.get("lang")) or normalize(request.cookies.get("lang")) or detect_language()
         set_language(lang)
@@ -83,7 +85,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             session["csrf"] = secrets.token_urlsafe(32)
         if request.method == "POST":
             token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token", "")
-            if not hmac.compare_digest(token, session["csrf"]):
+            if not hmac.compare_digest(token.encode("utf-8", "surrogatepass"), session["csrf"].encode("utf-8")):
                 abort(400, t("web.csrf_failed"))
         return None
 
@@ -118,6 +120,10 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         "rule": lambda r: rule_label(r, g.get("lang")),
     }.items():
         app.jinja_env.filters[name] = func
+
+    @app.errorhandler(OverflowError)
+    def _too_large(_exc: OverflowError):  # an identifier too large for SQLite cannot exist
+        return NotFound()
 
     @app.errorhandler(ForenseError)
     def _forense_error(exc: ForenseError):
@@ -177,13 +183,84 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         return response
 
     # -- case pages ----------------------------------------------------------------------
+    def _chart_labels() -> dict:
+        lang = g.get("lang")
+        labels = {s: severity_label(s, lang) for s in SEVERITIES}
+        labels.update(title=t("web.activity", lang), events=t("report.events", lang),
+                      flagged=t("web.alerts", lang), findings=t("report.findings", lang).capitalize(),
+                      techniques=t("web.techniques", lang))
+        return labels
+
     @app.route("/c/<slug>/")
     def dashboard(slug: str):
+        from forense.charts import activity_chart, severity_bar, tactic_bars
+        from forense.core.execution import execution_overview
+        from forense.core.overview import case_overview
+
         with open_case(slug) as case:
+            overview = case_overview(case)
+            labels = _chart_labels()
+            points = [{"timestamp": f["timestamp"], "severity": f["severity"],
+                       "label": f"{severity_label(f['severity'], g.lang)} · {finding_title(f, g.lang)}"}
+                      for f in overview["findings"] if f["severity"] in ("medium", "high", "critical")]
+            charts = {
+                "activity": activity_chart(overview["buckets"], overview["unit"], points, labels,
+                                           link=url_for("timeline", slug=slug)) if overview["buckets"] else "",
+                "severity": severity_bar(overview["severity_counts"], labels),
+                "tactics": tactic_bars([(t(f"tactic.{name}", g.lang), count)
+                                        for name, count in overview["tactic_rows"]], labels),
+            }
             return render_template(
                 "dashboard.html", slug=slug, case=case.info, stats=case.stats(), evidence=case.evidence_list(),
-                analyses=case.analyses()[-8:][::-1], findings=case.findings(min_severity="medium")[:12],
-                progress=case.review_progress(), current_conclusions=case.conclusions())
+                findings=[f for f in overview["findings"] if f["severity"] in ("medium", "high", "critical")][:10],
+                progress=case.review_progress(), overview=overview, charts=charts,
+                suspicious_programs=len(execution_overview(case, suspicious=True)))
+
+    @app.route("/c/<slug>/attack")
+    def attack(slug: str):
+        from forense.core.attack import TACTICS, attack_matrix, draft_summary, storyline
+
+        with open_case(slug) as case:
+            findings = case.findings()
+            matrix = attack_matrix(findings)
+            maximum = max((len(h.findings) for hits in matrix.values() for h in hits), default=1)
+            steps = [max(1, round(maximum * i / 5)) for i in range(1, 6)]
+
+            def level(count: int) -> int:
+                return next((i + 1 for i, top in enumerate(steps) if count <= top), 5)
+
+            legend = []
+            low = 1
+            for top in steps:
+                legend.append(str(low) if top <= low else f"{low}–{top}")
+                low = top + 1
+            return render_template("attack.html", slug=slug, case=case.info, matrix=matrix, tactics=TACTICS,
+                                   phases=storyline(findings), draft=draft_summary(findings, g.lang), level=level,
+                                   legend=legend, techniques=len({h.technique for hits in matrix.values()
+                                                                  for h in hits}))
+
+    @app.post("/c/<slug>/auto")
+    def auto_analysis(slug: str):
+        from forense.automation import BUILTIN_PLAYBOOKS
+        from forense.core.config import get_config
+
+        evidence_id = request.form.get("evidence", "")
+        playbook = request.form.get("playbook", "")  # only the built-in ones from the browser
+        if playbook not in BUILTIN_PLAYBOOKS:
+            playbook = get_config().value("automation.playbook") or "full"
+        who = actor()
+
+        def work(case: Case, progress) -> tuple[str, str]:
+            from forense.automation import load_playbook, run_playbook
+            from forense.core.config import get_config
+
+            config = get_config()
+            result = run_playbook(case, [evidence_id], load_playbook(playbook), config, who, progress)
+            failed = sum(1 for step in result.steps if step.status == "failed")
+            return t("web.auto_done", steps=len(result.steps), failed=failed), ("dashboard", {"slug": slug})
+
+        submit(slug, "auto", t("web.job.auto", evidence=evidence_id), work)
+        return redirect(url_for("dashboard", slug=slug))
 
     @app.route("/c/<slug>/evidence")
     def evidence(slug: str):
@@ -262,7 +339,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             artifacts = case.record_artifacts(item.id)
             artifact = request.args.get("artifact") or (artifacts[0][0] if artifacts else None)
             search = request.args.get("q", "")
-            page = max(1, request.args.get("page", 1, type=int))
+            page = min(max(1, request.args.get("page", 1, type=int)), 1_000_000)
             records = case.records(item.id, artifact=artifact, search=search, offset=(page - 1) * PAGE_SIZE,
                                    limit=PAGE_SIZE)
             columns = list(dict.fromkeys(k for _, row in records.rows for k in row))
@@ -282,12 +359,19 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
     @app.route("/c/<slug>/findings")
     def findings(slug: str):
+        from forense.core.attack import techniques_for
+
         severity = request.args.get("severity") or None
         status = request.args.get("status") or None
+        technique = request.args.get("technique") or None
         with open_case(slug) as case:
+            items = case.findings(min_severity=severity, review_status=status)
+            for item in items:
+                item["techniques"] = techniques_for(item)
+            if technique:
+                items = [f for f in items if technique in f["techniques"]]
             return render_template("findings.html", slug=slug, case=case.info, severity=severity, status=status,
-                                   findings=case.findings(min_severity=severity, review_status=status),
-                                   progress=case.review_progress())
+                                   technique=technique, findings=items, progress=case.review_progress())
 
     @app.post("/c/<slug>/findings/<int:finding_id>/review")
     def review_finding(slug: str, finding_id: int):
@@ -319,7 +403,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     @app.route("/c/<slug>/timeline")
     def timeline(slug: str):
         filters = _timeline_filters()
-        page = max(1, request.args.get("page", 1, type=int))
+        page = min(max(1, request.args.get("page", 1, type=int)), 1_000_000)
         with open_case(slug) as case:
             events = case.events(offset=(page - 1) * PAGE_SIZE, limit=PAGE_SIZE, **filters)
             filter_args = {k: request.args[k] for k in ("from", "to", "q", "source", "severity", "evidence",
@@ -349,16 +433,19 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     @app.route("/c/<slug>/reports")
     def reports(slug: str):
         directory = case_dir(slug) / "reports"
-        files = sorted((p for p in directory.glob("*.html")), key=lambda p: p.stat().st_mtime, reverse=True) \
-            if directory.exists() else []
+        files = sorted((p for p in directory.iterdir() if p.suffix in (".html", ".pdf")),
+                       key=lambda p: p.stat().st_mtime, reverse=True) if directory.exists() else []
         with open_case(slug) as case:
+            from forense.report.pdf import find_browser
+
             return render_template("reports.html", slug=slug, case=case.info, files=files,
-                                   jobs=jobs.active(slug))
+                                   jobs=jobs.active(slug), pdf_available=bool(find_browser()))
 
     @app.post("/c/<slug>/reports")
     def generate(slug: str):
         report_lang = normalize(request.form.get("language")) or g.lang
         verify = request.form.get("verify") == "on"
+        pdf = request.form.get("pdf") == "on"
         who = actor()
 
         def work(case: Case, progress) -> tuple[str, str]:
@@ -366,6 +453,11 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
             progress(t("web.job.report"))
             path = generate_report(case, report_lang, verify=verify, actor=who)
+            if pdf:
+                from forense.report.pdf import html_to_pdf
+
+                progress("PDF")
+                path = html_to_pdf(path, case=case, actor=who)
             return t("cli.report_written", path=path.name), ("report_file", {"slug": slug, "name": path.name})
 
         submit(slug, "report", t("web.job.report"), work)
@@ -377,27 +469,28 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
     @app.post("/c/<slug>/export/<what>")
     def export(slug: str, what: str):
-        from datetime import datetime, timezone
-
         from forense.core import exports
 
         fmt = "json" if what == "custody" else "csv"
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         with open_case(slug) as case:
             exports_dir = case.root / "exports"
             if what == "timeline":
-                path = exports.export_timeline(case, exports_dir / f"timeline_{stamp}.csv", fmt, g.lang, actor(),
+                path = exports.export_timeline(case, stamped_path(exports_dir, "timeline", ".csv"), fmt, g.lang, actor(),
                                                **_timeline_filters())
             elif what == "findings":
-                path = exports.export_findings(case, exports_dir / f"findings_{stamp}.csv", fmt, g.lang, actor())
+                path = exports.export_findings(case, stamped_path(exports_dir, "findings", ".csv"), fmt, g.lang, actor())
             elif what == "execution":
-                path = exports.export_execution(case, exports_dir / f"execution_{stamp}.csv", fmt, g.lang, actor(),
+                path = exports.export_execution(case, stamped_path(exports_dir, "execution", ".csv"), fmt, g.lang, actor(),
                                                 search=request.args.get("q", ""),
                                                 suspicious=request.args.get("suspicious") == "1")
+            elif what == "stix":
+                from forense.core.stix import export_stix
+
+                path = export_stix(case, stamped_path(exports_dir, "iocs", ".stix.json"), actor())
             elif what == "custody":
-                path = exports.export_custody(case, exports_dir / f"custody_{stamp}.json", fmt, g.lang, actor())
-            elif what.isdigit():
-                path = exports.export_analysis(case, int(what), exports_dir / f"analysis_{what}_{stamp}.csv", fmt,
+                path = exports.export_custody(case, stamped_path(exports_dir, "custody", ".json"), fmt, g.lang, actor())
+            elif what.isascii() and what.isdigit() and len(what) < 12:
+                path = exports.export_analysis(case, int(what), stamped_path(exports_dir, f"analysis_{what}", ".csv"), fmt,
                                                g.lang, actor(), artifact=request.form.get("artifact") or None)
             else:
                 abort(404)
@@ -424,19 +517,16 @@ def _back(default: str) -> str:
 
 
 def _timeline_filters() -> dict:
-    def ts(name: str) -> Optional[str]:
+    def ts(name: str, parse=normalize_ts) -> Optional[str]:
         value = request.args.get(name, "").strip()
         if not value:
             return None
         try:
-            return normalize_ts(value)
-        except ValueError:
+            return parse(value)
+        except (ValueError, OverflowError):
             return None
 
-    end = ts("to")
-    if end and len(request.args.get("to", "").strip()) == 10:  # whole day
-        end = end[:11] + "23:59:59.999999Z"
-    return {"start": ts("from"), "end": end, "search": request.args.get("q", "").strip(),
+    return {"start": ts("from"), "end": ts("to", range_end), "search": request.args.get("q", "").strip(),
             "source": request.args.get("source") or None, "min_severity": request.args.get("severity") or None,
             "evidence_id": request.args.get("evidence") or None, "bookmarked": request.args.get("bookmarked") == "1"}
 

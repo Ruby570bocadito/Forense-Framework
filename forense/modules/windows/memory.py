@@ -362,7 +362,8 @@ class MemoryModule(Module):
             name = process.image if process else regions[0]["process"]
             pe = any(r["pe_header"] for r in regions)
             severity = "high" if pe else ("low" if _known(name, JIT_PROCESSES) else "medium")
-            ctx.finding("memory.injected_code", severity, process.created if process else None,
+            # the injection time is unknown: the process start time would date it misleadingly early
+            ctx.finding("memory.injected_code", severity, None,
                         process=f"{name} (PID {pid})", regions=len(regions),
                         addresses=", ".join(r["start"] for r in regions[:5]), pe=pe)
         return len(rows)

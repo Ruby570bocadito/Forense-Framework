@@ -111,7 +111,8 @@ class UsnJrnlModule(Module):
             first = first or record.timestamp
             last = record.timestamp
             key = (record.entry, record.sequence)
-            path = f"{resolver.path(record.parent_entry).rstrip(chr(92))}\\{record.name}" if resolver else record.name
+            path = f"{resolver.path_checked(record.parent_entry, record.parent_sequence).rstrip(chr(92))}\\" \
+                f"{record.name}" if resolver else record.name
             if record.reason & RENAME_OLD:
                 old_names[key] = path
             if options["records"] == "all" or record.reason & (CLOSE | RENAME_OLD):

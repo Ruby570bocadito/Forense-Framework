@@ -69,8 +69,31 @@ def normalize_ts(value: TimeLike) -> Optional[str]:
     return iso(parse_datetime(str(value)))
 
 
-def ts_to_iso(ts: float) -> str:
-    return iso(datetime.fromtimestamp(ts, tz=timezone.utc))
+def stamped_path(folder: Path, prefix: str, suffix: str) -> Path:
+    """``folder/prefix_<UTC time>suffix`` that does not exist yet (``_2``, ``_3``... within the same second)."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    path = Path(folder) / f"{prefix}_{stamp}{suffix}"
+    counter = 2
+    while path.exists():
+        path = Path(folder) / f"{prefix}_{stamp}_{counter}{suffix}"
+        counter += 1
+    return path
+
+
+def range_end(value: TimeLike) -> Optional[str]:
+    """Upper bound of a time filter: a bare date (``2024-03-01``) includes the whole day."""
+    end = normalize_ts(value)
+    if end and isinstance(value, str) and len(value.strip()) == 10:
+        end = end[:11] + "23:59:59.999999Z"
+    return end
+
+
+def ts_to_iso(ts: float) -> Optional[str]:
+    """POSIX timestamp as ISO text; ``None`` when out of the representable range (corrupt file times)."""
+    try:
+        return iso(datetime.fromtimestamp(ts, tz=timezone.utc))
+    except (ValueError, OverflowError, OSError):
+        return None
 
 
 def filetime_to_dt(value: int) -> Optional[datetime]:

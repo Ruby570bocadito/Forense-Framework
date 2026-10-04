@@ -115,7 +115,8 @@ class SetupApiModule(Module):
             except OSError as exc:
                 ctx.error(rel, exc)
                 continue
-            text = data.decode("utf-16") if data[:2] in (b"\xff\xfe", b"\xfe\xff") else data.decode("utf-8", "replace")
+            text = data.decode("utf-16", "replace") if data[:2] in (b"\xff\xfe", b"\xfe\xff") \
+                else data.decode("utf-8", "replace")
             for section in parse_log(text):
                 if "device install" not in section["title"].lower() or section["start"] is None:
                     continue

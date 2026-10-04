@@ -113,7 +113,8 @@ class MftModule(Module):
                     severity = timestomp_severity(full_path)
                     stats["timestomp_suspects" if severity else "timestomp_installer_like"] += 1
                     if severity:
-                        ctx.finding("mft.timestomping", severity, si.get("created"), path=full_path,
+                        # dated with $FN (when the file really appeared), not the forged $SI value
+                        ctx.finding("mft.timestomping", severity, fn.get("created") or si.get("created"), path=full_path,
                                     si_created=dt_or_none_iso(si.get("created")),
                                     fn_created=dt_or_none_iso(fn.get("created")))
                 if zone:

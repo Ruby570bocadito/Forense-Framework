@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -12,7 +11,7 @@ from forense import __version__
 from forense.core.case import Case
 from forense.core.execution import execution_overview
 from forense.core.hashing import hash_file
-from forense.core.utils import utc_now
+from forense.core.utils import stamped_path, utc_now
 from forense.i18n import get_language, label, normalize, t
 from forense.modules.base import get_module
 from forense.presentation import (
@@ -82,8 +81,7 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         execution=execution_overview(case)[:max_programs],
     )
     if output is None:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        output = case.root / "reports" / f"report_{stamp}_{lang}.html"
+        output = stamped_path(case.root / "reports", "report", f"_{lang}.html")
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(html, encoding="utf-8")

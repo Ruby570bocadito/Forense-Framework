@@ -55,3 +55,37 @@
   }
   poll();
 })();
+
+// Chart tooltips: any element with data-tip (SVG marks included) shows its text next to the pointer.
+(function () {
+  "use strict";
+  var tip = null;
+  function show(ev) {
+    var target = ev.target.closest ? ev.target.closest("[data-tip]") : null;
+    if (!target) { hide(); return; }
+    if (!tip) { tip = document.createElement("div"); tip.className = "viz-tooltip"; document.body.appendChild(tip); }
+    tip.textContent = target.getAttribute("data-tip");
+    tip.hidden = false;
+    var x = ev.clientX + 14, y = ev.clientY + 14;
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+    if (y + h > window.innerHeight - 8) y = ev.clientY - h - 14;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function hide() { if (tip) tip.hidden = true; }
+  document.addEventListener("mousemove", show);
+  document.addEventListener("mouseleave", hide);
+  document.addEventListener("scroll", hide, true);
+})();
+
+// "Use as draft" copies the generated narrative into the conclusions editor.
+(function () {
+  "use strict";
+  document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var source = document.getElementById(button.dataset.copySource);
+      var target = document.getElementById(button.dataset.copyTarget);
+      if (source && target) { target.value = source.value; target.focus(); }
+    });
+  });
+})();

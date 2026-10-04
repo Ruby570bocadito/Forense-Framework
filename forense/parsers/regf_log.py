@@ -125,6 +125,8 @@ def parse_log(data: bytes, name: str = "") -> Optional[TransactionLog]:
     if data[LOG_HEADER_SIZE:LOG_HEADER_SIZE + 4] == b"DIRT" and primary == secondary and hbins_size:
         bitmap_size = hbins_size // 4096
         bitmap = data[LOG_HEADER_SIZE + 4:LOG_HEADER_SIZE + 4 + bitmap_size]
+        if len(bitmap) < bitmap_size:
+            return None  # truncated log
         cursor = (LOG_HEADER_SIZE + 4 + bitmap_size + 511) // 512 * 512
         pages = []
         for index in range(bitmap_size * 8):
@@ -161,10 +163,25 @@ class Recovery:
     last_sequence: Optional[int]
 
 
+MAX_GROWTH = 256 * 1024 * 1024  # a log may grow the hive, but not without bound (crafted logs)
+
+
+def _plausible(entry: LogEntry, hive_size: int) -> bool:
+    limit = max(hive_size * 2, hive_size + MAX_GROWTH)
+    if entry.hbins_size + BASE_BLOCK_SIZE > limit:
+        return False
+    return all(offset + len(page) <= entry.hbins_size for offset, page in entry.pages)
+
+
 def recover(hive: bytes, logs: list[TransactionLog]) -> Optional[Recovery]:
-    """Apply the log entries newer than the hive (sequence >= secondary sequence number), in order."""
+    """Apply the log entries newer than the hive (sequence >= secondary sequence number), in order.
+
+    Entries whose sizes or page offsets are implausible for this hive are not applied (nor any later one).
+    """
     if len(hive) < BASE_BLOCK_SIZE:
         return None
+    logs = [TransactionLog(log.name, log.format, log.sequence,
+                           [e for e in log.entries if _plausible(e, len(hive))]) for log in logs]
     secondary = struct.unpack_from("<I", hive, 8)[0]
     new_entries: dict[int, tuple[str, LogEntry]] = {}
     old_logs = []

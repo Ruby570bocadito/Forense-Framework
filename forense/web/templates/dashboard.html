@@ -1,44 +1,81 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sevbadge, render, pager with context %}
+{% from "_macros.html" import sevbadge, icon with context %}
 {% block title %}{{ case.name }} · Forense-Framework{% endblock %}
 {% block content %}
-<h1>{{ case.name }}</h1>
-<div class="subtitle">{{ case.description }}{% if case.reference %} · {{ _('case.reference') }}: {{ case.reference }}{% endif %} · {{ _('case.investigator') }}: {{ case.investigator }}</div>
+<div class="page-head">
+  <div>
+    <h1>{{ case.name }}</h1>
+    <div class="subtitle">{{ case.id }}{% if case.reference %} · {{ _('case.reference') }}: {{ case.reference }}{% endif %} · {{ _('case.investigator') }}: {{ case.investigator }}{% if case.description %} · {{ case.description }}{% endif %}</div>
+  </div>
+  <div class="actions">
+    <a class="button secondary" href="{{ url_for('attack', slug=slug) }}">{{ icon('attack') }}ATT&amp;CK</a>
+    <form method="post" action="{{ url_for('generate', slug=slug) }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="language" value="{{ lang }}">
+      <button type="submit">{{ icon('reports') }}{{ _('web.generate_report') }}</button>
+    </form>
+  </div>
+</div>
 
 <div class="kpis">
-  <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _('nav.evidence') }}</span></div>
-  <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _('nav.analyses') }}</span></div>
-  <div class="kpi"><b>{{ stats.events }}</b><span>{{ _('report.timeline_events') }}</span></div>
-  {% for s in ['critical', 'high', 'medium', 'low'] %}
-  <div class="kpi"><b style="color: {{ colors[s] }}">{{ stats.findings_by_severity.get(s, 0) }}</b><span>{{ _('report.findings_of', severity=_('severity.plural.' + s)) }}</span></div>
-  {% endfor %}
+  <div class="kpi"><span>{{ _('report.findings') | capitalize }}</span><b>{{ stats.findings }}</b>
+    <small>{{ stats.findings_by_severity.get('critical', 0) }} {{ _('severity.plural.critical') | lower }} · {{ stats.findings_by_severity.get('high', 0) }} {{ _('severity.plural.high') | lower }}</small></div>
+  <div class="kpi"><span>{{ _('web.reviewed') }}</span><b>{{ progress.reviewed }}<small style="display:inline"> / {{ progress.total }}</small></b>
+    <div class="meter"><i style="width: {{ (100 * progress.reviewed / progress.total) | round | int if progress.total else 0 }}%"></i></div></div>
+  <div class="kpi"><span>{{ _('web.attack_coverage') }}</span><b>{{ overview.tactics }}</b><small>{{ _('web.techniques_count', count=overview.techniques) }}</small></div>
+  <div class="kpi"><span>{{ _('report.timeline_events') }}</span><b>{{ '{:,}'.format(stats.events) }}</b><small>{{ stats.analyses }} {{ _('nav.analyses') | lower }}</small></div>
+  <div class="kpi"><span>{{ _('nav.evidence') }}</span><b>{{ stats.evidence }}</b><small>{{ suspicious_programs }} {{ _('web.suspicious_programs') }}</small></div>
 </div>
-{% if stats.first_event %}<p class="muted">{{ _('report.activity_span', first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
-{% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }}
-  · <a href="{{ url_for('findings', slug=slug, status='needs_review') }}">{{ _('review.needs_review') }} →</a>
-  · <a href="{{ url_for('conclusions', slug=slug) }}">{{ _('nav.conclusions') }}{% if current_conclusions %} (v{{ current_conclusions.version }}){% endif %} →</a></p>{% endif %}
 
-<div class="grid">
+<section class="panel">
+  <div class="panel-head"><h2>{{ _('web.activity') }}</h2>
+    {% if overview.window %}<span class="muted small">{{ overview.window[0].strftime('%Y-%m-%d %H:%M') }} – {{ overview.window[1].strftime('%Y-%m-%d %H:%M') }} UTC · {{ _('web.unit.' + overview.unit) }}</span>{% endif %}</div>
+  {% if charts.activity %}
+    {{ charts.activity }}
+    <div class="viz-legend">
+      <span class="viz-key"><i class="viz-swatch viz-bar"></i>{{ _('web.events_per_bucket') }}</span>
+      <span class="viz-key"><i class="viz-swatch viz-bar-flagged"></i>{{ _('web.buckets_with_alerts') }}</span>
+      {% for s in ['critical', 'high', 'medium'] %}<span class="viz-key"><i class="viz-swatch viz-sev-{{ s }}"></i>{{ _('report.findings_of', severity=_('severity.plural.' + s)) }}</span>{% endfor %}
+    </div>
+    <details class="viz-table"><summary>{{ _('web.table_view') }}</summary>
+      <div class="table-wrap"><table><tr><th>{{ _('field.start') }} (UTC)</th><th class="num">{{ _('report.events') }}</th><th class="num">{{ _('web.buckets_with_alerts') }}</th></tr>
+      {% for b in overview.buckets if b.count %}<tr><td class="mono">{{ b.start.strftime('%Y-%m-%d %H:%M') }}</td><td class="num">{{ b.count }}</td><td class="num">{{ b.flagged }}</td></tr>{% endfor %}
+      </table></div></details>
+  {% else %}<p class="muted">{{ _('web.no_activity') }}</p>{% endif %}
+</section>
+
+<div class="grid-2">
   <section class="panel">
-    <h2 style="margin-top:0">{{ _('web.top_findings') }}</h2>
+    <div class="panel-head"><h2>{{ _('web.top_findings') }}</h2><a href="{{ url_for('findings', slug=slug) }}">{{ _('web.all_findings') }} →</a></div>
+    {{ charts.severity }}
+    <ul class="list-findings" style="margin-top:10px">
     {% for f in findings %}
-      <p>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b><br><span class="muted">{{ f.timestamp | ts }}</span> {{ finding_description(f) }}</p>
-    {% else %}<p class="muted">{{ _('findings.none') }}</p>{% endfor %}
-    <a href="{{ url_for('findings', slug=slug) }}">{{ _('web.all_findings') }} →</a>
+      <li>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b><br><span class="muted small">{{ f.timestamp | ts }} · #{{ f.id }}</span> <span class="small">{{ finding_description(f) }}</span></li>
+    {% else %}<li class="muted">{{ _('findings.none') }}</li>{% endfor %}
+    </ul>
   </section>
-  <section class="panel">
-    <h2 style="margin-top:0">{{ _('nav.evidence') }}</h2>
-    {% for ev in evidence %}
-      <form class="row" method="post" action="{{ url_for('triage', slug=slug) }}" style="margin-bottom:10px">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="evidence" value="{{ ev.id }}">
-        <div><b>{{ ev.id }}</b> {{ ev.description }}<div class="muted mono">{{ ev.hashes.sha256[:24] }}…</div></div>
-        <button class="secondary small" type="submit">{{ _('web.run_triage') }}</button>
-      </form>
-    {% else %}<p class="muted">{{ _('web.no_evidence') }} <a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }}</a></p>{% endfor %}
-    <h2>{{ _('web.recent_analyses') }}</h2>
-    {% for a in analyses %}
-      <div><a href="{{ url_for('analysis', slug=slug, analysis_id=a.id) }}">#{{ a.id }} {{ a.module }}</a> · {{ a.evidence_id }} · {{ a.status | status }} · {{ a.finding_count }} {{ _('report.findings') }}</div>
-    {% else %}<p class="muted">{{ _('web.no_analyses') }}</p>{% endfor %}
-  </section>
+  <div>
+    <section class="panel">
+      <div class="panel-head"><h2>MITRE ATT&amp;CK</h2><a href="{{ url_for('attack', slug=slug) }}">{{ _('web.open_matrix') }} →</a></div>
+      {{ charts.tactics }}
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>{{ _('nav.evidence') }}</h2><a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }} →</a></div>
+      {% for ev in evidence %}
+      <div class="evidence-row">
+        <div><b>{{ ev.id }}</b> {{ ev.description }}<div class="muted mono small">{{ ev.hashes.sha256[:24] }}…</div></div>
+        <div class="actions">
+          <form method="post" action="{{ url_for('auto_analysis', slug=slug) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="evidence" value="{{ ev.id }}">
+            <button class="small" type="submit" title="{{ _('web.auto_help') }}">{{ icon('auto') }}{{ _('web.run_auto') }}</button>
+          </form>
+          <form method="post" action="{{ url_for('triage', slug=slug) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="evidence" value="{{ ev.id }}">
+            <button class="secondary small" type="submit">{{ _('web.run_triage') }}</button>
+          </form>
+        </div>
+      </div>
+      {% else %}<p class="muted">{{ _('web.no_evidence') }} <a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }}</a></p>{% endfor %}
+    </section>
+  </div>
 </div>
 {% endblock %}

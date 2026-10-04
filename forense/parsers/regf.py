@@ -83,11 +83,14 @@ class RegistryHive:
         for log_path in log_files(path):
             try:
                 log = parse_log(log_path.read_bytes(), log_path.name)
-            except (OSError, struct.error):
+            except Exception:  # noqa: BLE001 - damaged log: ignored, the hive stays as it is on disk
                 log = None
             if log is not None:
                 logs.append(log)
-        recovery = recover(bytes(self.data), logs) if logs else None
+        try:
+            recovery = recover(bytes(self.data), logs) if logs else None
+        except Exception:  # noqa: BLE001 - a damaged log must never prevent reading the hive itself
+            recovery = None
         if recovery is None:
             return
         self.close()
@@ -147,8 +150,12 @@ class RegistryHive:
 
     def walk(self, key: Optional["RegistryKey"] = None) -> Iterator["RegistryKey"]:
         stack = [(key or self.root(), 0)]
+        visited: set[int] = set()  # a damaged hive can link a key back to an ancestor
         while stack:
             current, depth = stack.pop()
+            if current.offset in visited:
+                continue
+            visited.add(current.offset)
             yield current
             if depth < _MAX_DEPTH:
                 stack.extend((child, depth + 1) for child in reversed(current.subkeys()))
@@ -164,11 +171,14 @@ class RegistryKey:
         if data[0:2] != b"nk":
             raise RegistryError(f"expected key node at {offset:#x}")
         self._data = data
-        self.flags = struct.unpack_from("<H", data, 2)[0]
-        self.last_written: Optional[datetime] = filetime_to_dt(struct.unpack_from("<Q", data, 4)[0])
-        (self._subkey_count, _volatile, self._subkeys_offset, _vol_list, self._value_count,
-         self._values_offset, _security, self._class_offset) = struct.unpack_from("<IIIIIIII", data, 20)
-        name_len, self._class_len = struct.unpack_from("<HH", data, 72)
+        try:
+            self.flags = struct.unpack_from("<H", data, 2)[0]
+            self.last_written: Optional[datetime] = filetime_to_dt(struct.unpack_from("<Q", data, 4)[0])
+            (self._subkey_count, _volatile, self._subkeys_offset, _vol_list, self._value_count,
+             self._values_offset, _security, self._class_offset) = struct.unpack_from("<IIIIIIII", data, 20)
+            name_len, self._class_len = struct.unpack_from("<HH", data, 72)
+        except struct.error as exc:
+            raise RegistryError(f"truncated key node at {offset:#x}") from exc
         self.name = _decode_name(data[76:76 + name_len], bool(self.flags & KEY_COMP_NAME))
         if is_root:
             self.path = ""
@@ -206,8 +216,12 @@ class RegistryKey:
     def subkeys(self) -> list["RegistryKey"]:
         if not self._subkey_count:
             return []
+        try:
+            offsets = self._subkey_offsets(self._subkeys_offset)
+        except (RegistryError, struct.error):
+            return []  # damaged subkey list: the key itself is still usable
         keys = []
-        for offset in self._subkey_offsets(self._subkeys_offset):
+        for offset in offsets:
             try:
                 keys.append(RegistryKey(self.hive, offset, self.path))
             except RegistryError:
@@ -225,7 +239,10 @@ class RegistryKey:
     def values(self) -> list["RegistryValue"]:
         if not self._value_count or self._values_offset == 0xFFFFFFFF:
             return []
-        data = self.hive.cell(self._values_offset)
+        try:
+            data = self.hive.cell(self._values_offset)
+        except RegistryError:
+            return []
         count = min(self._value_count, len(data) // 4)
         values = []
         for i in range(count):
@@ -253,7 +270,10 @@ class RegistryValue:
         data = hive.cell(offset)
         if data[0:2] != b"vk":
             raise RegistryError(f"expected value at {offset:#x}")
-        name_len, self._size, self._data_offset, self.type, flags = struct.unpack_from("<HIIIH", data, 2)
+        try:
+            name_len, self._size, self._data_offset, self.type, flags = struct.unpack_from("<HIIIH", data, 2)
+        except struct.error as exc:
+            raise RegistryError(f"truncated value at {offset:#x}") from exc
         self.name = _decode_name(data[20:20 + name_len], bool(flags & VALUE_COMP_NAME)) if name_len else ""
 
     def __repr__(self) -> str:
@@ -272,12 +292,15 @@ class RegistryValue:
             return b""
         cell = self.hive.cell(self._data_offset)
         if size > BIG_DATA_THRESHOLD and cell[0:2] == b"db" and self.hive.minor > 3:
-            count, list_offset = struct.unpack_from("<HI", cell, 2)
-            segments = self.hive.cell(list_offset)
-            chunks = []
-            for i in range(count):
-                segment = self.hive.cell(struct.unpack_from("<I", segments, i * 4)[0])
-                chunks.append(segment[:BIG_DATA_THRESHOLD])
+            try:
+                count, list_offset = struct.unpack_from("<HI", cell, 2)
+                segments = self.hive.cell(list_offset)
+                chunks = []
+                for i in range(min(count, len(segments) // 4)):
+                    segment = self.hive.cell(struct.unpack_from("<I", segments, i * 4)[0])
+                    chunks.append(segment[:BIG_DATA_THRESHOLD])
+            except struct.error as exc:
+                raise RegistryError(f"damaged big data record of {self.name!r}") from exc
             return b"".join(chunks)[:size]
         return cell[:size]
 

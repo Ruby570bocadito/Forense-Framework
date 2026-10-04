@@ -39,7 +39,7 @@ class SrumModule(Module):
                     self._connectivity(ctx, db, rel)
                     if ctx.options["app_usage"]:
                         self._app_usage(ctx, db, rel)
-            except OSError as exc:
+            except Exception as exc:  # noqa: BLE001 - a damaged ESE database must not abort the analysis
                 ctx.error(rel, exc)
 
         for app, t in sorted(totals.items(), key=lambda kv: -kv[1]["sent"]):

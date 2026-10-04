@@ -30,7 +30,7 @@ def ole_to_dt(value: float) -> Optional[datetime]:
         return None
     try:
         return _OLE_EPOCH + timedelta(days=value)
-    except OverflowError:
+    except (OverflowError, ValueError, TypeError):  # NaN / infinity / garbage in a damaged database
         return None
 
 
@@ -53,11 +53,11 @@ def _value(record, index: int):
         signed = kind in (_SHORT, _LONG, _LONGLONG, _CURRENCY)
         return int.from_bytes(data, "little", signed=signed)
     if kind == _BIT:
-        return bool(data[0])
+        return bool(data[0]) if data else None
     if kind == _IEEE_DOUBLE or kind == _DATETIME:
-        return struct.unpack("<d", data[:8])[0]
+        return struct.unpack("<d", data[:8])[0] if len(data) >= 8 else None
     if kind == _IEEE_SINGLE:
-        return struct.unpack("<f", data[:4])[0]
+        return struct.unpack("<f", data[:4])[0] if len(data) >= 4 else None
     return data
 
 

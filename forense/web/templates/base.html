@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Forense-Framework{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 </head>
 <body>
+{% from "_macros.html" import icon with context %}
 <header class="topbar">
-  <a class="brand" href="{{ url_for('index') }}">Forense<span>-Framework</span></a>
+  <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Forense<span>-Framework</span></span></a>
   {% if slug is defined %}<span class="case-name">/ {{ case.name }} <span class="mono">({{ case.id }})</span></span>{% endif %}
   <span class="spacer"></span>
   <form method="post" action="{{ url_for('set_analyst') }}" title="{{ _('web.analyst_help') }}">
@@ -22,15 +24,18 @@
   {% if slug is defined %}
   <nav class="side">
     {% set here = request.endpoint %}
-    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}">{{ _('nav.dashboard') }}</a>
-    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}">{{ _('nav.evidence') }}</a>
-    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}">{{ _('nav.analyses') }}</a>
-    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}">{{ _('nav.findings') }}</a>
-    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}">{{ _('nav.timeline') }}</a>
-    <a href="{{ url_for('execution', slug=slug) }}" class="{{ 'active' if here == 'execution' }}">{{ _('nav.execution') }}</a>
-    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}">{{ _('nav.conclusions') }}</a>
-    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}">{{ _('nav.custody') }}</a>
-    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}">{{ _('nav.reports') }}</a>
+    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}">{{ icon('dashboard') }}{{ _('nav.dashboard') }}</a>
+    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}">{{ icon('evidence') }}{{ _('nav.evidence') }}</a>
+    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}">{{ icon('analyses') }}{{ _('nav.analyses') }}</a>
+    <div class="group">{{ _('nav.group_investigation') }}</div>
+    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}">{{ icon('findings') }}{{ _('nav.findings') }}</a>
+    <a href="{{ url_for('attack', slug=slug) }}" class="{{ 'active' if here == 'attack' }}">{{ icon('attack') }}{{ _('nav.attack') }}</a>
+    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}">{{ icon('timeline') }}{{ _('nav.timeline') }}</a>
+    <a href="{{ url_for('execution', slug=slug) }}" class="{{ 'active' if here == 'execution' }}">{{ icon('execution') }}{{ _('nav.execution') }}</a>
+    <div class="group">{{ _('nav.group_documentation') }}</div>
+    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}">{{ icon('conclusions') }}{{ _('nav.conclusions') }}</a>
+    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}">{{ icon('custody') }}{{ _('nav.custody') }}</a>
+    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}">{{ icon('reports') }}{{ _('nav.reports') }}</a>
   </nav>
   {% endif %}
   <main>

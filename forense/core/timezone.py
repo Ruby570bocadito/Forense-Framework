@@ -29,7 +29,9 @@ def _rule(raw) -> Optional[tuple[int, int, int, int, int]]:
     if not isinstance(raw, (bytes, bytearray)) or len(raw) < 16:
         return None
     _year, month, dow, occurrence, hour, minute, _s, _ms = struct.unpack_from("<8H", raw)
-    return (month, dow, occurrence, hour, minute) if month else None
+    if not (1 <= month <= 12 and dow <= 6 and 1 <= occurrence <= 5 and hour <= 23 and minute <= 59):
+        return None  # no rule (month 0) or a damaged one: no daylight saving time is applied
+    return month, dow, occurrence, hour, minute
 
 
 def _transition(year: int, rule: tuple[int, int, int, int, int]) -> datetime:
@@ -81,6 +83,8 @@ class WindowsTimeZone:
         if key.get("Bias") is None:
             active = key.get("ActiveTimeBias")
             return cls(name, _signed(active)) if active is not None else None
+        if key.get("DynamicDaylightTimeDisabled") == 1:  # "Adjust for daylight saving time" switched off
+            return cls(name, _signed(key.get("Bias")), _signed(key.get("StandardBias")))
         return cls(name, _signed(key.get("Bias")), _signed(key.get("StandardBias")), _signed(key.get("DaylightBias")),
                    _rule(key.get("StandardStart")), _rule(key.get("DaylightStart")))
 
@@ -96,7 +100,7 @@ class WindowsTimeZone:
             try:
                 with RegistryHive(path) as hive:
                     tz = cls.from_hive(hive)
-            except (OSError, RegistryError):
+            except (OSError, RegistryError, ValueError, struct.error):
                 continue
             if tz:
                 return tz

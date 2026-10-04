@@ -93,6 +93,6 @@ def hash_tree(root: Path, algorithms: Iterable[str] = DEFAULT_ALGORITHMS,
     for name in algorithms:
         hasher = hashlib.new(name)
         for rel in sorted(files):
-            hasher.update(f"{rel}\t{files[rel][name]}\n".encode("utf-8"))
+            hasher.update(f"{rel}\t{files[rel][name]}\n".encode("utf-8", "surrogateescape"))
         manifest[name] = hasher.hexdigest()
     return TreeHash(hashes=manifest, file_count=len(files), total_size=total, files=files)

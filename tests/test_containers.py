@@ -84,7 +84,9 @@ def test_secret_options_are_never_stored(tmp_path):
         analysis = case.run_analysis("image", evidence.id, {"bitlocker_recovery": "111111-222222-333333",
                                                             "patterns": "vss1"})
         stored = analysis.options["bitlocker_recovery"]
-        assert stored == mask_secret("111111-222222-333333") and "111111" not in stored
+        salt = case.info["secret_salt"]
+        assert stored == mask_secret("111111-222222-333333", salt) and "111111" not in stored
+        assert stored.startswith("*** (pbkdf2:") and stored != mask_secret("111111-222222-333333")
         dump = json.dumps([e.details for e in case.custody.entries()])
         assert "111111-222222" not in dump and stored in dump
         assert all(case.verify_results(a.id) for a in case.analyses())
@@ -100,7 +102,8 @@ def test_cli_image_options(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "Shadow copies: 2" in out and "Derived evidence EV-002 registered with 2 extracted file(s)." in out
     with Case.open(Path(case)) as opened:
-        assert opened.analyses()[0].options["bitlocker_password"] == mask_secret("not-the-key")
+        assert opened.analyses()[0].options["bitlocker_password"] == mask_secret("not-the-key",
+                                                                                 opened.info["secret_salt"])
 
 
 @pytest.mark.skipif(not (EXTERNAL / "bdetogo.raw").exists(), reason="BitLocker sample not available")

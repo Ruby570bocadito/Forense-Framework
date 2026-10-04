@@ -190,6 +190,13 @@ class PathResolver:
             return
         self._nodes[entry.record] = (entry.name, entry.parent_record, entry.parent_sequence, entry.sequence)
 
+    def path_checked(self, record: int, sequence: int) -> str:
+        """Path of ``record`` only if it still is the same file (``sequence``); otherwise an orphan marker."""
+        node = self._nodes.get(record)
+        if node is not None and sequence and node[3] and node[3] != sequence:
+            return "\\$OrphanFiles"  # the MFT entry was reused by another file since
+        return self.path(record)
+
     def path(self, record: int) -> str:
         if record in self._cache:
             return self._cache[record]

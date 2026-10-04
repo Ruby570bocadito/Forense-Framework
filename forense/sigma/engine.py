@@ -105,8 +105,8 @@ class SigmaError(ValueError):
 
 
 # -- value matching ------------------------------------------------------------------------
-def _wildcard_regex(value: str) -> str:
-    """Sigma wildcards (``*``, ``?``, backslash escapes) to a regular expression."""
+def _wildcard_tokens(value: str) -> list[str]:
+    """Sigma wildcards (``*``, ``?``, backslash escapes) to regular-expression tokens (``**`` -> one ``.*``)."""
     out, i = [], 0
     while i < len(value):
         ch = value[i]
@@ -114,9 +114,57 @@ def _wildcard_regex(value: str) -> str:
             out.append(re.escape(value[i + 1]))  # escaped wildcard or backslash: literal character
             i += 2
             continue
-        out.append(".*" if ch == "*" else "." if ch == "?" else re.escape(ch))
+        token = ".*" if ch == "*" else "." if ch == "?" else re.escape(ch)
+        if not (token == ".*" and out and out[-1] == ".*"):
+            out.append(token)
         i += 1
-    return "".join(out)
+    return out
+
+
+def _value_matcher(value: str, mode: str, flags: int) -> Callable[[str], bool]:
+    """Match ``value`` (with wildcards) as ``exact``, ``contains``, ``startswith`` or ``endswith``.
+
+    The pattern is split at each ``*`` into fixed-width segments that are found
+    left to right (the leftmost occurrence of each segment is always the best
+    choice), so the cost stays linear in the length of the field instead of the
+    backtracking of a ``.*a.*b.*`` regular expression.
+    """
+    tokens = _wildcard_tokens(value)
+    if mode in ("contains", "endswith"):
+        tokens = [".*"] + tokens
+    if mode in ("contains", "startswith"):
+        tokens = tokens + [".*"]
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token == ".*":
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    if len(segments) == 1:  # no wildcard: the whole field
+        rx = re.compile("".join(segments[0]), flags)
+        return lambda text: rx.fullmatch(text) is not None
+    head, *middle, tail = (("".join(seg), len(seg)) for seg in segments)
+    head_rx = re.compile(head[0], flags) if head[1] else None
+    tail_rx = re.compile(tail[0], flags) if tail[1] else None
+    middle_rx = [re.compile(body, flags) for body, width in middle if width]
+
+    def test(text: str) -> bool:
+        pos, limit = 0, len(text) - tail[1]
+        if limit < head[1]:
+            return False
+        if head_rx is not None:
+            if head_rx.match(text, 0, head[1]) is None:
+                return False
+            pos = head[1]
+        if tail_rx is not None and tail_rx.fullmatch(text, limit) is None:
+            return False
+        for rx in middle_rx:
+            found = rx.search(text, pos, limit)
+            if found is None:
+                return False
+            pos = found.end()
+        return True
+    return test
 
 
 def _windash(value: str) -> list[str]:
@@ -218,18 +266,10 @@ def _compile_field(field_spec: str, raw_values: Any) -> Predicate:
         elif "base64" in modifiers:
             candidates = [re.sub(r"([*?\\])", r"\\\1", base64.b64encode(_encode(v, modifiers)).decode())
                           for v in candidates]
-        regexes = []
-        for candidate in candidates:
-            body = _wildcard_regex(candidate)
-            if "contains" in modifiers:
-                body = f".*{body}.*"
-            elif "startswith" in modifiers:
-                body = f"{body}.*"
-            elif "endswith" in modifiers:
-                body = f".*{body}"
-            cased = "cased" in modifiers
-            regexes.append(re.compile(body, re.DOTALL | (0 if cased else re.IGNORECASE)))
-        matchers.append(lambda text, rx=tuple(regexes): text is not None and any(r.fullmatch(text) for r in rx))
+        mode = next((m for m in ("contains", "startswith", "endswith") if m in modifiers), "exact")
+        flags = re.DOTALL | (0 if "cased" in modifiers else re.IGNORECASE)
+        tests = tuple(_value_matcher(candidate, mode, flags) for candidate in candidates)
+        matchers.append(lambda text, tests=tests: text is not None and any(test(text) for test in tests))
 
     def predicate(get: Callable[[str], Any]) -> bool:
         text = _to_text(get(name))
@@ -247,11 +287,11 @@ def _compile_selection(definition: Any) -> Predicate:
         return lambda get: any(o(get) for o in options)
     if isinstance(definition, (list, str, int)):
         keywords = definition if isinstance(definition, list) else [definition]
-        regexes = [re.compile(f".*{_wildcard_regex(str(k))}.*", re.DOTALL | re.IGNORECASE) for k in keywords]
+        tests = [_value_matcher(str(k), "contains", re.DOTALL | re.IGNORECASE) for k in keywords]
 
         def keyword(get: Callable[[str], Any]) -> bool:
             text = get("__fulltext__") or ""
-            return any(r.fullmatch(text) for r in regexes)
+            return any(test(text) for test in tests)
         return keyword
     raise SigmaError(f"unsupported selection: {definition!r}")
 

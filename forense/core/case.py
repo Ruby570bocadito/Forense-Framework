@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 import shutil
 import sqlite3
 import stat
@@ -283,6 +284,16 @@ class Case(ReviewMixin):
     def name(self) -> str:
         return self.info.get("name", "")
 
+    def _secret_salt(self) -> str:
+        """Per-case random salt for the fingerprints of secret options (passwords, recovery keys)."""
+        row = self.conn.execute("SELECT value FROM meta WHERE key = 'secret_salt'").fetchone()
+        if row:
+            return row[0]
+        salt = secrets.token_hex(16)
+        with transaction(self.conn):
+            self.conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('secret_salt', ?)", (salt,))
+        return self.conn.execute("SELECT value FROM meta WHERE key = 'secret_salt'").fetchone()[0]
+
     def actor(self, actor: Optional[str]) -> str:
         return (actor or "").strip() or self.info.get("investigator", "unknown")
 
@@ -324,6 +335,8 @@ class Case(ReviewMixin):
         inside = source == self.root or self.root in source.parents
         if inside and not (derived_from and (self.root / "analyses") in source.parents):
             raise CaseError("error.evidence_inside_case", path=str(source))
+        if source in self.root.parents:  # the folder holding the case: its hash would include forense.db
+            raise CaseError("error.evidence_contains_case", path=str(source))
         if derived_from:
             self.get_evidence(derived_from)
             copy = False
@@ -333,16 +346,24 @@ class Case(ReviewMixin):
         except OSError as exc:
             raise CaseError("error.evidence_unreadable", path=str(source), error=str(exc)) from exc
 
-        evidence_id = self._next_evidence_id()
-        work_path = source
-        if copy:
-            work_path = self._copy_evidence(source, evidence_id, kind, hashes, progress)
-
-        evidence = Evidence(evidence_id, str(work_path), str(source), kind, size, count, hashes,
-                            description.strip(), utc_now(), actor, copy, derived_from)
+        staging = self._copy_evidence(source, kind, hashes, progress) if copy else None
         if derived_from:
             _make_read_only(source)
+        # The identifier is taken and the working copy moved into place inside one write transaction,
+        # so two evidence items registered at the same time (web jobs) never get the same ID.
         with transaction(self.conn):
+            evidence_id = self._next_evidence_id()
+            work_path = source
+            if staging is not None:
+                final_dir = self.root / "evidence" / evidence_id
+                try:
+                    staging.parent.rename(final_dir)
+                except OSError:
+                    _force_rmtree(staging.parent)
+                    raise
+                work_path = final_dir / staging.name
+            evidence = Evidence(evidence_id, str(work_path), str(source), kind, size, count, hashes,
+                                description.strip(), utc_now(), actor, copy, derived_from)
             self.conn.execute(
                 "INSERT INTO evidence (id, path, source, kind, size, file_count, hashes, description, added_at, "
                 "added_by, copied, derived_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -369,9 +390,10 @@ class Case(ReviewMixin):
                                     analysis_id=analysis.id)
         return analysis, derived
 
-    def _copy_evidence(self, source: Path, evidence_id: str, kind: str, expected: dict,
+    def _copy_evidence(self, source: Path, kind: str, expected: dict,
                        progress: Optional[ProgressCallback]) -> Path:
-        dest_dir = self.root / "evidence" / evidence_id
+        """Verified copy into a staging folder (``evidence/.incoming-…``), renamed once the ID is known."""
+        dest_dir = self.root / "evidence" / f".incoming-{uuid.uuid4().hex}"
         dest = dest_dir / source.name
         dest_dir.mkdir(parents=True, exist_ok=False)
         try:
@@ -437,8 +459,9 @@ class Case(ReviewMixin):
         module.check_target(target)
         parsed = module.parse_options(options)
         actor = self.actor(actor)
-        secrets = {o.name for o in module.options if o.kind == "secret"}
-        stored_options = {k: mask_secret(v) if k in secrets else (str(v) if v is not None else None)
+        secret_names = {o.name for o in module.options if o.kind == "secret"}
+        salt = self._secret_salt() if any(parsed.get(k) not in (None, "") for k in secret_names) else ""
+        stored_options = {k: mask_secret(v, salt) if k in secret_names else (str(v) if v is not None else None)
                           for k, v in parsed.items()}
 
         cur = self.conn.execute(
@@ -477,23 +500,38 @@ class Case(ReviewMixin):
         return self.get_analysis(analysis_id)
 
     def triage(self, evidence_id: str, actor: Optional[str] = None,
-               progress: Optional[Callable[[str], None]] = None) -> list[tuple[str, Optional[Analysis], str]]:
+               progress: Optional[Callable[[str], None]] = None,
+               options: Optional[dict[str, dict]] = None) -> list[tuple[str, Optional[Analysis], str]]:
         """Run every triage module that finds artifacts in the evidence.
 
+        Disk images are extracted first (the modules then run on the derived
+        evidence); memory dumps and Volatility outputs go to the ``memory``
+        module. ``options`` gives per-module options (``{"evtx": {...}}``).
         Returns ``(module, analysis or None, error code)`` per module; a failing
         module does not stop the others.
         """
-        from forense.image import is_disk_image
+        from forense.image import evidence_kind
         from forense.modules.base import available_modules
 
+        options = options or {}
         evidence = self.get_evidence(evidence_id)
         target = Path(evidence.path)
         results: list[tuple[str, Optional[Analysis], str]] = []
-        if is_disk_image(target) or (target.is_dir() and any(is_disk_image(p) for p in target.iterdir())):
+        kind = evidence_kind(target)
+        if kind in ("memory", "volatility"):
+            if progress:
+                progress("memory")
+            try:
+                return [("memory", self.run_analysis("memory", evidence.id, options.get("memory"), actor,
+                                                     progress), "")]
+            except Exception:  # noqa: BLE001 - recorded as a failed analysis
+                return [("memory", None, "triage.failed")]
+        if kind == "disk_image":
             if progress:
                 progress("image")
             try:
-                analysis, derived = self.extract_image(evidence.id, actor=actor, progress=progress)
+                analysis, derived = self.extract_image(evidence.id, options.get("image"), actor=actor,
+                                                       progress=progress)
             except Exception:  # noqa: BLE001 - recorded as a failed analysis
                 return [("image", None, "triage.failed")]
             results.append(("image", analysis, ""))
@@ -514,17 +552,23 @@ class Case(ReviewMixin):
             if progress:
                 progress(module.name)
             try:
-                results.append((module.name, self.run_analysis(module.name, evidence.id, actor=actor,
-                                                               progress=progress), ""))
+                results.append((module.name, self.run_analysis(module.name, evidence.id, options.get(module.name),
+                                                               actor=actor, progress=progress), ""))
             except Exception:  # noqa: BLE001 - recorded as a failed analysis in the case
                 results.append((module.name, None, "triage.failed"))
         return results
+
+    def derived_evidence(self, evidence_id: str) -> list[Evidence]:
+        return [e for e in self.evidence_list() if e.derived_from == evidence_id]
 
     def analyses(self) -> list[Analysis]:
         return [Analysis.from_row(r) for r in self.conn.execute("SELECT * FROM analyses ORDER BY id")]
 
     def get_analysis(self, analysis_id: int) -> Analysis:
-        row = self.conn.execute("SELECT * FROM analyses WHERE id = ?", (int(analysis_id),)).fetchone()
+        try:
+            row = self.conn.execute("SELECT * FROM analyses WHERE id = ?", (int(analysis_id),)).fetchone()
+        except (OverflowError, ValueError):
+            row = None
         if row is None:
             raise CaseError("error.analysis_unknown", analysis=analysis_id)
         return Analysis.from_row(row)
@@ -536,6 +580,14 @@ class Case(ReviewMixin):
 
     def delete_analysis(self, analysis_id: int, actor: Optional[str] = None) -> None:
         analysis = self.get_analysis(analysis_id)
+        if analysis.status == "running":
+            raise CaseError("error.analysis_running", analysis=analysis.id)
+        if analysis.output_dir:
+            folder = (self.root / analysis.output_dir).resolve()
+            dependent = [e.id for e in self.evidence_list()
+                         if Path(e.path).resolve() == folder or folder in Path(e.path).resolve().parents]
+            if dependent:
+                raise CaseError("error.analysis_has_derived", analysis=analysis.id, evidence=", ".join(dependent))
         with transaction(self.conn):
             for table in ("records", "events", "findings"):
                 self.conn.execute(f"DELETE FROM {table} WHERE analysis_id = ?", (analysis.id,))

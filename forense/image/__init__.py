@@ -99,11 +99,70 @@ def is_disk_image(path: Path) -> bool:
     head, footer = _probe(path)
     if _container(head, footer):
         return True
-    if path.suffix.lower() not in IMAGE_SUFFIXES:
+    if path.suffix.lower() not in IMAGE_SUFFIXES and not re.search(r"\.0*1$", path.name):
         return False
-    with open(path, "rb") as fh:  # MBR/GPT or a file system boot sector
-        fh.seek(510)
-        return fh.read(2) == b"\x55\xaa" or path.suffix.lower() in (".dd", ".raw", ".img", ".001")
+    return _has_volume_structure(head)
+
+
+def _has_volume_structure(head: bytes) -> bool:
+    """MBR/GPT, a boot sector (NTFS, FAT, exFAT, BitLocker) or an ext superblock at the start of a raw image."""
+    if len(head) < 1024:
+        return False
+    if head[510:512] == b"\x55\xaa" or head[512:520] == b"EFI PART":
+        return True
+    if head[3:11] in (b"NTFS    ", b"EXFAT   ", b"-FVE-FS-", b"MSDOS5.0", b"MSWIN4.1", b"mkfs.fat"):
+        return True
+    return False
+
+
+MEMORY_SIGNATURES = (b"PAGEDU64", b"PAGEDUMP", b"EMiL", b"hibr", b"HIBR", b"wake", b"WAKE", b"RSTR")
+MEMORY_SUFFIXES = {".mem", ".vmem", ".dmp", ".lime", ".raw", ".bin", ".dump", ".core", ".vmss", ".vmsn", ".hiberfil"}
+
+
+def _volatility_outputs(files: list[Path]) -> int:
+    """Top-level files that look like Volatility JSON output (plugin name in the name, JSON rows inside)."""
+    import re as _re
+
+    from forense.parsers.volatility import PLUGINS
+
+    count = 0
+    for path in files:
+        name = path.name.lower()
+        if path.suffix.lower() not in (".json", ".jsonl"):
+            continue
+        if not any(_re.search(rf"(^|[^a-z]){plugin}([^a-z]|$)", name) for plugin in PLUGINS):
+            continue
+        try:
+            with open(path, "rb") as fh:
+                head = fh.read(4096).lstrip()
+        except OSError:
+            continue
+        if head[:1] in (b"[", b"{") and (b'"PID"' in head or b'"Variable"' in head or head[:2] == b"[]"):
+            count += 1
+    return count
+
+
+def evidence_kind(path: Path) -> str:
+    """``disk_image``, ``memory``, ``volatility``, ``directory`` or ``file`` (used by triage and automation)."""
+    path = Path(path)
+    if path.is_dir():
+        children = [p for p in path.iterdir() if p.is_file()]
+        if _volatility_outputs(children) >= 2:
+            return "volatility"
+        if children and any(is_disk_image(p) for p in children):
+            return "disk_image"
+        return "directory"
+    if not path.is_file():
+        return "file"
+    if is_disk_image(path):
+        return "disk_image"
+    with open(path, "rb") as fh:
+        head = fh.read(8)
+    if head.startswith(MEMORY_SIGNATURES) or path.name.lower() in ("hiberfil.sys", "memory.dmp"):
+        return "memory"
+    if path.suffix.lower() in MEMORY_SUFFIXES and path.stat().st_size >= 64 * 1024 * 1024:
+        return "memory"
+    return "file"
 
 
 def find_image(target: Path) -> Path:
@@ -495,6 +554,7 @@ class Extractor:
         self.max_file_size = max_file_size
         self.on_error = on_error
         self.progress = progress
+        self._used: set[str] = set()
 
     def run(self) -> list[ExtractedFile]:
         results: list[ExtractedFile] = []
@@ -533,18 +593,40 @@ class Extractor:
                     if extracted:
                         results.append(extracted)
 
+    def _target(self, segments: tuple[str, ...], source: str) -> Optional[Path]:
+        """Destination inside ``self.dest`` for a file of the image; names are sanitised so a crafted
+        image cannot write elsewhere (``..``, separators, reserved device names, over-long names)."""
+        names = [safe_name(s) for s in segments]
+        dest = self.dest.joinpath(*names)
+        key = str(dest).lower()
+        if key in self._used:  # two names that sanitise to the same one (or differ only in case)
+            stem, suffix = os.path.splitext(names[-1])
+            counter = 2
+            while f"{key}~{counter}" in self._used:
+                counter += 1
+            self._used.add(f"{key}~{counter}")
+            dest = dest.with_name(f"{stem}~{counter}{suffix}")
+        self._used.add(key)
+        root = os.path.abspath(self.dest)
+        if os.path.commonpath([root, os.path.abspath(dest)]) != root:
+            if self.on_error:
+                self.on_error(source, ValueError("unsafe file name"))
+            return None
+        return dest
+
     def _extract(self, entry, source: str, segments: tuple[str, ...]) -> Optional[ExtractedFile]:
         meta = entry.info.meta
         size = int(meta.size)
         if size > self.max_file_size:
             return None
-        safe = [re.sub(r'[<>:"|?*\x00-\x1f]', "_", s) for s in segments]
-        dest = self.dest.joinpath(*safe)
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest = self._target(segments, source)
+        if dest is None:
+            return None
         sha256, md5 = hashlib.sha256(), hashlib.md5()
         if self.progress:
             self.progress(source)
         try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "wb") as out:
                 offset = 0
                 while offset < size:
@@ -565,7 +647,10 @@ class Extractor:
         meta = entry.info.meta
         times = {k: getattr(meta, k, 0) or None for k in ("mtime", "atime", "ctime", "crtime")}
         if times["mtime"]:
-            os.utime(dest, (times["atime"] or times["mtime"], times["mtime"]))
+            try:
+                os.utime(dest, (times["atime"] or times["mtime"], times["mtime"]))
+            except (OSError, ValueError, OverflowError):
+                pass  # out-of-range time: the original value is still recorded below
         return ExtractedFile(source, dest, size, sha256.hexdigest(), md5.hexdigest(),
                              *(ts_to_iso(times[k]) if times[k] else None for k in ("mtime", "atime", "ctime", "crtime")),
                              int(meta.addr))
@@ -594,14 +679,15 @@ class Extractor:
         data_runs = [(off, min(length, size - off)) for off, length, flags in runs if not flags & sparse and off < size]
         if sum(length for _, length in data_runs) > self.max_file_size:
             return None
-        safe = [re.sub(r'[<>:"|?*\x00-\x1f]', "_", s) for s in _stream_dest(segments, stream)]
-        dest = self.dest.joinpath(*safe)
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest = self._target(_stream_dest(segments, stream), f"{source}:{stream}")
+        if dest is None:
+            return None
         sha256, md5 = hashlib.sha256(), hashlib.md5()
         if self.progress:
             self.progress(f"{source}:{stream}")
         written = 0
         try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
             with open(dest, "wb") as out:
                 for offset, length in data_runs:
                     done = 0
@@ -620,6 +706,26 @@ class Extractor:
                 self.on_error(f"{source}:{stream}", exc)
             return None
         return self._finish(entry, f"{source}:{stream}", dest, written, sha256, md5)
+
+
+_RESERVED = re.compile(r"^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³]|conin\$|conout\$)(\..*)?$", re.IGNORECASE)
+
+
+def safe_name(name: str, limit: int = 200) -> str:
+    """A single, harmless path component on Windows and Unix for a file name taken from evidence."""
+    name = re.sub(r'[<>:"|?*\x00-\x1f/\\]', "_", name).rstrip(" .")
+    if not name or name in (".", ".."):
+        name = "_"
+    if _RESERVED.match(name):
+        name = "_" + name
+    if len(name.encode("utf-8", "surrogateescape")) > limit:
+        stem, suffix = os.path.splitext(name)
+        digest = hashlib.sha1(name.encode("utf-8", "surrogateescape")).hexdigest()[:8]
+        suffix = suffix[:20]
+        while len((stem + "~" + digest + suffix).encode("utf-8", "surrogateescape")) > limit:
+            stem = stem[:-1]
+        name = f"{stem}~{digest}{suffix}"
+    return name
 
 
 def _stream_dest(segments: tuple[str, ...], stream: str) -> tuple[str, ...]:
