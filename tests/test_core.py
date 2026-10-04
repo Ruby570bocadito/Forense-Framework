@@ -48,6 +48,8 @@ def test_time_conversions():
     assert normalize_ts("2016-06-29T15:24:34.3460005Z") == "2016-06-29T15:24:34.346000Z"
     assert normalize_ts("2026-09-14") == "2026-09-14T00:00:00.000000Z"
     assert normalize_ts("2026-09-14 04:00:00+02:00") == "2026-09-14T02:00:00.000000Z"
+    assert normalize_ts("2026-09-14T04:00:00.5+02:00") == "2026-09-14T02:00:00.500000Z"
+    assert normalize_ts("2026-09-14T04:00:00.1234567-01:30") == "2026-09-14T05:30:00.123456Z"
     assert parse_datetime("2026-01-02T03:04:05Z").tzinfo is not None
 
 

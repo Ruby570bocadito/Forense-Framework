@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional, Union
@@ -17,6 +18,7 @@ from typing import Callable, Iterable, Iterator, Optional, Union
 ErrorHandler = Callable[[Path, BaseException], None]
 TimeLike = Union[datetime, float, int, str, None]
 
+_FRACTION = re.compile(r"(?<=\d)\.(\d+)")
 _FILETIME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
 _UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
@@ -41,12 +43,12 @@ def parse_datetime(value: str) -> datetime:
     value = value.strip().replace(" ", "T", 1) if "T" not in value else value.strip()
     if value.endswith(("Z", "z")):
         value = value[:-1] + "+00:00"
-    # Windows emits 7 fractional digits (100 ns); Python accepts at most 6.
-    if "." in value:
-        head, _, tail = value.partition(".")
-        digits = "".join(ch for ch in tail if ch.isdigit())
-        rest = tail[len(digits):]
-        value = f"{head}.{digits[:6].ljust(6, '0')}{rest}"
+    # Windows emits 7 fractional digits (100 ns) and Python < 3.11 needs exactly 3 or 6:
+    # normalise the fraction to 6 digits, keeping any UTC offset that follows it.
+    fraction = _FRACTION.search(value)
+    if fraction:
+        digits = fraction.group(1)[:6].ljust(6, "0")
+        value = f"{value[:fraction.start()]}.{digits}{value[fraction.end():]}"
     dt = datetime.fromisoformat(value)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
