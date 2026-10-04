@@ -10,6 +10,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from forense import __version__
 from forense.core.case import Case
+from forense.core.execution import execution_overview
 from forense.core.hashing import hash_file
 from forense.core.utils import utc_now
 from forense.i18n import get_language, label, normalize, t
@@ -23,6 +24,7 @@ from forense.presentation import (
     finding_description,
     finding_title,
     format_value,
+    rule_label,
     severity_label,
     status_label,
 )
@@ -42,7 +44,7 @@ def template_environment(lang: str) -> Environment:
         ts=display_ts, val=lambda v, limit=None: format_value(v, lang, limit), label=lambda f: label(f, lang),
         sev=lambda s: severity_label(s, lang), etype=lambda e: event_type_label(e, lang),
         artifact=lambda a: artifact_label(a, lang), action=lambda a: custody_action_label(a, lang),
-        status=lambda s: status_label(s, lang),
+        status=lambda s: status_label(s, lang), rule=lambda r: rule_label(r, lang),
     )
     return env
 
@@ -55,7 +57,7 @@ def _module_title(name: str, lang: str) -> str:
 
 
 def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Path] = None, verify: bool = False,
-                    actor: Optional[str] = None, max_events: int = 1000) -> Path:
+                    actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300) -> Path:
     lang = normalize(lang) or get_language()
     actor = case.actor(actor)
     evidence = case.evidence_list()
@@ -77,6 +79,7 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         records_by_analysis={a.id: case.record_artifacts(a.id) for a in analyses},
         conclusions=case.conclusions(), progress=case.review_progress(),
         bookmarks=case.events(bookmarked=True, limit=None).rows,
+        execution=execution_overview(case)[:max_programs],
     )
     if output is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

@@ -62,7 +62,7 @@ table.kv th { background: none; color: var(--muted); font-weight: 500; width: 32
 .flash.info { border-color: var(--accent); }
 form.inline { display: inline; }
 label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
-input[type=text], input[type=search], input[type=datetime-local], input:not([type]), select, textarea {
+input[type=text], input[type=search], input[type=password], input[type=datetime-local], input:not([type]), select, textarea {
   width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .row > div { flex: 1 1 160px; }
@@ -104,3 +104,7 @@ tr.bookmarked td { background: color-mix(in srgb, var(--warn) 10%, transparent);
 button.star { background: none; border: none; color: var(--muted); font-size: 18px; padding: 0 4px; cursor: pointer; }
 button.star.on { color: var(--warn); }
 details.inline-note summary { font-size: 12px; margin-top: 4px; }
+
+.badge.high { background: #c2410c; color: #fff; }
+.tag { display: inline-block; padding: 0 7px; margin: 1px 0; border-radius: 4px; border: 1px solid var(--line); font-size: 11.5px; white-space: nowrap; }
+tr.flagged td:first-child { box-shadow: inset 3px 0 0 #c2410c; }

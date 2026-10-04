@@ -45,6 +45,7 @@ from forense.presentation import (
     finding_description,
     finding_title,
     format_value,
+    rule_label,
     severity_label,
     status_label,
 )
@@ -114,6 +115,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         "label": lambda f: label(f, g.get("lang")), "sev": lambda s: severity_label(s, g.get("lang")),
         "etype": lambda e: event_type_label(e, g.get("lang")), "artifact": lambda a: artifact_label(a, g.get("lang")),
         "action": lambda a: custody_action_label(a, g.get("lang")), "status": lambda s: status_label(s, g.get("lang")),
+        "rule": lambda r: rule_label(r, g.get("lang")),
     }.items():
         app.jinja_env.filters[name] = func
 
@@ -326,6 +328,18 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                                    pages=max(1, math.ceil(events.total / PAGE_SIZE)), sources=case.event_sources(),
                                    args=request.args, filter_args=filter_args)
 
+    @app.route("/c/<slug>/execution")
+    def execution(slug: str):
+        from forense.core.execution import execution_overview
+
+        search = request.args.get("q", "")
+        suspicious = request.args.get("suspicious") == "1"
+        with open_case(slug) as case:
+            programs = execution_overview(case, search, suspicious)
+            return render_template("execution.html", slug=slug, case=case.info, programs=programs, args=request.args,
+                                   filter_args={k: v for k, v in (("q", search), ("suspicious", "1" if suspicious
+                                                                                       else "")) if v})
+
     @app.route("/c/<slug>/custody")
     def custody(slug: str):
         with open_case(slug) as case:
@@ -376,6 +390,10 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                                                **_timeline_filters())
             elif what == "findings":
                 path = exports.export_findings(case, exports_dir / f"findings_{stamp}.csv", fmt, g.lang, actor())
+            elif what == "execution":
+                path = exports.export_execution(case, exports_dir / f"execution_{stamp}.csv", fmt, g.lang, actor(),
+                                                search=request.args.get("q", ""),
+                                                suspicious=request.args.get("suspicious") == "1")
             elif what == "custody":
                 path = exports.export_custody(case, exports_dir / f"custody_{stamp}.json", fmt, g.lang, actor())
             elif what.isdigit():

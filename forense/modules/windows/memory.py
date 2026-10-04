@@ -15,10 +15,12 @@ from forense.core.errors import ModuleError
 from forense.core.heuristics import (
     ATTACK_TOOLS,
     REMOTE_ACCESS_TOOLS,
+    SYSTEM_BINARIES,
     autostart_suspicion,
     is_suspicious_location,
     suspicious_command_rules,
 )
+from forense.core.heuristics import lookalike_of as _lookalike
 from forense.core.utils import normalize_ts
 from forense.i18n import t
 from forense.modules.base import AnalysisContext, Module, Option, register
@@ -49,8 +51,6 @@ EXPECTED_PARENTS = {
     "taskhostw.exe": {"svchost.exe", "services.exe"},
 }
 SINGLETONS = ("lsass.exe", "services.exe", "wininit.exe", "lsaiso.exe")
-SYSTEM_BINARIES = tuple(EXPECTED_PARENTS) + ("dllhost.exe", "conhost.exe", "explorer.exe", "taskhost.exe",
-                                            "sihost.exe", "ctfmon.exe", "dwm.exe", "fontdrvhost.exe")
 SYSTEM_DIRS = ("\\windows\\system32\\", "\\windows\\syswow64\\", "\\systemroot\\system32\\", "\\windows\\explorer.exe",
                "\\windows\\winsxs\\", "\\windows\\servicing\\")
 OFFICE = {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "msaccess.exe", "mspub.exe", "onenote.exe",
@@ -74,27 +74,6 @@ def _known(name: str, names) -> Optional[str]:
         return name
     if len(name) >= 14:
         return next((n for n in names if n.startswith(name)), None)
-    return None
-
-
-def _distance(a: str, b: str) -> int:
-    previous = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        current = [i]
-        for j, cb in enumerate(b, 1):
-            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
-        previous = current
-    return previous[-1]
-
-
-def _lookalike(name: str) -> Optional[str]:
-    """System binary that ``name`` imitates with a small typo (scvhost.exe -> svchost.exe)."""
-    name = name.lower()
-    if name in SYSTEM_BINARIES or len(name) < 7:
-        return None
-    for real in SYSTEM_BINARIES:
-        if abs(len(real) - len(name)) <= 2 and 0 < _distance(name, real) <= (1 if len(real) <= 9 else 2):
-            return real
     return None
 
 

@@ -110,3 +110,32 @@ _DEVICE_PREFIX = re.compile(r"^\\(volume\{[^}]*\}|device\\harddiskvolume\d+|\?\?
 def strip_device(path: str) -> str:
     r"""``\VOLUME{...}\USERS\X`` or ``\Device\HarddiskVolume3\Users\X`` -> ``\USERS\X``."""
     return _DEVICE_PREFIX.sub("", path or "")
+
+
+# Core Windows binaries that malware imitates (svchost.exe in C:\Users\Public, "scvhost.exe"...).
+SYSTEM_BINARIES = (
+    "smss.exe", "wininit.exe", "winlogon.exe", "csrss.exe", "services.exe", "lsass.exe", "lsaiso.exe", "svchost.exe",
+    "spoolsv.exe", "searchindexer.exe", "runtimebroker.exe", "taskhostw.exe", "dllhost.exe", "conhost.exe",
+    "explorer.exe", "taskhost.exe", "sihost.exe", "ctfmon.exe", "dwm.exe", "fontdrvhost.exe",
+)
+
+
+def _distance(a: str, b: str) -> int:
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb)))
+        previous = current
+    return previous[-1]
+
+
+def lookalike_of(name: str) -> str | None:
+    """System binary that ``name`` imitates with a small typo (scvhost.exe -> svchost.exe)."""
+    name = name.lower()
+    if name in SYSTEM_BINARIES or len(name) < 7:
+        return None
+    for real in SYSTEM_BINARIES:
+        if abs(len(real) - len(name)) <= 2 and 0 < _distance(name, real) <= (1 if len(real) <= 9 else 2):
+            return real
+    return None

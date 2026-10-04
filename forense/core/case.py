@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS events (
     timestamp TEXT NOT NULL, source TEXT NOT NULL, type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
     path TEXT NOT NULL DEFAULT '', severity TEXT NOT NULL DEFAULT 'info'
 );
+CREATE INDEX IF NOT EXISTS idx_records_artifact ON records(artifact);
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_events_analysis ON events(analysis_id);
 CREATE TABLE IF NOT EXISTS findings (
@@ -724,6 +725,7 @@ def _force_rmtree(path: Path) -> None:
 
 def _migrate(conn: sqlite3.Connection) -> None:
     """Bring cases created by older versions up to the current schema."""
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_records_artifact ON records(artifact)")
     columns = {row[1] for row in conn.execute("PRAGMA table_info(evidence)")}
     if "derived_from" not in columns:
         conn.execute("ALTER TABLE evidence ADD COLUMN derived_from TEXT")

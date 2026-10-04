@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ _("report.title") }} – {{ case.name }}</title>
 <style>
+  .flag { display: inline-block; padding: 0 6px; border-radius: 8px; background: #c2410c; color: #fff; font-size: 11px; }
   :root { --ink:#1d2430; --muted:#5f6b7a; --line:#d9dee5; --soft:#f4f6f9; --accent:#1f4e79; --ok:#1e7b45; --bad:#b42318; }
   * { box-sizing: border-box; }
   body { margin: 0; background: #fff; color: var(--ink); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
@@ -61,7 +62,9 @@
   </div>
 </header>
 
-<h2>1. {{ _("report.summary") }}</h2>
+{% set sections = namespace(n=0) %}
+{% macro section() %}{% set sections.n = sections.n + 1 %}{{ sections.n }}{% endmacro %}
+<h2>{{ section() }}. {{ _("report.summary") }}</h2>
 <div class="kpis">
   <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _("nav.evidence") }}</span></div>
   <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _("nav.analyses") }}</span></div>
@@ -85,13 +88,13 @@
 {% endif %}
 {% if stats.first_event %}<p class="muted">{{ _("report.activity_span", first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
 
-<h2>2. {{ _("report.conclusions") }}</h2>
+<h2>{{ section() }}. {{ _("report.conclusions") }}</h2>
 {% if conclusions %}
 <div class="conclusions">{{ conclusions.text }}</div>
 <p class="muted mono">{{ _("report.conclusions_meta", version=conclusions.version, actor=conclusions.actor, timestamp=(conclusions.timestamp | ts), sha256=conclusions.sha256) }}</p>
 {% else %}<p class="muted">{{ _("report.no_conclusions") }}</p>{% endif %}
 
-<h2>3. {{ _("nav.evidence") }}</h2>
+<h2>{{ section() }}. {{ _("nav.evidence") }}</h2>
 <table>
   <tr><th>ID</th><th>{{ _("field.description") }}</th><th>{{ _("field.kind") }}</th><th>{{ _("field.size") }}</th><th>{{ _("report.hashes") }}</th><th>{{ _("report.integrity") }}</th></tr>
   {% for ev in evidence %}
@@ -117,14 +120,14 @@
   {% endfor %}
 </table>
 {% endmacro %}
-<h2>4. {{ _("nav.findings") }} ({{ findings | length }})</h2>
+<h2>{{ section() }}. {{ _("nav.findings") }} ({{ findings | length }})</h2>
 {% if not findings %}<p class="muted">{{ _("findings.none") }}</p>{% endif %}
 {% if confirmed %}<h3>{{ _("report.confirmed_findings") }} ({{ confirmed | length }})</h3>{{ finding_table(confirmed) }}{% endif %}
 {% if pending %}<h3>{{ _("report.pending_findings") }} ({{ pending | length }})</h3>{{ finding_table(pending) }}{% endif %}
 {% if discarded %}<h3>{{ _("report.discarded_findings") }} ({{ discarded | length }})</h3>{{ finding_table(discarded) }}{% endif %}
 
 {% if bookmarks %}
-<h2>5. {{ _("report.bookmarked_events") }} ({{ bookmarks | length }})</h2>
+<h2>{{ section() }}. {{ _("report.bookmarked_events") }} ({{ bookmarks | length }})</h2>
 <table>
   <tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr>
   {% for e in bookmarks %}
@@ -133,7 +136,20 @@
 </table>
 {% endif %}
 
-<h2>{{ 6 if bookmarks else 5 }}. {{ _("report.chronology") }}</h2>
+{% if execution %}
+<h2>{{ section() }}. {{ _("nav.execution") }} ({{ execution | length }})</h2>
+<p class="muted">{{ _("report.execution_note") }}</p>
+<table>
+  <tr><th>{{ _("field.program") }}</th><th>{{ _("field.sources") }}</th><th>{{ _("field.first") }} (UTC)</th><th>{{ _("field.last") }} (UTC)</th><th>{{ _("field.run_count") }}</th></tr>
+  {% for p in execution %}
+  <tr><td><b>{{ p.name }}</b>{% for f in p.flags %} <span class="flag">{{ f | rule }}</span>{% endfor %}<div class="muted mono">{{ p.path or "" }}</div></td>
+    <td>{{ p.sources | dictsort | map("first") | join(", ") }}</td><td class="mono">{{ p.first | ts }}</td><td class="mono">{{ p.last | ts }}</td>
+    <td>{{ p.run_count if p.run_count is not none else "" }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>{{ section() }}. {{ _("report.chronology") }}</h2>
 <p class="muted">{{ _("report.chronology_note", shown=(events | length), total=events_total) }}</p>
 <table>
   <tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.severity") }}</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr>
@@ -142,7 +158,7 @@
   {% endfor %}
 </table>
 
-<h2>{{ 7 if bookmarks else 6 }}. {{ _("report.analyses") }}</h2>
+<h2>{{ section() }}. {{ _("report.analyses") }}</h2>
 {% for a in analyses %}
 <section class="analysis">
   <h3>#{{ a.id }} · {{ module_title(a.module) }} <span class="muted">— {{ a.evidence_id }}</span></h3>
@@ -159,7 +175,7 @@
 </section>
 {% endfor %}
 
-<h2>{{ 8 if bookmarks else 7 }}. {{ _("nav.custody") }}</h2>
+<h2>{{ section() }}. {{ _("nav.custody") }}</h2>
 {% if custody_problems %}
 <div class="callout bad"><b>{{ _("custody.broken") }}</b>{% for p in custody_problems %}<div>#{{ p.seq }}: {{ _(p.code) }}</div>{% endfor %}</div>
 {% else %}
@@ -172,7 +188,7 @@
   {% endfor %}
 </table>
 
-<h2>{{ 9 if bookmarks else 8 }}. {{ _("report.methodology") }}</h2>
+<h2>{{ section() }}. {{ _("report.methodology") }}</h2>
 <ul>
   <li>{{ _("report.method.readonly") }}</li>
   <li>{{ _("report.method.hashes") }}</li>

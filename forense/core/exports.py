@@ -16,6 +16,7 @@ from forense.presentation import (
     event_type_label,
     finding_description,
     finding_title,
+    rule_label,
     severity_label,
 )
 
@@ -83,3 +84,16 @@ def export_custody(case: Case, path: Path, fmt: str = "json", lang: Optional[str
             entry["action"] = custody_action_label(entry["action"], lang)
     _write(path, entries, fmt, lang)
     return _log(case, path, "custody", len(entries), actor, head=case.custody.head())
+
+
+def export_execution(case: Case, path: Path, fmt: str = "csv", lang: Optional[str] = None,
+                     actor: Optional[str] = None, search: str = "", suspicious: bool = False) -> Path:
+    from forense.core.execution import execution_overview
+
+    rows = []
+    for program in execution_overview(case, search, suspicious):
+        row = program.as_dict()
+        row["flags"] = ", ".join(rule_label(f, lang) for f in program.flags)
+        rows.append(row)
+    _write(path, rows, fmt, lang)
+    return _log(case, path, "execution", len(rows), actor)

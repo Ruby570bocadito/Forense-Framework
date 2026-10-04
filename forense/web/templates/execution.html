@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _('nav.execution') }}</h1>
+<div class="subtitle">{{ _('web.execution_help') }}</div>
+<form class="panel" method="get">
+  <div class="row">
+    <div><label>{{ _('common.search') }}</label><input type="search" name="q" value="{{ args.get('q', '') }}" placeholder="rclone, \users\public…"></div>
+    <div style="flex:0 0 auto"><label style="display:flex; gap:6px; align-items:center; white-space:nowrap"><input type="checkbox" name="suspicious" value="1" style="width:auto" {{ 'checked' if args.get('suspicious') == '1' }}> {{ _('web.only_suspicious') }}</label></div>
+    <div style="flex:0 0 auto"><button type="submit">{{ _('common.filter') }}</button></div>
+  </div>
+</form>
+<form method="post" action="{{ url_for('export', slug=slug, what='execution', **filter_args) }}" style="margin-bottom:8px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
+  <span class="muted">{{ programs | length }} {{ _('field.programs') | lower }}</span>
+</form>
+{% if programs %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('field.program') }}</th><th>{{ _('field.sources') }}</th><th>{{ _('field.first') }} (UTC)</th><th>{{ _('field.last') }} (UTC)</th><th>{{ _('field.run_count') }}</th><th>{{ _('field.users') }}</th></tr>
+  {% for p in programs %}
+  <tr class="{{ 'flagged' if p.flags }}">
+    <td class="wrap"><b>{{ p.name }}</b>{% for f in p.flags %} <span class="badge high">{{ f | rule }}</span>{% endfor %}
+      <div class="muted mono">{{ p.path or '' }}</div>
+      {% if p.sha1 %}<div class="muted mono">SHA-1 {{ p.sha1 | join(', ') }}</div>{% endif %}
+      {% for c in p.command_lines[:2] %}<div class="mono small">{{ c }}</div>{% endfor %}</td>
+    <td>{% for s, n in p.sources | dictsort %}<span class="tag">{{ s }}{% if n > 1 %} ×{{ n }}{% endif %}</span> {% endfor %}</td>
+    <td class="mono" style="white-space:nowrap">{{ p.first | ts }}</td>
+    <td class="mono" style="white-space:nowrap">{{ p.last | ts }}</td>
+    <td>{{ p.run_count if p.run_count is not none else '' }}</td>
+    <td class="wrap">{{ p.users | sort | join(', ') }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="panel empty">{{ _('web.no_execution') }}</div>{% endif %}
+{% endblock %}

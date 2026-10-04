@@ -28,6 +28,7 @@ from forense.presentation import (
     finding_description,
     finding_title,
     format_value,
+    rule_label,
     severity_label,
     status_label,
 )
@@ -423,9 +424,26 @@ def cmd_export(args: argparse.Namespace) -> int:
             path = exports.export_timeline(case, output, fmt, actor=args.analyst)
         elif args.what == "findings":
             path = exports.export_findings(case, output, fmt, actor=args.analyst)
+        elif args.what == "execution":
+            path = exports.export_execution(case, output, fmt, actor=args.analyst)
         else:
             path = exports.export_custody(case, output, fmt, actor=args.analyst)
         _out(t("cli.exported", path=str(path)))
+    return EXIT_OK
+
+
+def cmd_execution(args: argparse.Namespace) -> int:
+    from forense.core.execution import execution_overview
+
+    with _open_case(args) as case:
+        programs = execution_overview(case, args.search or "", args.suspicious)
+        rows = [(p.name, p.path or "-", ", ".join(sorted(p.sources)), display_ts(p.first) or "-",
+                 display_ts(p.last) or "-", p.run_count if p.run_count is not None else "-",
+                 ", ".join(rule_label(f) for f in p.flags)) for p in programs[: args.limit]]
+        _table([label("program"), label("path"), label("sources"), label("first"), label("last"),
+                label("run_count"), label("flags")], rows)
+        if len(programs) > args.limit:
+            _out(t("cli.showing", shown=args.limit, total=len(programs)))
     return EXIT_OK
 
 
@@ -636,6 +654,11 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--text", "--texto")
     group.add_argument("--file", "--archivo")
 
+    p = _add(sub, "execution", "ejecucion", "cli.cmd.execution", cmd_execution, [common])
+    p.add_argument("--search", "--buscar")
+    p.add_argument("--suspicious", "--sospechosos", action="store_true", help=t("cli.opt.suspicious"))
+    p.add_argument("--limit", "--limite", type=int, default=200)
+
     p = _add(sub, "timeline", "cronologia", "cli.cmd.timeline", cmd_timeline, [common])
     p.add_argument("--from", "--desde", dest="start")
     p.add_argument("--to", "--hasta", dest="end")
@@ -646,7 +669,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", "--limite", type=int, default=100)
 
     p = _add(sub, "export", "exportar", "cli.cmd.export", cmd_export, [common])
-    p.add_argument("what", choices=("analysis", "timeline", "findings", "custody"))
+    p.add_argument("what", choices=("analysis", "timeline", "findings", "execution", "custody"))
     p.add_argument("id", nargs="?", type=int)
     p.add_argument("-o", "--output", "--salida", required=True)
     p.add_argument("-f", "--format", "--formato", choices=("csv", "json"))
