@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Casos y evidencias de trabajo: nunca se suben al repositorio
+casos/
+demo/
+*.img
+*.dd
+*.raw
+*.E01

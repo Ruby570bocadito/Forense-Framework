@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forense-framework"
+dynamic = ["version"]
+description = "Framework modular de análisis forense digital: casos, cadena de custodia, análisis e informes."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["forense", "dfir", "forensics", "cadena de custodia", "carving", "timeline"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Environment :: Console",
+    "Natural Language :: Spanish",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+forense = "forense.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "forense.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["forense*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
