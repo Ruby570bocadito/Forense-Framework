@@ -10,6 +10,7 @@ IP addresses are documentation ranges (RFC 5737) and domains use
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import random
 from datetime import datetime, timedelta, timezone
@@ -53,6 +54,8 @@ def generate_demo(dest: Path) -> dict[str, Path]:
 
     image = dest / "disk_unallocated.img"
     _disk_image(image)
+    memory = dest / f"memory_{HOST}"
+    _memory(memory)
 
     malware_sha256 = hashlib.sha256(MALWARE).hexdigest()
     hashes = dest / "known_bad_hashes.txt"
@@ -68,7 +71,8 @@ def generate_demo(dest: Path) -> dict[str, Path]:
         'rule forense_demo_implant : demo\n{\n    meta:\n        description = "FORENSE-DEMO implant (fictitious)"\n'
         '        severity = "critical"\n    strings:\n        $marker = "FORENSE-DEMO-IMPLANT"\n'
         '        $mz = { 4D 5A }\n    condition:\n        $mz at 0 and $marker\n}\n', encoding="utf-8")
-    return {"triage": triage, "image": image, "hashes": hashes, "watchlist": watchlist, "yara": yara_rules}
+    return {"triage": triage, "image": image, "memory": memory, "hashes": hashes, "watchlist": watchlist,
+            "yara": yara_rules}
 
 
 # -- registry ---------------------------------------------------------------
@@ -379,3 +383,120 @@ def _usrclass(path: Path) -> None:
     ]
     b.add_shellbags(h, "Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU", tree, _t(93))
     h.save(path)
+
+
+# -- memory (Volatility 3 JSON outputs) --------------------------------------------
+def _memory(folder: Path) -> None:
+    """Outputs of ``vol -r json`` for a RAM capture taken at the end of the intrusion."""
+    folder.mkdir(parents=True, exist_ok=True)
+    boot, captured = _t(-600), _t(155)
+    system32 = "C:\\Windows\\System32\\"
+    # pid, ppid, name, created, exited, path, command line, threads, in pslist
+    procs = [
+        (4, 0, "System", boot, None, "", "", 160, True),
+        (368, 4, "smss.exe", boot, None, "\\SystemRoot\\System32\\smss.exe", "\\SystemRoot\\System32\\smss.exe", 2,
+         True),
+        (476, 460, "csrss.exe", boot, None, system32 + "csrss.exe", "%SystemRoot%\\system32\\csrss.exe "
+         "ObjectDirectory=\\Windows", 12, True),
+        (552, 460, "wininit.exe", boot, None, system32 + "wininit.exe", "wininit.exe", 1, True),
+        (636, 544, "winlogon.exe", boot, None, system32 + "winlogon.exe", "winlogon.exe", 5, True),
+        (696, 552, "services.exe", boot, None, system32 + "services.exe", system32 + "services.exe", 7, True),
+        (712, 552, "lsass.exe", boot, None, system32 + "lsass.exe", system32 + "lsass.exe", 9, True),
+        (832, 696, "svchost.exe", boot, None, system32 + "svchost.exe", system32 + "svchost.exe -k DcomLaunch -p", 21,
+         True),
+        (904, 696, "svchost.exe", boot, None, system32 + "svchost.exe", system32 + "svchost.exe -k RPCSS -p", 11, True),
+        (1204, 696, "svchost.exe", boot, None, system32 + "svchost.exe", system32 + "svchost.exe -k netsvcs -p", 48,
+         True),
+        (1688, 696, "spoolsv.exe", boot, None, system32 + "spoolsv.exe", system32 + "spoolsv.exe", 9, True),
+        (2040, 696, "MsMpEng.exe", boot, None, "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24080"
+         "\\MsMpEng.exe", '"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24080\\MsMpEng.exe"', 31,
+         True),
+        (3964, 3940, "explorer.exe", _t(-540), None, "C:\\Windows\\explorer.exe", "C:\\Windows\\Explorer.EXE", 74,
+         True),
+        (4410, 3964, "OneDrive.exe", _t(-539), None, f"C:\\Users\\{USER}\\AppData\\Local\\Microsoft\\OneDrive\\"
+         "OneDrive.exe", f'"C:\\Users\\{USER}\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe" /background', 22,
+         True),
+        (5120, 3964, "EXCEL.EXE", _t(-20), None, "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+         f'"C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE" "C:\\Users\\{USER}\\Documents\\'
+         'finanzas\\cierre.xlsx"', 18, True),
+        (6012, 3964, "powershell.exe", _t(24), _t(25.5), "", "", 0, False),
+        (6248, 6012, "svchost.exe", _t(26), None, "C:\\Users\\Public\\svchost.exe",
+         "C:\\Users\\Public\\svchost.exe --silent", 6, True),
+        (6400, 696, "wupd.exe", _t(42), None, "C:\\Windows\\Temp\\wupd.exe", "C:\\Windows\\Temp\\wupd.exe -k netsvcs",
+         4, True),
+        (6990, 6248, "cmd.exe", _t(57), None, system32 + "cmd.exe", "C:\\Windows\\system32\\cmd.exe", 1, True),
+        (7012, 6990, "mimikatz.exe", _t(58), _t(59), "", "", 0, False),
+        (7344, 6990, "rclone.exe", _t(120), _t(128), "", "", 0, False),
+        (7660, 6248, "scvhost.exe", _t(131), None, "", "", 3, False),
+    ]
+    rows = []
+    for pid, ppid, name, created, exited, path, cmd, threads, listed in procs:
+        rows.append({"PID": pid, "PPID": ppid, "ImageFileName": name[:14], "Offset(V)": 0xFFFF_A000_0000_0000 + pid * 0x80,
+                     "Threads": threads, "Handles": None if exited else 40 + threads * 7, "SessionId": 0 if pid < 3000
+                     or name in ("wupd.exe",) else 1, "Wow64": False, "CreateTime": created.isoformat(),
+                     "ExitTime": exited.isoformat() if exited else None, "File output": "Disabled", "__children": [],
+                     "_path": path, "_cmd": cmd, "_listed": listed})
+
+    def public(row: dict, *extra: str) -> dict:
+        return {**{k: v for k, v in row.items() if not k.startswith("_") and k not in extra}, "__children": []}
+
+    pslist = [public(r) for r in rows if r["_listed"]]
+    psscan = [{**public(r), "Offset(V)": 0x1_2000_0000 + r["PID"] * 0x80} for r in rows]
+    nodes = {r["PID"]: {**public(r, "File output"), "Audit": r["_path"].replace("C:", "\\Device\\HarddiskVolume3"),
+                        "Cmd": r["_cmd"] or None, "Path": r["_path"] or None} for r in rows if r["_listed"]}
+    tree = []
+    for node in nodes.values():
+        parent = nodes.get(node["PPID"])
+        (parent["__children"] if parent else tree).append(node)
+    cmdline = [{"PID": r["PID"], "Process": r["ImageFileName"], "Args": r["_cmd"] or
+                f"Required memory at 0x{0x7FF0000 + r['PID']:x} is not valid (process exited?)", "__children": []}
+               for r in rows if r["_listed"]]
+    info = [{"Variable": k, "Value": v, "__children": []} for k, v in (
+        ("Kernel Base", "0xf8015a600000"), ("Is64Bit", True), ("IsPAE", False), ("layer_name", "0 WindowsIntel32e"),
+        ("NtSystemRoot", "C:\\Windows"), ("NtProductType", "NtProductWinNt"), ("NtMajorVersion", 10),
+        ("NtMinorVersion", 0), ("NtBuildLab", "19041.1.amd64fre.vb_release.191206-1406"),
+        ("SystemTime", captured.isoformat()), ("KeNumberProcessors", 4))]
+
+    def conn(proto, local, lport, remote, rport, state, pid, owner, created):
+        return {"Offset": 0xE000_0000 + pid * 16 + lport, "Proto": proto, "LocalAddr": local, "LocalPort": lport,
+                "ForeignAddr": remote, "ForeignPort": rport, "State": state, "PID": pid, "Owner": owner,
+                "Created": created.isoformat() if created else None, "__children": []}
+    netscan = [
+        conn("TCPv4", "0.0.0.0", 135, "0.0.0.0", 0, "LISTENING", 904, "svchost.exe", boot),
+        conn("TCPv4", "0.0.0.0", 445, "0.0.0.0", 0, "LISTENING", 4, "System", boot),
+        conn("TCPv4", "192.0.2.45", 49822, "203.0.113.80", 443, "ESTABLISHED", 4410, "OneDrive.exe", _t(140)),
+        conn("TCPv4", "192.0.2.45", 49731, "198.51.100.23", 443, "ESTABLISHED", 6248, "svchost.exe", _t(26.5)),
+        conn("TCPv4", "192.0.2.45", 49790, "198.51.100.23", 8443, "CLOSED", 7344, "rclone.exe", _t(121)),
+        conn("UDPv4", "0.0.0.0", 5353, "*", 0, "", 1204, "svchost.exe", boot),
+    ]
+    mz = "4d 5a 90 00 03 00 00 00 04 00 00 00 ff ff 00 00 b8 00 00 00 00 00 00 00 40 00 00 00 00 00 00 00"
+    malfind = [
+        {"PID": 3964, "Process": "explorer.exe", "Start VPN": 0x3A50000, "End VPN": 0x3A8FFFF, "Tag": "VadS",
+         "Protection": "PAGE_EXECUTE_READWRITE", "CommitCharge": 64, "PrivateMemory": 1, "File output": "Disabled",
+         "Notes": "MZ header", "Hexdump": mz, "Disasm": "0x3a50000:\tpop\tr10\n0x3a50002:\tnop", "__children": []},
+        {"PID": 2040, "Process": "MsMpEng.exe", "Start VPN": 0x1F2D0000, "End VPN": 0x1F2D0FFF, "Tag": "VadS",
+         "Protection": "PAGE_EXECUTE_READWRITE", "CommitCharge": 1, "PrivateMemory": 1, "File output": "Disabled",
+         "Notes": None, "Hexdump": "48 89 5c 24 08 57 48 83 ec 20 48 8b d9 e8 00 00", "Disasm": "", "__children": []},
+    ]
+
+    def svc(order, pid, start, state, name, display, binary, dll=None):
+        return {"Offset": 0x2D0000 + order * 0x100, "Order": order, "PID": pid, "Start": start, "State": state,
+                "Type": "SERVICE_WIN32_OWN_PROCESS", "Name": name, "Display": display, "Binary": binary,
+                "Binary (Registry)": binary, "Dll": dll, "__children": []}
+    svcscan = [
+        svc(12, 1688, "SERVICE_AUTO_START", "SERVICE_RUNNING", "Spooler", "Print Spooler", system32 + "spoolsv.exe"),
+        svc(40, 2040, "SERVICE_AUTO_START", "SERVICE_RUNNING", "WinDefend", "Microsoft Defender Antivirus Service",
+            '"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24080\\MsMpEng.exe"'),
+        svc(77, 6400, "SERVICE_AUTO_START", "SERVICE_RUNNING", "WinUpdateSvc", "Windows Update Helper",
+            "C:\\Windows\\Temp\\wupd.exe -k netsvcs"),
+        svc(78, 1204, "SERVICE_AUTO_START", "SERVICE_RUNNING", "Schedule", "Task Scheduler",
+            system32 + "svchost.exe -k netsvcs -p", system32 + "schedsvc.dll"),
+    ]
+    outputs = {"info": info, "pslist": pslist, "psscan": psscan, "pstree": tree, "cmdline": cmdline,
+               "netscan": netscan, "malfind": malfind, "svcscan": svcscan}
+    for plugin, data in outputs.items():
+        (folder / f"{HOST}.windows.{plugin}.json").write_text(json.dumps(data, indent=2, sort_keys=True),
+                                                             encoding="utf-8")
+    (folder / "README.txt").write_text(
+        f"vol -r json -f {HOST}.raw windows.<plugin>  (memoria capturada / memory captured {captured:%Y-%m-%d %H:%M} "
+        "UTC)\n", encoding="utf-8")

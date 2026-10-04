@@ -512,11 +512,13 @@ def cmd_demo(args: argparse.Namespace) -> int:
                      "DEMO-001") as case:
         triage = case.add_evidence(paths["triage"], t("demo.evidence_triage"), copy=True)
         image = case.add_evidence(paths["image"], t("demo.evidence_image"), copy=True)
+        memory = case.add_evidence(paths["memory"], t("demo.evidence_memory"), copy=True)
         case.triage(triage.id)
         case.run_analysis("ioc", triage.id, {"watchlist": str(paths["watchlist"])})
         case.run_analysis("hashset", triage.id, {"hash_list": str(paths["hashes"])})
         case.run_analysis("yara", triage.id, {"rules": str(paths["yara"])})
         case.run_analysis("carving", image.id)
+        case.run_analysis("memory", memory.id)
         stats = case.stats()
     _out(t("cli.demo_case", path=str(case_dir), findings=stats["findings"], events=stats["events"]))
     _out(t("cli.demo_next", case=str(case_dir), workspace=str(dest)))

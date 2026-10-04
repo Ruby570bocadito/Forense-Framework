@@ -16,6 +16,7 @@ from forense.modules.windows import (  # noqa: F401
     evtx,
     jumplists,
     lnk,
+    memory,
     mft,
     prefetch,
     recyclebin,
