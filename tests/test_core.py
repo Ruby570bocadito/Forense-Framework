@@ -234,3 +234,15 @@ def test_csv_export_neutralises_spreadsheet_formulas(tmp_path):
     with open(path, encoding="utf-8-sig", newline="") as fh:
         rows = list(csv.reader(fh))
     assert rows[1] == ["'=HYPERLINK(\"http://x\")", "-5", "'-enc AAAA", "ok"]
+
+
+def test_user_from_path_uses_the_innermost_profile():
+    from pathlib import PureWindowsPath
+
+    from forense.core.utils import user_from_path
+
+    path = PureWindowsPath("C:/Users/analyst/cases/ev/C/Users/maria/AppData/Roaming/x.txt")
+    assert user_from_path(path) == "maria"
+    assert user_from_path(PureWindowsPath("C:/Users/bob/Documents/Users/notes.txt")) == "bob"
+    assert user_from_path(PureWindowsPath("C:/Documents and Settings/ana/NTUSER.DAT")) == "ana"
+    assert user_from_path(PureWindowsPath("C:/Windows/System32/config/SYSTEM")) == ""

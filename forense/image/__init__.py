@@ -225,8 +225,12 @@ def _HandleImage(pytsk3, handle, size: int, keep: Optional[list] = None):
             return size
 
         def close(self):
-            if hasattr(handle, "close"):
-                handle.close()
+            for item in self._keep:  # the handle first, then the parents of a differencing disk
+                if hasattr(item, "close"):
+                    try:
+                        item.close()
+                    except OSError:
+                        pass
 
     return HandleImage()
 

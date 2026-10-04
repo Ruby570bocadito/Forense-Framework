@@ -200,14 +200,16 @@ def _csv_value(value: object) -> object:
 
 
 def user_from_path(path: Path) -> str:
-    """Profile name in a path such as ``…/Users/<name>/…`` (``''`` when there is none)."""
+    """Profile name in a path such as ``…/Users/<name>/…`` (``''`` when there is none).
+
+    The innermost profile folder wins, so evidence stored under the examiner's own
+    profile (``C:\\Users\\analyst\\cases\\…\\C\\Users\\maria\\…``) gives ``maria``.
+    """
     parts = list(Path(path).parts)
     lowered = [p.lower() for p in parts]
-    for marker in ("users", "documents and settings"):
-        if marker in lowered:
-            idx = lowered.index(marker)
-            if idx + 1 < len(parts) - 1:
-                return parts[idx + 1]
+    for idx in range(len(parts) - 3, -1, -1):
+        if lowered[idx] in ("users", "documents and settings"):
+            return parts[idx + 1]
     return ""
 
 

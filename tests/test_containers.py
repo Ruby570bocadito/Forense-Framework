@@ -37,6 +37,8 @@ def test_differencing_vhdx_uses_its_parent(tmp_path):
     assert info.headers == {"disk_type": "differencing"} and info.size == 4 * 1024 * 1024
     [(partition, fs)] = list(filesystems(img))
     assert partition.filesystem == "ntfs" and partition.offset == 65536
+    del fs, partition
+    img.close()  # Windows cannot delete a file that is still open
     (tmp_path / "ntfs-parent.vhdx").unlink()
     with pytest.raises(ForenseError, match="parent"):
         open_image(child)
