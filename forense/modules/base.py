@@ -32,7 +32,11 @@ _FALSE = {"0", "false", "no", "n", "off"}
 
 @dataclass(frozen=True)
 class Option:
-    """A module option. ``kind``: str, int, bool, list, datetime, path or choice."""
+    """A module option. ``kind``: str, int, bool, list, datetime, path, choice or secret.
+
+    ``secret`` values (passwords, recovery keys) are passed to the module but
+    never stored: the case keeps only a fingerprint (see :func:`mask_secret`).
+    """
 
     name: str
     default: Any = None
@@ -74,6 +78,13 @@ class Option:
             raise
         except ValueError:
             raise ModuleError("error.option_invalid", option=self.name, value=raw) from None
+
+
+def mask_secret(value: Any) -> Optional[str]:
+    """``***`` plus the first 12 hex digits of the SHA-256: proves which key was used without storing it."""
+    if value in (None, ""):
+        return None
+    return "*** (sha256:" + hashlib.sha256(str(value).encode("utf-8")).hexdigest()[:12] + ")"
 
 
 class ResultSink:

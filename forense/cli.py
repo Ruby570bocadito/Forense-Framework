@@ -8,6 +8,7 @@ locale.
 from __future__ import annotations
 
 import argparse
+import getpass
 import os
 import shutil
 import sys
@@ -245,9 +246,17 @@ def cmd_triage(args: argparse.Namespace) -> int:
 
 def cmd_image(args: argparse.Namespace) -> int:
     with _open_case(args) as case:
-        options = {"verify": args.verify, "all_files": args.all_files}
+        options = {"verify": args.verify, "all_files": args.all_files, "vss": args.vss}
         if args.pattern:
-            options["patterns"] = args.pattern
+            options["patterns"] = ",".join(args.pattern)
+        for option, value in (("bitlocker_recovery", args.bitlocker_recovery),
+                              ("bitlocker_password", args.bitlocker_password)):
+            if value == "-":  # ask without echoing it (it would otherwise stay in the shell history)
+                value = getpass.getpass(t(f"cli.prompt.{option}") + ": ")
+            if value:
+                options[option] = value
+        if args.bitlocker_key:
+            options["bitlocker_startup_key"] = args.bitlocker_key
         progress = _Progress()
         _out(t("cli.image_running", evidence=args.evidence))
         analysis, derived = case.extract_image(args.evidence, options, args.analyst, progress=progress.message)
@@ -586,6 +595,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--all-files", "--todo", action="store_true", help=t("cli.opt.image_all"))
     p.add_argument("-p", "--pattern", "--patron", action="append", default=[], help=t("cli.opt.image_pattern"))
     p.add_argument("--triage", "--triaje", action="store_true", help=t("cli.opt.image_triage"))
+    p.add_argument("--vss", action="store_true", help=t("cli.opt.image_vss"))
+    p.add_argument("--bitlocker-recovery", "--bitlocker-recuperacion", metavar="KEY|-",
+                   help=t("cli.opt.bitlocker_recovery"))
+    p.add_argument("--bitlocker-password", "--bitlocker-clave", metavar="PASSWORD|-",
+                   help=t("cli.opt.bitlocker_password"))
+    p.add_argument("--bitlocker-key", "--bitlocker-bek", metavar="FILE.BEK", help=t("cli.opt.bitlocker_key"))
 
     p = _add(sub, "collect", "recolectar", "cli.cmd.collect", cmd_collect, [common])
     p.add_argument("destination")

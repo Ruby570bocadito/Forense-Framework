@@ -25,6 +25,8 @@
         <select name="opt_{{ m.name }}_{{ o.name }}">{% for c in o.choices %}<option {{ 'selected' if c == o.default }}>{{ c }}</option>{% endfor %}</select>
       {% elif o.kind == 'bool' %}
         <select name="opt_{{ m.name }}_{{ o.name }}"><option value="">{{ _('cli.default') }} ({{ o.default | val }})</option><option value="true">{{ _('common.yes') }}</option><option value="false">{{ _('common.no') }}</option></select>
+      {% elif o.kind == 'secret' %}
+        <input type="password" autocomplete="off" name="opt_{{ m.name }}_{{ o.name }}">
       {% else %}
         <input name="opt_{{ m.name }}_{{ o.name }}" placeholder="{{ (o.default | join(',')) if o.default is iterable and o.default is not string else (o.default if o.default is not none else '') }}">
       {% endif %}

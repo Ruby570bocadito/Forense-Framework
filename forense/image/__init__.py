@@ -1,4 +1,9 @@
-"""Disk images (E01/Ex01, raw/dd, split raw, fixed VHD) and file system access through The Sleuth Kit.
+"""Disk images and file system access through The Sleuth Kit.
+
+Containers: E01/Ex01 (libewf), raw/dd, split raw, VHD and VHDX of every type
+(fixed, dynamic, differencing; libvhdi), VMDK (libvmdk) and QCOW2 (libqcow).
+Inside them: MBR/GPT partitions, BitLocker volumes (libbde, with a recovery
+password, password or startup key) and volume shadow copies (libvshadow).
 
 Used to extract the forensically relevant Windows artifacts from an image (or,
 by the live collector, from a raw volume such as ``\\\\.\\C:``) without mounting
@@ -17,10 +22,11 @@ from pathlib import Path, PurePosixPath
 from typing import Callable, Iterator, Optional
 
 from forense.core.errors import ForenseError
-from forense.core.utils import ts_to_iso
+from forense.core.utils import iso, ts_to_iso
 
 EWF_SIGNATURES = (b"EVF\x09\x0d\x0a\xff\x00", b"EVF2\x0d\x0a\x81\x00")
-IMAGE_SUFFIXES = {".e01", ".ex01", ".dd", ".raw", ".img", ".001", ".vhd", ".bin", ".iso"}
+IMAGE_SUFFIXES = {".e01", ".ex01", ".dd", ".raw", ".img", ".001", ".vhd", ".vhdx", ".vmdk", ".qcow2", ".qcow",
+                  ".bin", ".iso"}
 CHUNK = 4 * 1024 * 1024
 
 # Paths (relative to the root of each NTFS volume) collected by the triage profile.
@@ -63,13 +69,35 @@ class ImageError(ForenseError):
     pass
 
 
+def _container(head: bytes, footer: bytes) -> Optional[str]:
+    if head[:8] in EWF_SIGNATURES:
+        return "ewf"
+    if head[:8] == b"vhdxfile":
+        return "vhdx"
+    if footer[:8] == b"conectix" or head[:8] == b"conectix":
+        return "vhd"
+    if head[:4] == b"KDMV" or b"# Disk DescriptorFile" in head:
+        return "vmdk"
+    if head[:4] == b"QFI\xfb":
+        return "qcow2"
+    return None
+
+
+def _probe(path: Path) -> tuple[bytes, bytes]:
+    with open(path, "rb") as fh:
+        head = fh.read(1024)
+        size = fh.seek(0, 2)
+        fh.seek(max(0, size - 512))
+        footer = fh.read(512)
+    return head, footer
+
+
 def is_disk_image(path: Path) -> bool:
     path = Path(path)
     if not path.is_file():
         return False
-    with open(path, "rb") as fh:
-        head = fh.read(8)
-    if head in EWF_SIGNATURES:
+    head, footer = _probe(path)
+    if _container(head, footer):
         return True
     if path.suffix.lower() not in IMAGE_SUFFIXES:
         return False
@@ -83,8 +111,10 @@ def find_image(target: Path) -> Path:
     target = Path(target)
     if target.is_file():
         return target
-    candidates = sorted(p for p in target.iterdir() if p.is_file() and p.suffix.lower() in (".e01", ".ex01", ".001",
-                                                                                            ".dd", ".raw", ".img"))
+    candidates = sorted(p for p in target.iterdir() if p.is_file() and p.suffix.lower() in (
+        ".e01", ".ex01", ".001", ".dd", ".raw", ".img", ".vhd", ".vhdx", ".vmdk", ".qcow2"))
+    # a differencing disk is preferred to its parent; a VMDK descriptor to its extents
+    candidates.sort(key=lambda p: ("-flat" in p.stem or re.search(r"-s\d{3}$", p.stem) is not None, p.name))
     if not candidates:
         raise ImageError("error.image_not_found", path=str(target))
     return candidates[0]
@@ -106,11 +136,9 @@ def open_image(path: Path):
     import pytsk3
 
     path = Path(path)
-    with open(path, "rb") as fh:
-        head = fh.read(8)
-        fh.seek(-512, 2)
-        footer = fh.read(512)
-    if head in EWF_SIGNATURES:
+    head, footer = _probe(path)
+    kind = _container(head, footer)
+    if kind == "ewf":
         import pyewf
 
         segments = pyewf.glob(str(path))
@@ -120,14 +148,12 @@ def open_image(path: Path):
         headers = {k: v for k, v in (handle.get_header_values() or {}).items() if v}
         info = ImageInfo(str(path), "ewf", handle.get_media_size(), handle.get_bytes_per_sector(),
                          [Path(s).name for s in segments], hashes, headers)
-        return _HandleImage(pytsk3, handle.read, handle.seek, handle.get_media_size(), handle.close), info
-    if footer[:8] == b"conectix":
-        disk_type = int.from_bytes(footer[60:64], "big")
-        if disk_type != 2:
-            raise ImageError("error.image_vhd_dynamic", path=str(path))
-        size = path.stat().st_size - 512
-        fh = open(path, "rb")
-        return _FileImage(pytsk3, [fh], [size]), ImageInfo(str(path), "vhd", size)
+        return _HandleImage(pytsk3, handle, handle.get_media_size()), info
+    if kind in ("vhd", "vhdx", "vmdk", "qcow2"):
+        handle, files, keep = _open_virtual_disk(path, kind)
+        info = ImageInfo(str(path), kind, handle.get_media_size(), segments=[p.name for p in files],
+                         headers={"disk_type": _disk_type(handle, kind)} if kind != "qcow2" else {})
+        return _HandleImage(pytsk3, handle, handle.get_media_size(), keep=keep), info
     if re.search(r"\.0*1$", path.name):  # split raw: .001, .002...
         stem = path.name[: path.name.rfind(".")]
         parts = sorted(p for p in path.parent.iterdir() if re.fullmatch(re.escape(stem) + r"\.\d+", p.name))
@@ -139,20 +165,68 @@ def open_image(path: Path):
     return img, ImageInfo(str(path), "raw", img.get_size())
 
 
-def _HandleImage(pytsk3, read, seek, size, close):
+def _disk_type(handle, kind: str) -> str:
+    value = getattr(handle, "disk_type", None)
+    names = {"vhd": {2: "fixed", 3: "dynamic", 4: "differencing"}, "vhdx": {2: "fixed", 3: "dynamic",
+                                                                              4: "differencing"}}
+    return names.get(kind, {}).get(value, str(value) if value is not None else "")
+
+
+def _open_virtual_disk(path: Path, kind: str, depth: int = 0) -> tuple[object, list[Path], list]:
+    """Open a VHD/VHDX/VMDK/QCOW2 file and, for differencing disks, its chain of parents."""
+    if depth > 16:
+        raise ImageError("error.image_parent_missing", path=str(path), parent="(loop)")
+    if kind in ("vhd", "vhdx"):
+        import pyvhdi
+
+        handle = pyvhdi.file()
+        handle.open(str(path))
+        parent_name = handle.parent_filename if handle.disk_type == 4 else None
+    elif kind == "vmdk":
+        import pyvmdk
+
+        handle = pyvmdk.handle()
+        handle.open(str(path))
+        handle.open_extent_data_files()
+        parent_name = handle.parent_filename
+    else:
+        import pyqcow
+
+        handle = pyqcow.file()
+        handle.open(str(path))
+        parent_name = handle.backing_filename
+    files: list[Path] = [path]
+    keep: list = []
+    if parent_name:
+        parent = path.parent / re.split(r"[\\/]", parent_name)[-1]
+        if not parent.is_file():
+            raise ImageError("error.image_parent_missing", path=str(path), parent=parent_name)
+        parent_head, parent_footer = _probe(parent)
+        parent_handle, parent_files, parent_keep = _open_virtual_disk(
+            parent, _container(parent_head, parent_footer) or kind, depth + 1)
+        handle.set_parent(parent_handle)
+        files += parent_files
+        keep += [parent_handle, *parent_keep]  # parents must outlive the child handle
+    return handle, files, keep
+
+
+def _HandleImage(pytsk3, handle, size: int, keep: Optional[list] = None):
+    """pytsk3 image over any object with ``read_buffer_at_offset`` (libyal handles, shadow copies...)."""
+
     class HandleImage(pytsk3.Img_Info):
         def __init__(self) -> None:
+            self._keep = [handle, *(keep or [])]
             super().__init__(url="", type=pytsk3.TSK_IMG_TYPE_EXTERNAL)
 
         def read(self, offset, length):  # noqa: D401 - pytsk3 callback
-            seek(offset)
-            return read(length)
+            return handle.read_buffer_at_offset(length, offset)
 
         def get_size(self):
             return size
 
         def close(self):
-            close()
+            if hasattr(handle, "close"):
+                handle.close()
 
     return HandleImage()
 
@@ -189,6 +263,39 @@ def _FileImage(pytsk3, handles, sizes):
     return FileImage()
 
 
+class VolumeWindow:
+    """File-like view of ``length`` bytes at ``offset`` of a pytsk3 image (for libbde and libvshadow)."""
+
+    def __init__(self, img, offset: int, length: int) -> None:
+        self.img, self.offset, self.length, self.position = img, offset, length, 0
+
+    def read(self, size: int = -1) -> bytes:
+        size = self.length - self.position if size is None or size < 0 else min(size, self.length - self.position)
+        if size <= 0:
+            return b""
+        data = self.img.read(self.offset + self.position, size)
+        self.position += len(data)
+        return data
+
+    def read_buffer_at_offset(self, size: int, offset: int) -> bytes:
+        self.position = offset
+        return self.read(size)
+
+    def seek(self, offset: int, whence: int = os.SEEK_SET) -> int:
+        base = {os.SEEK_SET: 0, os.SEEK_CUR: self.position, os.SEEK_END: self.length}[whence]
+        self.position = max(0, base + offset)
+        return self.position
+
+    def tell(self) -> int:
+        return self.position
+
+    def get_offset(self) -> int:
+        return self.position
+
+    def get_size(self) -> int:
+        return self.length
+
+
 @dataclass
 class Partition:
     index: int
@@ -196,6 +303,18 @@ class Partition:
     length: int
     description: str
     filesystem: str = ""
+    encryption: str = ""  # "bitlocker" when the volume was decrypted (or is still locked)
+    locked: bool = False
+    volume: object = field(default=None, repr=False)  # pytsk3 image of the (decrypted) volume
+
+
+@dataclass
+class ShadowCopy:
+    index: int
+    identifier: str
+    created: Optional[str]
+    size: int
+    img: object = field(repr=False)
 
 
 def _fs_name(fs) -> str:
@@ -209,34 +328,115 @@ def _fs_name(fs) -> str:
     return names.get(int(fs.info.ftype), str(fs.info.ftype))
 
 
-def filesystems(img) -> Iterator[tuple[Partition, object]]:
-    """Yield ``(partition, FS_Info)`` for every readable file system in the image."""
+def _volume_image(img, offset: int, length: int):
+    """pytsk3 image of one volume of ``img`` (so shadow copies and BitLocker can address it from 0)."""
     import pytsk3
+
+    if offset == 0 and length == img.get_size():
+        return img
+    return _HandleImage(pytsk3, VolumeWindow(img, offset, length), length)
+
+
+def _unlock_bitlocker(volume_img, length: int, keys: dict):
+    """Decrypted image of a BitLocker volume, ``"locked"`` without valid keys, or None if not BitLocker."""
+    import pybde
+    import pytsk3
+
+    window = VolumeWindow(volume_img, 0, length)
+    if not pybde.check_volume_signature_file_object(window):
+        return None
+    volume = pybde.volume()
+    if keys.get("recovery_password"):
+        volume.set_recovery_password(keys["recovery_password"])
+    if keys.get("password"):
+        volume.set_password(keys["password"])
+    if keys.get("startup_key"):
+        volume.read_startup_key(str(keys["startup_key"]))
+    try:
+        volume.open_file_object(window)
+        if volume.is_locked():
+            volume.unlock()
+    except OSError:
+        return "locked"
+    if volume.is_locked():
+        return "locked"
+    return _HandleImage(pytsk3, volume, volume.get_size(), keep=[window])
+
+
+def filesystems(img, bitlocker: Optional[dict] = None,
+                locked: Optional[list] = None) -> Iterator[tuple[Partition, object]]:
+    """Yield ``(partition, FS_Info)`` for every readable file system in the image.
+
+    BitLocker volumes are decrypted with ``bitlocker`` keys (``recovery_password``,
+    ``password`` or ``startup_key``); volumes that stay locked are appended to ``locked``.
+    """
+    import pytsk3
+
+    def open_volume(partition: Partition):
+        volume = _volume_image(img, partition.offset, partition.length)
+        # BitLocker first: BitLocker To Go volumes also carry a readable FAT "discovery volume".
+        decrypted = _unlock_bitlocker(volume, partition.length, bitlocker or {})
+        if decrypted == "locked":
+            partition.encryption, partition.locked = "bitlocker", True
+            if locked is not None:
+                locked.append(partition)
+            return None
+        if decrypted is not None:
+            partition.encryption, volume = "bitlocker", decrypted
+        try:
+            fs = pytsk3.FS_Info(volume, offset=0)
+        except OSError:
+            return None
+        partition.volume = volume
+        partition.filesystem = _fs_name(fs)
+        return fs
 
     found = False
     try:
         volumes = pytsk3.Volume_Info(img)
         block = volumes.info.block_size
-        for part in volumes:
-            if not part.flags & pytsk3.TSK_VS_PART_FLAG_ALLOC:
-                continue
-            partition = Partition(int(part.addr), int(part.start) * block, int(part.len) * block,
-                                  part.desc.decode(errors="replace"))
-            try:
-                fs = pytsk3.FS_Info(img, offset=partition.offset)
-            except OSError:
-                continue
-            partition.filesystem = _fs_name(fs)
-            found = True
-            yield partition, fs
+        parts = [p for p in volumes if p.flags & pytsk3.TSK_VS_PART_FLAG_ALLOC]
     except OSError:
-        pass
+        parts = []
+    for part in parts:
+        partition = Partition(int(part.addr), int(part.start) * block, int(part.len) * block,
+                              part.desc.decode(errors="replace"))
+        fs = open_volume(partition)
+        found = found or fs is not None or partition.locked
+        if fs is not None:
+            yield partition, fs
     if not found:
-        try:
-            fs = pytsk3.FS_Info(img, offset=0)
-        except OSError as exc:
-            raise ImageError("error.image_no_filesystem", error=str(exc).splitlines()[0]) from exc
-        yield Partition(0, 0, img.get_size(), "volume", _fs_name(fs)), fs
+        partition = Partition(0, 0, img.get_size(), "volume")
+        fs = open_volume(partition)
+        if fs is not None:
+            yield partition, fs
+        elif not partition.locked:
+            raise ImageError("error.image_no_filesystem", error="no file system or BitLocker volume found")
+
+
+def shadow_copies(partition: Partition) -> list[ShadowCopy]:
+    """Volume shadow copies (VSS) of an NTFS volume, oldest first, each as a pytsk3 image."""
+    import pytsk3
+    import pyvshadow
+
+    if partition.volume is None or not partition.filesystem.startswith("ntfs"):
+        return []
+    size = partition.volume.get_size()
+    window = VolumeWindow(partition.volume, 0, size)
+    try:
+        if not pyvshadow.check_volume_signature_file_object(window):
+            return []
+        volume = pyvshadow.volume()
+        volume.open_file_object(window)
+    except OSError:
+        return []
+    copies = []
+    for index, store in enumerate(volume.stores, 1):
+        created = store.get_creation_time()
+        copies.append(ShadowCopy(index, str(store.identifier), iso(created) if created else None,
+                                 store.volume_size, _HandleImage(pytsk3, store, store.volume_size,
+                                                                 keep=[volume, window])))
+    return copies
 
 
 @dataclass

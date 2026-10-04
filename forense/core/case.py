@@ -428,7 +428,7 @@ class Case(ReviewMixin):
     # -- analyses ---------------------------------------------------------
     def run_analysis(self, module_name: str, evidence_id: str, options: Optional[dict] = None,
                      actor: Optional[str] = None, progress: Optional[Callable[[str], None]] = None) -> Analysis:
-        from forense.modules.base import get_module
+        from forense.modules.base import get_module, mask_secret
 
         module = get_module(module_name)
         evidence = self.get_evidence(evidence_id)
@@ -436,7 +436,9 @@ class Case(ReviewMixin):
         module.check_target(target)
         parsed = module.parse_options(options)
         actor = self.actor(actor)
-        stored_options = {k: (str(v) if v is not None else None) for k, v in parsed.items()}
+        secrets = {o.name for o in module.options if o.kind == "secret"}
+        stored_options = {k: mask_secret(v) if k in secrets else (str(v) if v is not None else None)
+                          for k, v in parsed.items()}
 
         cur = self.conn.execute(
             "INSERT INTO analyses (module, evidence_id, status, started, options, actor) VALUES (?,?,?,?,?,?)",

@@ -19,6 +19,11 @@ dependencies = [
     "libscca-python>=20240427",       # Prefetch, including Windows 10/11 compressed files
     "libesedb-python>=20240420",      # SRUM (ESE databases)
     "libewf-python>=20240506",        # E01 images
+    "libvhdi-python>=20240509",       # VHD / VHDX (fixed, dynamic, differencing)
+    "libvmdk-python>=20240510",       # VMDK
+    "libqcow-python>=20240308",       # QCOW2
+    "libvshadow-python>=20240504",    # volume shadow copies
+    "libbde-python>=20240502",        # BitLocker
     "pytsk3>=20231007",               # NTFS and partition tables (The Sleuth Kit)
     "yara-x>=0.10",                   # YARA rules
 ]
