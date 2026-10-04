@@ -3,7 +3,9 @@
 **Framework de análisis forense digital centrado en Windows**: gestión de casos, cadena de custodia verificable,
 imágenes de disco (E01, raw, VHD/VHDX, VMDK, QCOW2) con instantáneas VSS y BitLocker, recolección en vivo, más de 20
 módulos de artefactos de Windows y memoria RAM, reglas Sigma y YARA, superlínea temporal, vista de ejecución de
-programas, revisión del analista, interfaz web y CLI, e informes periciales en **español e inglés**.
+programas, **mapa MITRE ATT&CK con relato del incidente**, indicadores en **STIX 2.1**, análisis **automatizado**
+(de la evidencia al informe con una orden, o soltando la evidencia en una carpeta), revisión del analista, interfaz
+web con panel gráfico y CLI, e informes periciales en HTML y **PDF** en **español e inglés**.
 
 > 🇬🇧 English version: [README.en.md](README.en.md)
 
@@ -18,21 +20,25 @@ forense web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 
 1. [Principios](#principios)
 2. [Instalación](#instalación)
-3. [Inicio rápido](#inicio-rápido)
-4. [Flujo de trabajo con la CLI](#flujo-de-trabajo-con-la-cli)
-5. [Imágenes de disco y recolección en vivo](#imágenes-de-disco-y-recolección-en-vivo)
-6. [Memoria RAM](#memoria-ram)
-7. [Ejecución de programas](#ejecución-de-programas)
-8. [Revisión del analista](#revisión-del-analista)
-9. [Interfaz web](#interfaz-web)
-10. [Módulos de análisis](#módulos-de-análisis)
-11. [Reglas Sigma y YARA](#reglas-sigma-y-yara)
-12. [Integridad y cadena de custodia](#integridad-y-cadena-de-custodia)
-13. [Arquitectura y cómo crear un módulo](#arquitectura-y-cómo-crear-un-módulo)
-14. [Limitaciones conocidas](#limitaciones-conocidas)
-15. [Hoja de ruta](#hoja-de-ruta)
-16. [Desarrollo](#desarrollo)
-17. [Licencia](#licencia)
+3. [Configuración](#configuración)
+4. [Inicio rápido](#inicio-rápido)
+5. [Flujo de trabajo con la CLI](#flujo-de-trabajo-con-la-cli)
+6. [Automatización](#automatización)
+7. [Imágenes de disco y recolección en vivo](#imágenes-de-disco-y-recolección-en-vivo)
+8. [Memoria RAM](#memoria-ram)
+9. [Ejecución de programas](#ejecución-de-programas)
+10. [Revisión del analista](#revisión-del-analista)
+11. [MITRE ATT&CK, relato e indicadores](#mitre-attck-relato-e-indicadores)
+12. [Informes](#informes)
+13. [Interfaz web](#interfaz-web)
+14. [Módulos de análisis](#módulos-de-análisis)
+15. [Reglas Sigma y YARA](#reglas-sigma-y-yara)
+16. [Integridad y cadena de custodia](#integridad-y-cadena-de-custodia)
+17. [Arquitectura y cómo crear un módulo](#arquitectura-y-cómo-crear-un-módulo)
+18. [Limitaciones conocidas](#limitaciones-conocidas)
+19. [Hoja de ruta](#hoja-de-ruta)
+20. [Desarrollo](#desarrollo)
+21. [Licencia](#licencia)
 
 ## Principios
 
@@ -50,34 +56,92 @@ Referencias metodológicas: RFC 3227, ISO/IEC 27037, ISO/IEC 27042 y UNE 71506.
 
 ## Instalación
 
-Requisitos: **Python 3.10 o superior** (Windows, Linux o macOS). Todas las dependencias tienen binarios precompilados
-para Windows, Linux y macOS: `evtx` (EVTX), `Flask` (web e informes), `PyYAML` (Sigma), `olefile` (Jump Lists),
-`libscca-python` (Prefetch), `libesedb-python` (SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python`
-y `libqcow-python` (discos virtuales), `libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The
-Sleuth Kit) y `yara-x` (YARA).
+Elija la opción que mejor le encaje. En todas, `forense doctor` comprueba después que todo funciona.
 
-**Windows (PowerShell):**
+**1. Instalador para Windows** (sin permisos de administrador). Crea un entorno aislado en `%LOCALAPPDATA%\Forense`,
+añade `forense` al PATH, crea la carpeta de casos `Documentos\Forense`, la configuración y un acceso directo en el
+menú Inicio que abre la interfaz web:
 
 ```powershell
-git clone https://github.com/Ruby570bocadito/Forense-Framework.git
-cd Forense-Framework
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .                 # añade ".[memory]" para instalar también Volatility 3
-forense --version
+irm https://raw.githubusercontent.com/Ruby570bocadito/Forense-Framework/main/install/install.ps1 | iex
+# o desde una copia del repositorio:
+powershell -ExecutionPolicy Bypass -File install\install.ps1 -WithMemory     # -WithMemory añade Volatility 3
 ```
 
-**Linux / macOS:**
+Opciones: `-Workspace D:\Casos`, `-InstallPython` (instala Python 3.12 con winget si falta), `-NoShortcut`,
+`-Uninstall` (no toca los casos).
+
+**2. Instalador para Linux y macOS** (en `~/.local/share/forense`, enlaza `~/.local/bin/forense`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ruby570bocadito/Forense-Framework/main/install/install.sh | sh
+sh install/install.sh --with-memory --workspace ~/Casos     # desde una copia del repositorio
+```
+
+**3. Ejecutable para Windows sin Python**: descargue `forense-<versión>-windows-x64.zip` de
+[Releases](https://github.com/Ruby570bocadito/Forense-Framework/releases), descomprímalo y ejecute
+`forense\forense.exe`. Útil en equipos de laboratorio aislados (se puede llevar en un USB). Para memoria RAM necesita
+además Python con `volatility3` o la ruta de `vol.exe` (`-o vol_path=`).
+
+**4. Docker** (interfaz web, CLI y PDF con Chromium incluido):
+
+```bash
+docker compose up -d                       # http://127.0.0.1:8765, contraseña en FORENSE_WEB_PASSWORD
+docker run --rm -v "$PWD/casos:/cases" -v "/ruta/evidencias:/evidence:ro" ghcr.io/ruby570bocadito/forense-framework \
+       auto /evidence/portatil.E01 --new /cases/portatil
+```
+
+Las evidencias se montan en solo lectura (`:ro`). `docker build --build-arg WITH_MEMORY=1 .` incluye Volatility 3.
+
+**5. Manual con pip** (Python 3.10 o superior):
 
 ```bash
 git clone https://github.com/Ruby570bocadito/Forense-Framework.git
 cd Forense-Framework
-python3 -m venv .venv && . .venv/bin/activate
-pip install -e ".[memory]"
+python -m venv .venv && . .venv/bin/activate      # Windows: py -3 -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -e ".[memory]"                         # sin [memory] no se instala Volatility 3
+forense doctor
 ```
 
-El idioma se elige con `-L es|en` (en cualquier posición), con la variable `FORENSE_LANG` o, si no hay ninguna de las
-dos, según la configuración regional del sistema.
+Todas las dependencias tienen binarios precompilados para Windows, Linux y macOS: `evtx` (EVTX), `Flask` (web e
+informes), `PyYAML` (Sigma, configuración), `olefile` (Jump Lists), `libscca-python` (Prefetch), `libesedb-python`
+(SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python` y `libqcow-python` (discos virtuales),
+`libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) y `yara-x` (YARA). Los PDF
+usan Microsoft Edge (presente en todo Windows 10/11), Chrome o Chromium; otro navegador se indica con
+`FORENSE_BROWSER`.
+
+`forense doctor` (`diagnostico`) lista cada componente con su versión y para qué sirve, avisa de lo que falta
+(Volatility, navegador para PDF, listas de inteligencia que no existen, carpeta de casos sin permiso de escritura…) y
+termina con error si falta algo imprescindible; `--json` da el resultado para scripts.
+
+El idioma se elige con `-L es|en` (en cualquier posición), con la variable `FORENSE_LANG`, en la configuración o, si no
+hay ninguna, según la configuración regional del sistema.
+
+## Configuración
+
+`forense config init` crea un archivo comentado (`%APPDATA%\Forense\config.yaml` en Windows,
+`~/.config/forense/config.yaml` en Linux/macOS, o el de `FORENSE_CONFIG` / `--config`). Las opciones de la línea de
+órdenes siempre tienen prioridad.
+
+```yaml
+analyst: "R. García"            # nombre por defecto en la cadena de custodia
+language: es
+organization: "CERT Ejemplo"
+workspace: 'D:\Casos'           # carpeta de casos de la web, forense auto y forense watch
+intel:
+  hash_lists: ['D:\intel\malware_sha256.txt']
+  watchlists: ['D:\intel\iocs.txt']
+  yara_rules: ['D:\intel\yara']
+  sigma_rules: 'D:\intel\sigma'  # forense sigma download D:\intel\sigma
+  sigma_min_level: medium
+image: {vss: true}               # extraer también de las instantáneas de volumen
+memory: {symbols: 'D:\symbols', offline: false}
+report: {languages: [es, en], pdf: true}
+automation: {playbook: full}
+web: {host: 127.0.0.1, port: 8765}
+```
+
+`forense config show` muestra la configuración efectiva y `forense config path` dónde está.
 
 ## Inicio rápido
 
@@ -98,8 +162,9 @@ inyectado en `explorer.exe`, un comando codificado en el portapapeles, un USB y 
 ```bash
 forense -c laboratorio/case_demo hallazgos
 forense -c laboratorio/case_demo cronologia --desde 2026-09-14T02:00 --hasta 2026-09-14T05:00
-forense -c laboratorio/case_demo informe
-forense web -w laboratorio
+forense -c laboratorio/case_demo mitre --resumen        # tácticas ATT&CK y borrador del relato
+forense -c laboratorio/case_demo informe --pdf
+forense web -w laboratorio --abrir
 ```
 
 ## Flujo de trabajo con la CLI
@@ -124,15 +189,21 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas) |
 | `forense -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
 | `forense -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
-| `forense -c CASO exportar {analysis N,timeline,findings,execution,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel) o JSON |
+| `forense -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1 |
+| `forense -c CASO mitre [--resumen]` | `attack` | Técnicas MITRE ATT&CK observadas o borrador del relato del incidente |
 | `forense -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
 | `forense -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
-| `forense -c CASO informe [--verificar] [-L en]` | `report` | Informe HTML autocontenido |
+| `forense -c CASO informe [--verificar] [--pdf] [-L en]` | `report` | Informe HTML autocontenido (y PDF) |
+| `forense auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
+| `forense vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
+| `forense config [show\|init\|path]` | `config` | Configuración |
+| `forense doctor` | `diagnostico` | Comprobar la instalación |
 | `forense sigma check RUTA` / `sigma download DIR` | `sigma` | Validar reglas Sigma o descargar las de SigmaHQ |
-| `forense web [-w ESPACIO] [--puerto 8765] [--clave X]` | `web` | Interfaz web |
+| `forense web [-w ESPACIO] [--puerto 8765] [--clave X] [--abrir]` | `web` | Interfaz web |
 
-Opciones comunes: `-c/--caso` (o la variable `FORENSE_CASE`), `-a/--analista` (quién figura en la custodia) y
-`-L/--idioma`.
+Opciones comunes: `-c/--caso` (o la variable `FORENSE_CASE`), `-a/--analista` (quién figura en la custodia; por
+defecto el de la configuración), `-L/--idioma` y `--config ARCHIVO`. En `cronologia`, `--hasta 2026-09-14` incluye el
+día completo.
 
 Ejemplo completo (PowerShell):
 
@@ -149,6 +220,41 @@ forense -c ./2026-017 revisar 12 confirmado -n "Coincide con el 4688 del control
 forense -c ./2026-017 conclusiones --archivo conclusiones.md
 forense -c ./2026-017 informe --verificar
 ```
+
+## Automatización
+
+`forense auto` registra la evidencia (en un caso existente con `-c`, en uno nuevo con `--nuevo`, o en la carpeta de
+casos de la configuración), ejecuta un **playbook** y deja el informe y las exportaciones listos:
+
+```powershell
+forense auto E:\adquisiciones\PC-042.E01 --nuevo D:\Casos\PC-042 -i "R. García"
+forense -c D:\Casos\2026-017 auto E:\adquisiciones\FS01.mem          # añadir al caso y analizar
+```
+
+| Playbook | Pasos |
+|---|---|
+| `triage` | triaje (las imágenes se extraen primero; la memoria va a Volatility) → informe |
+| `quick` | registro, Prefetch, EVTX, tareas, PowerShell y `$MFT` → informe |
+| `full` (por defecto) | triaje → inteligencia de la configuración (hashes, IOC, YARA, Sigma) → informe → exportaciones (hallazgos, línea temporal, ejecución y STIX) |
+
+Un playbook propio es un YAML con `steps:`; cada paso es `triage`, `memory`, `intel`, `modules` (con opciones por
+módulo), `report` (idiomas, PDF) o `export`:
+
+```yaml
+steps:
+  - triage
+  - modules: {evtx: {sigma_rules: 'D:\intel\sigma', sigma_min_level: high}}
+  - intel
+  - report: {languages: [es, en], pdf: true}
+  - export: [findings, stix]
+```
+
+**Carpeta vigilada**: `forense vigilar D:\Entrada -w D:\Casos` crea un caso por cada archivo o carpeta que se deje en
+`D:\Entrada` y lo procesa con el playbook. Espera a que la copia termine (tamaño y fecha estables entre dos
+comprobaciones), ignora `.part`/`.tmp`, recuerda lo procesado en `D:\Casos\.forense-watch.json` y un elemento que
+falle no detiene a los demás. `--una-vez` procesa lo que haya y termina (útil en una tarea programada).
+
+En la web, el botón **Automático** de cada evidencia ejecuta el playbook en segundo plano.
 
 ## Imágenes de disco y recolección en vivo
 
@@ -241,6 +347,40 @@ la cadena de custodia, con quién y cuándo.
 Las **conclusiones** del caso las redacta el analista (texto libre, versionado). El informe las incluye junto con los
 hallazgos agrupados por estado de revisión y los eventos destacados.
 
+## MITRE ATT&CK, relato e indicadores
+
+Cada hallazgo se relaciona con técnicas de **MITRE ATT&CK** por su tipo (persistencia en `Run` → T1547.001, timestomping
+→ T1070.006…), por las reglas que lo dispararon (PowerShell codificado, `ExecutionPolicy Bypass`…), por las
+herramientas que nombra (mimikatz → T1003, rclone → T1567.002, AnyDesk → T1219) y por las etiquetas de las reglas
+Sigma. Con eso:
+
+- `forense mitre` y la página **ATT&CK** muestran la matriz de tácticas y técnicas observadas, con la primera vez que
+  aparecen y los hallazgos que las respaldan (enlazados). Los hallazgos de gravedad baja o descartados no cuentan; los
+  confirmados, siempre.
+- **Relato del incidente**: la secuencia de fases en orden de la cadena de ataque y un **borrador** de narración
+  (`mitre --resumen`, o el botón de la página ATT&CK que lo lleva a las conclusiones) que el analista revisa y completa.
+- **Indicadores de compromiso**: `exportar stix` genera un paquete **STIX 2.1** con los hashes, IP, dominios, URL y
+  correos de los hallazgos (listas de hashes, YARA, listas de vigilancia, conexiones de memoria, descargas) y de los
+  programas marcados, más las técnicas ATT&CK, listo para MISP, OpenCTI o un SIEM. Los dominios legítimos (descargas de
+  7-zip.org, por ejemplo) no se incluyen.
+
+## Informes
+
+`forense informe` genera un HTML autocontenido (sin scripts ni recursos externos) y `--pdf` también el PDF, ambos con
+su SHA-256 en la cadena de custodia. Estructura:
+
+1. Portada con los datos del caso y aviso de confidencialidad, e índice.
+2. **Resumen ejecutivo**: cifras clave, periodo del incidente, gráficos de hallazgos por gravedad y de actividad,
+   hallazgos principales y la secuencia del incidente por tácticas ATT&CK.
+3. Conclusiones del analista (versionadas, con su hash).
+4. Técnicas ATT&CK observadas e indicadores de compromiso.
+5. Evidencias con hashes e integridad, hallazgos por estado de revisión (con sus técnicas), eventos destacados,
+   ejecución de programas, cronología, análisis realizados (opciones y hash de resultados), cadena de custodia completa
+   y metodología.
+
+El PDF sale en A4 con el ID del caso y «página x / y» en el pie, sin cortar filas entre páginas. En la web, la página
+**Informes** genera cualquiera de los dos en el idioma que elija.
+
 ## Interfaz web
 
 ```bash
@@ -248,7 +388,11 @@ forense web -w ./casos            # http://127.0.0.1:8765
 ```
 
 - **Espacio de trabajo**: lista de casos y alta de casos nuevos.
-- **Resumen**: indicadores, hallazgos relevantes, evidencias y triaje con un clic (también para imágenes de disco).
+- **Resumen**: cifras clave, gráfico de actividad del periodo del incidente con los hallazgos en su momento (cada barra
+  lleva a la línea temporal de ese intervalo), hallazgos por gravedad, hallazgos principales, técnicas por táctica
+  ATT&CK, y evidencias con botones **Automático** (playbook completo) y **Triaje**. Los gráficos tienen vista de tabla,
+  descripciones emergentes y siguen el tema claro u oscuro del sistema.
+- **ATT&CK**: matriz de técnicas observadas, secuencia del incidente y borrador del relato.
 - **Evidencias**: alta por ruta (el hash se calcula en segundo plano), hashes, origen de las evidencias derivadas y
   verificación de integridad.
 - **Análisis**: formulario por módulo con sus opciones, triaje automático, resultados paginados con búsqueda por
@@ -258,8 +402,9 @@ forense web -w ./casos            # http://127.0.0.1:8765
 - Selector **ES/EN** y campo **Analista**: el nombre se registra en cada acción de la custodia.
 
 Seguridad: escucha solo en `127.0.0.1` por defecto, todos los formularios llevan token CSRF, envía cabeceras de
-seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` (HTTP Basic). Si la expones en red, ponla detrás de
-HTTPS.
+seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` o `FORENSE_WEB_PASSWORD` (HTTP Basic). Si la
+expones en red, ponla detrás de HTTPS. `--abrir` abre el navegador al arrancar; `/healthz` responde sin contraseña para
+las comprobaciones de estado de contenedores.
 
 ## Módulos de análisis
 
@@ -340,8 +485,8 @@ caso/
 ├── forense.db     SQLite (WAL): caso, evidencias, custodia, resultados, eventos, hallazgos y revisiones
 ├── evidence/      copias de trabajo verificadas (--copiar), en solo lectura
 ├── analyses/      archivos generados (artefactos extraídos, salidas de Volatility, carving, bodyfile…)
-├── reports/       informes HTML
-└── exports/       exportaciones CSV/JSON
+├── reports/       informes HTML y PDF
+└── exports/       exportaciones CSV/JSON/STIX
 ```
 
 ## Arquitectura y cómo crear un módulo
@@ -423,7 +568,8 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 - Recuperación de claves y valores borrados del registro
 - Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache, Microsoft Defender (MPLog)
-- Firma digital de informes y exportación a PDF
+- Firma digital de informes
+- Correlación entre casos e importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
 
 ## Desarrollo
@@ -434,8 +580,10 @@ python -m pytest -q        # tests (artefactos reales en tests/data; el resto se
 ruff check forense tests   # estilo
 ```
 
-La CI ejecuta los tests en Linux y Windows con Python 3.10 y 3.12, además de una prueba completa con el escenario de
-demostración. El origen y la licencia de los datos de prueba están en [tests/data/README.md](tests/data/README.md).
+La CI ejecuta los tests en Linux y Windows con Python 3.10 y 3.12, una prueba completa con el escenario de
+demostración y los dos instaladores (instalar, ejecutar y desinstalar). Al publicar una etiqueta `v*`, el flujo
+`release` construye la rueda y el sdist, el ejecutable de Windows (PyInstaller, `packaging/forense.spec`, probado con
+la demo y un PDF) y la imagen Docker en GitHub Container Registry, y los adjunta a la versión. El origen y la licencia de los datos de prueba están en [tests/data/README.md](tests/data/README.md).
 
 ## Licencia
 

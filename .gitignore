@@ -21,3 +21,8 @@ venv/
 
 # Small, licensed fixtures used by the tests
 !/tests/data/**
+
+# docker compose data folders (case data must never be committed)
+/cases/
+/config/
+/evidence/

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -127,12 +128,22 @@ def load_config(path: Optional[Path] = None) -> Config:
     return config
 
 
-def write_template(path: Optional[Path] = None, overwrite: bool = False) -> Path:
+def _yaml_string(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"  # single quotes: Windows backslashes stay as they are
+
+
+def write_template(path: Optional[Path] = None, overwrite: bool = False, **values: str) -> Path:
+    """Write the commented template; ``values`` fill top-level keys (``analyst``, ``workspace``...)."""
     path = Path(path) if path else default_path()
     if path.exists() and not overwrite:
         raise ForenseError("error.config_exists", path=str(path))
+    text = TEMPLATE
+    for key, value in values.items():
+        if value:
+            text = re.sub(rf'^{key}: ""', lambda _m, k=key, v=value: f"{k}: {_yaml_string(v)}", text, count=1,
+                          flags=re.M)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(TEMPLATE, encoding="utf-8")
+    path.write_text(text, encoding="utf-8")
     return path
 
 

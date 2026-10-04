@@ -36,12 +36,22 @@ class VolatilityError(Exception):
     pass
 
 
+def _python() -> Optional[str]:
+    """A Python interpreter: this one, or (in the standalone executable) one from the PATH."""
+    if not getattr(sys, "frozen", False):
+        return sys.executable
+    return shutil.which("python") or shutil.which("python3") or shutil.which("py")
+
+
 def volatility_command(vol_path: Optional[str] = None) -> Optional[list[str]]:
     """The command that runs Volatility 3, or ``None`` when it is not installed."""
+    python = _python()
     if vol_path:
-        return [sys.executable, vol_path] if vol_path.lower().endswith(".py") else [vol_path]
-    if importlib.util.find_spec("volatility3") is not None:
-        return [sys.executable, "-c", "import sys; from volatility3.cli import main; sys.argv[0] = 'vol'; main()"]
+        if not vol_path.lower().endswith(".py"):
+            return [vol_path]
+        return [python, vol_path] if python else None
+    if python and not getattr(sys, "frozen", False) and importlib.util.find_spec("volatility3") is not None:
+        return [python, "-c", "import sys; from volatility3.cli import main; sys.argv[0] = 'vol'; main()"]
     for name in ("vol", "vol.exe", "vol.py"):
         found = shutil.which(name)
         if found:

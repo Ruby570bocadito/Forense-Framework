@@ -72,6 +72,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     # -- request lifecycle --------------------------------------------------------
     @app.before_request
     def _before() -> Optional[Response]:
+        if request.path == "/healthz":  # liveness probe (containers): no data, no authentication
+            return None
         if app.config["PASSWORD"]:
             auth = request.authorization
             if not auth or not hmac.compare_digest((auth.password or "").encode("utf-8", "surrogatepass"),
@@ -495,6 +497,10 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             else:
                 abort(404)
         return send_from_directory(path.parent, path.name, as_attachment=True)
+
+    @app.route("/healthz")
+    def healthz():
+        return jsonify({"status": "ok"})
 
     # -- API ---------------------------------------------------------------------------
     @app.route("/api/jobs")

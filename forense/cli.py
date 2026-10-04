@@ -550,6 +550,26 @@ def cmd_sigma(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    import json
+
+    from forense.doctor import as_dicts, healthy, run_checks, summary
+
+    checks = run_checks()
+    if args.json:
+        _out(json.dumps({"version": __version__, "healthy": healthy(checks), "checks": as_dicts(checks)},
+                        ensure_ascii=False, indent=1))
+        return EXIT_OK if healthy(checks) else EXIT_ERROR
+    marks = {"ok": "OK", "warn": "!!", "missing": "--", "error": "XX"}
+    _table(["", t("doctor.component"), t("doctor.detail"), t("doctor.purpose")],
+           [(marks[c.status], c.name, c.detail, c.purpose) for c in checks])
+    counts = summary(checks)
+    _out()
+    _out(t("doctor.summary", **counts))
+    _out(t("doctor.healthy") if healthy(checks) else t("doctor.unhealthy"))
+    return EXIT_OK if healthy(checks) else EXIT_ERROR
+
+
 def cmd_web(args: argparse.Namespace) -> int:
     from forense.web import run_server
 
@@ -558,6 +578,12 @@ def cmd_web(args: argparse.Namespace) -> int:
     password = args.password or os.environ.get("FORENSE_WEB_PASSWORD")
     if args.host not in ("127.0.0.1", "localhost", "::1") and not password:
         _err(t("cli.web_exposed_warning"))
+    if args.open:
+        import threading
+        import webbrowser
+
+        host = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
+        threading.Timer(1.0, webbrowser.open, (f"http://{host}:{args.port}/",)).start()
     run_server(workspace, args.host, args.port, password)
     return EXIT_OK
 
@@ -592,7 +618,9 @@ def cmd_config(args: argparse.Namespace) -> int:
     from forense.core.config import default_path, get_config, write_template
 
     if args.action == "init":
-        _out(t("cli.config_written", path=str(write_template(Path(args.path) if args.path else None, args.force))))
+        written = write_template(Path(args.path) if args.path else None, args.force, analyst=args.set_analyst or "",
+                                 workspace=str(Path(args.workspace).expanduser().resolve()) if args.workspace else "")
+        _out(t("cli.config_written", path=str(written)))
     elif args.action == "path":
         _out(str(get_config().path or default_path()))
     else:
@@ -720,6 +748,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", nargs="?", choices=("show", "init", "path"), default="show", metavar="show|init|path")
     p.add_argument("path", nargs="?")
     p.add_argument("--force", "--forzar", action="store_true")
+    p.add_argument("-w", "--workspace", "--espacio", help=t("cli.opt.workspace"))
+    p.add_argument("--analyst", "--analista", dest="set_analyst", help=t("cli.opt.analyst"))
 
     p = _add(sub, "image", "imagen", "cli.cmd.image", cmd_image, [common])
     p.add_argument("evidence")
@@ -814,6 +844,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default=config.value("web.host") or "127.0.0.1")
     p.add_argument("--port", "--puerto", type=int, default=int(config.value("web.port") or 8765))
     p.add_argument("--password", "--clave", help=t("cli.opt.password"))
+    p.add_argument("--open", "--abrir", action="store_true", help=t("cli.opt.web_open"))
+
+    p = _add(sub, "doctor", "diagnostico", "cli.cmd.doctor", cmd_doctor)
+    p.add_argument("--json", action="store_true", help=t("cli.opt.doctor_json"))
 
     p = _add(sub, "demo", "", "cli.cmd.demo", cmd_demo)
     p.add_argument("directory")

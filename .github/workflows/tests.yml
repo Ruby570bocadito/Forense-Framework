@@ -25,6 +25,35 @@ jobs:
         run: python -m pytest -q
       - name: Demo smoke test
         run: |
+          forense doctor
           forense demo demo-run -a CI
           forense -c demo-run/case_demo verify
           forense -c demo-run/case_demo report --lang es
+
+  installers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\forense" -Workspace "$env:RUNNER_TEMP\cases" -NoShortcut
+          & "$env:RUNNER_TEMP\forense\bin\forense.cmd" --version
+          if ($LASTEXITCODE) { exit 1 }
+          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\forense" -Uninstall
+          if (Test-Path "$env:RUNNER_TEMP\forense") { throw "not uninstalled" }
+      - name: Linux installer
+        if: runner.os == 'Linux'
+        run: |
+          sh install/install.sh --prefix "$RUNNER_TEMP/forense" --bin-dir "$RUNNER_TEMP/bin" --workspace "$RUNNER_TEMP/cases"
+          "$RUNNER_TEMP/bin/forense" --version
+          sh install/install.sh --prefix "$RUNNER_TEMP/forense" --bin-dir "$RUNNER_TEMP/bin" --uninstall
+          test ! -e "$RUNNER_TEMP/forense"
