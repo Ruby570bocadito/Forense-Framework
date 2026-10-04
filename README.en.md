@@ -1,8 +1,9 @@
 # Forense-Framework
 
-**Windows-focused digital forensics framework**: case management, verifiable chain of custody, E01/raw disk images,
-live collection, artifact and memory analysis, Sigma and YARA rules, super timeline, analyst review, web UI and CLI,
-and expert reports in **English and Spanish**.
+**Windows-focused digital forensics framework**: case management, verifiable chain of custody, disk images (E01, raw,
+VHD/VHDX, VMDK, QCOW2) with VSS shadow copies and BitLocker, live collection, more than 20 Windows artifact modules
+plus memory analysis, Sigma and YARA rules, super timeline, program execution overview, analyst review, web UI and
+CLI, and expert reports in **English and Spanish**.
 
 > 🇪🇸 Versión en español: [README.md](README.md)
 
@@ -21,16 +22,17 @@ forense web -w ./lab        # open http://127.0.0.1:8765
 4. [CLI workflow](#cli-workflow)
 5. [Disk images and live collection](#disk-images-and-live-collection)
 6. [Memory](#memory)
-7. [Analyst review](#analyst-review)
-8. [Web interface](#web-interface)
-9. [Analysis modules](#analysis-modules)
-10. [Sigma and YARA rules](#sigma-and-yara-rules)
-11. [Integrity and chain of custody](#integrity-and-chain-of-custody)
-12. [Architecture and writing a module](#architecture-and-writing-a-module)
-13. [Known limitations](#known-limitations)
-14. [Roadmap](#roadmap)
-15. [Development](#development)
-16. [License](#license)
+7. [Program execution](#program-execution)
+8. [Analyst review](#analyst-review)
+9. [Web interface](#web-interface)
+10. [Analysis modules](#analysis-modules)
+11. [Sigma and YARA rules](#sigma-and-yara-rules)
+12. [Integrity and chain of custody](#integrity-and-chain-of-custody)
+13. [Architecture and writing a module](#architecture-and-writing-a-module)
+14. [Known limitations](#known-limitations)
+15. [Roadmap](#roadmap)
+16. [Development](#development)
+17. [License](#license)
 
 ## Principles
 
@@ -50,8 +52,9 @@ Methodological references: RFC 3227, ISO/IEC 27037, ISO/IEC 27042 and UNE 71506.
 
 Requirements: **Python 3.10 or later** (Windows, Linux or macOS). Every dependency ships prebuilt binaries for
 Windows, Linux and macOS: `evtx` (EVTX), `Flask` (web and reports), `PyYAML` (Sigma), `olefile` (Jump Lists),
-`libscca-python` (Prefetch), `libesedb-python` (SRUM), `libewf-python` (E01), `pytsk3` (NTFS, The Sleuth Kit) and
-`yara-x` (YARA).
+`libscca-python` (Prefetch), `libesedb-python` (SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python` and
+`libqcow-python` (virtual disks), `libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth
+Kit) and `yara-x` (YARA).
 
 **Windows (PowerShell):**
 
@@ -83,12 +86,14 @@ forense demo ./lab -a "Your name"
 ```
 
 This generates a **fictitious** scenario: the compromised workstation `WS-CONTAB01`. It contains a triage collection
-(hives, `$MFT`, Prefetch, ShellBags, shell links, Recycle Bin, Chrome/Firefox history…), a raw image for carving, the
+(hives, `$MFT`, `$UsnJrnl`, Prefetch, ShellBags, scheduled tasks, WMI repository, PowerShell history, Windows
+Timeline, `setupapi`, shell links, Recycle Bin, Chrome/Firefox history…), a raw image for carving, the
 workstation memory (Volatility 3 outputs), a known-bad hash list, an IOC list and a YARA rule. It then creates the
 case `lab/case_demo`, registers the three evidence items, runs triage and the intelligence modules and produces more
-than 40 findings: an IFEO debugger on `sethc.exe`, timestomping, `Run` key persistence, a service in
-`C:\Windows\Temp`, mimikatz and rclone execution, a fake `svchost.exe` talking to the Internet, a hidden process,
-code injected into `explorer.exe`, a USB drive and deleted files.
+than 50 findings: an IFEO debugger on `sethc.exe`, timestomping, persistence in a `Run` key, a hidden task and a WMI
+subscription, a service in `C:\Windows\Temp`, mimikatz and rclone execution (and their deletion according to the
+USN journal), a fake `svchost.exe` talking to the Internet, a hidden process, code injected into `explorer.exe`, an
+encoded command in the clipboard, a USB drive and deleted files.
 
 ```bash
 forense -c lab/case_demo findings
@@ -109,7 +114,7 @@ Every command has an English name and a Spanish alias.
 | `forense -c CASE evidence list` / `verify [ID]` | `listar` / `verificar` | List evidence or verify its integrity |
 | `forense modules` | `modulos` | Available modules and their options |
 | `forense -c CASE triage EV-001` | `triaje` | Run every module that finds artifacts (images are extracted first) |
-| `forense -c CASE image EV-001 [--verify] [-p PATTERN] [--all-files] [--triage]` | `imagen` | Extract the artifacts of an E01/raw/VHD image as derived evidence |
+| `forense -c CASE image EV-001 [--verify] [--vss] [--bitlocker-recovery -] [-p PATTERN] [--all-files] [--triage]` | `imagen` | Extract the artifacts of an image as derived evidence |
 | `forense collect DEST [--source \\.\C:] [--volatile] [--add-to-case]` | `recolectar` | Live collection on Windows |
 | `forense -c CASE analyze MODULE EV-001 [-o key=value]` | `analizar` | Run one module (`all` = every evidence item) |
 | `forense -c CASE analyses` / `show N [--artifact X]` | `analisis` / `mostrar` | Analyses and their records |
@@ -118,7 +123,8 @@ Every command has an English name and a Spanish alias.
 | `forense -c CASE bookmark N [-n NOTE] [--remove]` | `destacar` | Bookmark a timeline event |
 | `forense -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions |
 | `forense -c CASE timeline [--from] [--to] [--search] [--source] [--bookmarked]` | `cronologia` | Super timeline |
-| `forense -c CASE export {analysis N,timeline,findings,custody} -o FILE` | `exportar` | CSV (Excel friendly) or JSON |
+| `forense -c CASE execution [--search X] [--suspicious]` | `ejecucion` | Programs executed according to every source |
+| `forense -c CASE export {analysis N,timeline,findings,execution,custody} -o FILE` | `exportar` | CSV (Excel friendly) or JSON |
 | `forense -c CASE custody [--verify]` | `custodia` | Chain of custody |
 | `forense -c CASE verify` | `verificar` | Full verification (exit code 2 if anything fails) |
 | `forense -c CASE report [--verify] [-L es]` | `informe` | Self-contained HTML report |
@@ -148,9 +154,10 @@ forense -c ./2026-017 report --verify
 
 ### Images
 
-Formats: **E01/Ex01** (EnCase, FTK Imager, ewfacquire), **raw/dd**, **split raw** (`.001`, `.002`…) and **fixed VHD**.
-MBR/GPT partitions and file systems are read with The Sleuth Kit **without mounting anything**, so locked files
-(`$MFT`, hives, SRUM, EVTX) are obtained as well.
+Formats: **E01/Ex01** (EnCase, FTK Imager, ewfacquire), **raw/dd**, **split raw** (`.001`, `.002`…), fixed, dynamic
+and differencing **VHD and VHDX** (the parent disk is looked up in the same folder), **VMDK** and **QCOW2**. MBR/GPT
+partitions and file systems are read with The Sleuth Kit **without mounting anything**, so locked files (`$MFT`, hives,
+SRUM, EVTX) and alternate data streams such as `$UsnJrnl:$J` are obtained as well.
 
 ```bash
 forense -c CASE evidence add laptop.E01
@@ -166,6 +173,13 @@ forense -c CASE triage EV-002                  # EV-002 = extracted artifacts (d
 - Every NTFS volume is written to `C/`, `D/`… keeping modification times, and each extracted file is recorded with
   its original path, size, MD5, SHA-256, MACB times and MFT entry number.
 - `triage` on an image does the extraction automatically.
+- **Volume shadow copies (VSS)** are always listed (with their creation time, also on the timeline). With `--vss` the
+  triage profile is also extracted from every shadow copy, keeping only the files that differ from the live volume
+  (`C_vss1/`, `C_vss2/`…): older hive versions, deleted event logs or removed tools.
+- **BitLocker** (BitLocker To Go included) is decrypted with the 48-digit recovery password (`--bitlocker-recovery -`
+  asks for it without echo), the password or the `.BEK` startup key. Keys are **never stored** in the case: the
+  custody log only keeps a SHA-256 fingerprint that proves which key was used. A volume that cannot be decrypted
+  raises a finding explaining what is missing.
 
 ### Live collection
 
@@ -205,6 +219,16 @@ forense -c CASE analyze memory EV-003 -o symbols=D:\symbols -o offline=yes -o pl
   offensive and remote-access tools (also with the name truncated to 15 characters), suspicious command lines,
   **external connections** from interpreters or processes in suspicious locations, **injected code** (`malfind`,
   more severe with a PE header and less in JIT processes) and suspicious services.
+
+## Program execution
+
+`forense -c CASE execution` (and the **Execution** web page) gathers in one row per program everything Prefetch,
+Amcache, ShimCache, BAM, UserAssist, SRUM, the Windows Timeline, 4688/Sysmon 1 events, RunMRU and memory say about it.
+Each source writes paths its own way (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`, `%ProgramFiles%`,
+known-folder GUIDs…); they are normalised to join them, giving first and last execution, run count, users, SHA-1,
+command lines and the supporting sources. Offensive and remote-access tools, names imitating system binaries
+(`scvhost.exe`) and suspicious locations are flagged. ShimCache and Amcache prove presence, not execution, and are
+treated as such. The table can be exported (`export execution`) and is part of the report.
 
 ## Analyst review
 
@@ -249,8 +273,14 @@ network, put it behind HTTPS.
 | `recyclebin` | `$Recycle.Bin\<SID>\$I*` | Original path, size, deletion time, user and whether the content (`$R`) is recoverable |
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | History, downloads, **downloaded executables**, file-sharing and paste services |
 | `mft` | `$MFT` | $SI/$FN timeline, deleted entries, full paths, **Zone.Identifier** (download URL), **timestomping** |
+| `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
+| `tasks` | `Windows\System32\Tasks` | Scheduled tasks: author, triggers, account, actions; **hidden tasks**, tasks running interpreters or binaries from suspicious locations, as SYSTEM |
+| `wmi` | `wbem\Repository\OBJECTS.DATA` | **WMI persistence** (filter + CommandLine/ActiveScript consumer), deleted subscriptions included |
+| `psreadline` | `ConsoleHost_history.txt` | Each user's PowerShell commands: downloads, encoded execution, Defender tampering, offensive tools |
+| `wintimeline` | `ActivitiesCache.db` | Applications and documents used, time in focus and **clipboard history** |
+| `setupapi` | `setupapi.dev.log` | First connection of USB and portable devices (vendor, model, serial number), converted to UTC |
 | `memory` | Memory dump or Volatility 3 JSON outputs | See [Memory](#memory) |
-| `image` | E01/Ex01, raw, split raw, fixed VHD | See [Disk images](#disk-images-and-live-collection) |
+| `image` | E01/Ex01, raw, VHD/VHDX, VMDK, QCOW2 | See [Disk images](#disk-images-and-live-collection) |
 | `inventory` | Any folder | Metadata, hashes, real type by signature, **disguised files**, timeline and Sleuth Kit compatible *bodyfile* (`mactime`) |
 | `ioc` | Any file | ASCII/UTF-16 strings, URLs, IPs, e-mails, registry keys and watchlist (`-o watchlist=`) |
 | `hashset` | Any folder | Matches against MD5/SHA-1/SHA-256 hash lists (`-o hash_list=`) |
@@ -262,7 +292,7 @@ slow). Severities: critical, high, medium, low and info.
 
 What can be registered as evidence:
 
-- **Disk images** (E01, raw, fixed VHD) and **memory dumps**.
+- **Disk images** (E01, raw, VHD/VHDX, VMDK, QCOW2) and **memory dumps**.
 - **Triage collections**: the one made by `forense collect`, [KAPE](https://www.kroll.com/kape) (`KapeTriage`
   target), Velociraptor or CyLR. Register the whole folder.
 - **Images mounted read-only** (Arsenal Image Mounter, `ewfmount`).
@@ -316,11 +346,13 @@ case/
 
 ```
 forense/
-├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, exports
-├── parsers/     regf, lnk, $I, $MFT, ShimCache, EVTX, SRUM, shell items, Jump Lists, Volatility
-├── image/       disk images (libewf + The Sleuth Kit) and pattern-based extractor
+├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports
+├── parsers/     regf (+ transaction logs), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM, shell items, Jump Lists,
+│                Volatility
+├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor
 ├── sigma/       Sigma engine and built-in rules
-├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft, memory)
+├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
+│                usnjrnl, tasks, wmi, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py live collection
 ├── report/      HTML report (Jinja2)
@@ -367,25 +399,27 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 ## Known limitations
 
-- **Hives with pending changes**: transaction logs (`.LOG1`/`.LOG2`) are extracted but not replayed. A finding warns
-  that recent data may be missing.
-- **Images**: VMDK, VHDX and dynamic VHD are not read (convert to raw with `qemu-img`), nor BitLocker-encrypted
-  volumes (decrypt them first) or volume shadow copies (VSS).
+- **Hives with pending changes** are recovered in memory by replaying their transaction logs (`.LOG`, `.LOG1`,
+  `.LOG2`, old and new formats, Marvin32 hashes validated); when the logs were not collected a finding warns that
+  recent data may be missing. Deleted keys and values are not recovered yet.
+- **Images**: volumes encrypted with other systems (VeraCrypt, LUKS) and file systems The Sleuth Kit does not support
+  (ReFS, APFS) are not read.
 - **Live collection**: the volume is read while the system runs, so a file that changes during the copy may be
   inconsistent (the recorded hash is that of the copy).
 - **Memory**: Volatility needs the symbols of the exact Windows build (downloaded from Microsoft or given with
   `-o symbols=`). Only Windows dumps are analysed.
 - **$MFT**: attributes of extension records (`$ATTRIBUTE_LIST`) of heavily fragmented files are not merged.
 - **Carving**: only contiguous (non-fragmented) files are recovered. A PDF ends at its first `%%EOF`.
-- **Local times**: network profile times (`NetworkList`) are shown as system local time, unconverted.
+- **Local times** (network profiles, `setupapi`) are converted to UTC with the time zone rules of the SYSTEM hive of
+  the same evidence (daylight saving time included); without it they are kept as local time.
+- **WMI**: the repository is searched for strings (like PyWMIPersistenceFinder), not parsed as a full CIM database.
 - **Heuristics**: detection rules are leads to prioritise work, not verdicts.
 - The web interface uses Flask's built-in server, meant for local use by one analyst or a small team.
 
 ## Roadmap
 
-- Replaying registry transaction logs and recovering deleted keys
-- Volume shadow copies (VSS), VMDK/VHDX and BitLocker
-- More artifacts: BITS, WMI (`OBJECTS.DATA`), `$UsnJrnl`, `$LogFile`, Windows Timeline, notifications
+- Recovering deleted registry keys and values
+- More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache, Microsoft Defender (MPLog)
 - Digital signature of reports and PDF export
 - Linux and macOS as analysed systems
 

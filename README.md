@@ -1,8 +1,9 @@
 # Forense-Framework
 
 **Framework de análisis forense digital centrado en Windows**: gestión de casos, cadena de custodia verificable,
-imágenes de disco E01/raw, recolección en vivo, análisis de artefactos y de memoria RAM, reglas Sigma y YARA,
-superlínea temporal, revisión del analista, interfaz web y CLI, e informes periciales en **español e inglés**.
+imágenes de disco (E01, raw, VHD/VHDX, VMDK, QCOW2) con instantáneas VSS y BitLocker, recolección en vivo, más de 20
+módulos de artefactos de Windows y memoria RAM, reglas Sigma y YARA, superlínea temporal, vista de ejecución de
+programas, revisión del analista, interfaz web y CLI, e informes periciales en **español e inglés**.
 
 > 🇬🇧 English version: [README.en.md](README.en.md)
 
@@ -21,16 +22,17 @@ forense web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 4. [Flujo de trabajo con la CLI](#flujo-de-trabajo-con-la-cli)
 5. [Imágenes de disco y recolección en vivo](#imágenes-de-disco-y-recolección-en-vivo)
 6. [Memoria RAM](#memoria-ram)
-7. [Revisión del analista](#revisión-del-analista)
-8. [Interfaz web](#interfaz-web)
-9. [Módulos de análisis](#módulos-de-análisis)
-10. [Reglas Sigma y YARA](#reglas-sigma-y-yara)
-11. [Integridad y cadena de custodia](#integridad-y-cadena-de-custodia)
-12. [Arquitectura y cómo crear un módulo](#arquitectura-y-cómo-crear-un-módulo)
-13. [Limitaciones conocidas](#limitaciones-conocidas)
-14. [Hoja de ruta](#hoja-de-ruta)
-15. [Desarrollo](#desarrollo)
-16. [Licencia](#licencia)
+7. [Ejecución de programas](#ejecución-de-programas)
+8. [Revisión del analista](#revisión-del-analista)
+9. [Interfaz web](#interfaz-web)
+10. [Módulos de análisis](#módulos-de-análisis)
+11. [Reglas Sigma y YARA](#reglas-sigma-y-yara)
+12. [Integridad y cadena de custodia](#integridad-y-cadena-de-custodia)
+13. [Arquitectura y cómo crear un módulo](#arquitectura-y-cómo-crear-un-módulo)
+14. [Limitaciones conocidas](#limitaciones-conocidas)
+15. [Hoja de ruta](#hoja-de-ruta)
+16. [Desarrollo](#desarrollo)
+17. [Licencia](#licencia)
 
 ## Principios
 
@@ -50,8 +52,9 @@ Referencias metodológicas: RFC 3227, ISO/IEC 27037, ISO/IEC 27042 y UNE 71506.
 
 Requisitos: **Python 3.10 o superior** (Windows, Linux o macOS). Todas las dependencias tienen binarios precompilados
 para Windows, Linux y macOS: `evtx` (EVTX), `Flask` (web e informes), `PyYAML` (Sigma), `olefile` (Jump Lists),
-`libscca-python` (Prefetch), `libesedb-python` (SRUM), `libewf-python` (E01), `pytsk3` (NTFS, The Sleuth Kit) y
-`yara-x` (YARA).
+`libscca-python` (Prefetch), `libesedb-python` (SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python`
+y `libqcow-python` (discos virtuales), `libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The
+Sleuth Kit) y `yara-x` (YARA).
 
 **Windows (PowerShell):**
 
@@ -83,12 +86,14 @@ forense demo ./laboratorio -a "Tu nombre"
 ```
 
 Genera un escenario **ficticio**: el equipo `WS-CONTAB01` comprometido. Incluye una recolección de triaje (colmenas,
-`$MFT`, Prefetch, ShellBags, accesos directos, papelera, historial de Chrome/Firefox…), una imagen raw para carving, la
+`$MFT`, `$UsnJrnl`, Prefetch, ShellBags, tareas programadas, repositorio WMI, historial de PowerShell, línea de tiempo
+de Windows, `setupapi`, accesos directos, papelera, historial de Chrome/Firefox…), una imagen raw para carving, la
 memoria RAM del equipo (salidas de Volatility 3), una lista de hashes maliciosos, una lista de IOC y una regla YARA.
 Después crea el caso `laboratorio/case_demo`, registra las tres evidencias, lanza el triaje y los módulos de
-inteligencia, y genera más de 40 hallazgos. Entre ellos, un depurador IFEO en `sethc.exe`, timestomping, persistencia
-en `Run`, un servicio en `C:\Windows\Temp`, ejecución de mimikatz y rclone, un `svchost.exe` falso con conexión
-al exterior, un proceso oculto, código inyectado en `explorer.exe`, un USB y archivos borrados.
+inteligencia, y genera más de 50 hallazgos. Entre ellos, un depurador IFEO en `sethc.exe`, timestomping, persistencia
+en `Run`, en una tarea oculta y en una suscripción WMI, un servicio en `C:\Windows\Temp`, ejecución de mimikatz y
+rclone (y su borrado según el diario USN), un `svchost.exe` falso con conexión al exterior, un proceso oculto, código
+inyectado en `explorer.exe`, un comando codificado en el portapapeles, un USB y archivos borrados.
 
 ```bash
 forense -c laboratorio/case_demo hallazgos
@@ -109,7 +114,7 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense -c CASO evidencia listar` / `verificar [ID]` | `evidence list` / `verify` | Listar evidencias o verificar su integridad |
 | `forense modulos` | `modules` | Módulos disponibles y sus opciones |
 | `forense -c CASO triaje EV-001` | `triage` | Ejecutar todos los módulos que encuentren artefactos (si es una imagen, primero extrae) |
-| `forense -c CASO imagen EV-001 [--verificar] [-p PATRÓN] [--todo] [--triaje]` | `image` | Extraer los artefactos de una imagen E01/raw/VHD como evidencia derivada |
+| `forense -c CASO imagen EV-001 [--verificar] [--vss] [--bitlocker-recuperacion -] [-p PATRÓN] [--todo] [--triaje]` | `image` | Extraer los artefactos de una imagen como evidencia derivada |
 | `forense recolectar DESTINO [--origen \\.\C:] [--volatil] [--agregar-al-caso]` | `collect` | Recolección en vivo en Windows |
 | `forense -c CASO analizar MÓDULO EV-001 [-o clave=valor]` | `analyze` | Ejecutar un módulo concreto (`todas` = todas las evidencias) |
 | `forense -c CASO analisis` / `mostrar N [--artefacto X]` | `analyses` / `show` | Ver los análisis y sus registros |
@@ -118,7 +123,8 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense -c CASO destacar N [-n NOTA] [--quitar]` | `bookmark` | Marcar un evento de la línea temporal |
 | `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas) |
 | `forense -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
-| `forense -c CASO exportar {analysis N,timeline,findings,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel) o JSON |
+| `forense -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
+| `forense -c CASO exportar {analysis N,timeline,findings,execution,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel) o JSON |
 | `forense -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
 | `forense -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
 | `forense -c CASO informe [--verificar] [-L en]` | `report` | Informe HTML autocontenido |
@@ -148,9 +154,10 @@ forense -c ./2026-017 informe --verificar
 
 ### Imágenes
 
-Formatos: **E01/Ex01** (EnCase, FTK Imager, ewfacquire), **raw/dd**, **raw dividido** (`.001`, `.002`…) y **VHD
-fijo**. Se leen las particiones MBR/GPT y los sistemas de archivos con The Sleuth Kit, **sin montar nada**, así que se
-obtienen también los archivos bloqueados (`$MFT`, colmenas, SRUM, EVTX).
+Formatos: **E01/Ex01** (EnCase, FTK Imager, ewfacquire), **raw/dd**, **raw dividido** (`.001`, `.002`…), **VHD y
+VHDX** fijos, dinámicos y diferenciales (el disco padre se busca en la misma carpeta), **VMDK** y **QCOW2**. Se leen
+las particiones MBR/GPT y los sistemas de archivos con The Sleuth Kit, **sin montar nada**, así que se obtienen
+también los archivos bloqueados (`$MFT`, colmenas, SRUM, EVTX) y los flujos alternativos como `$UsnJrnl:$J`.
 
 ```bash
 forense -c CASO evidencia agregar portatil.E01
@@ -166,6 +173,13 @@ forense -c CASO triaje EV-002                  # EV-002 = artefactos extraídos 
 - Cada volumen NTFS se guarda en `C/`, `D/`… conservando las fechas de modificación, y cada archivo extraído queda
   registrado con su ruta original, tamaño, MD5, SHA-256, fechas MACB y número de entrada MFT.
 - `triaje` sobre una imagen hace la extracción automáticamente.
+- **Instantáneas de volumen (VSS)**: se listan siempre (con su fecha de creación, también en la línea temporal). Con
+  `--vss` se extrae además el perfil de triaje de cada instantánea, guardando solo los archivos que difieren del
+  volumen actual (`C_vss1/`, `C_vss2/`…): versiones anteriores de colmenas, EVTX borrados o herramientas eliminadas.
+- **BitLocker** (también BitLocker To Go): se descifra con la contraseña de recuperación de 48 dígitos
+  (`--bitlocker-recuperacion -` la pide sin mostrarla), la contraseña o la clave de inicio `.BEK`. Las claves **no se
+  guardan** en el caso: la custodia registra solo una huella SHA-256 que permite demostrar qué clave se usó. Un
+  volumen que no se puede descifrar genera un hallazgo explicando qué falta.
 
 ### Recolección en vivo
 
@@ -206,6 +220,17 @@ forense -c CASO analizar memory EV-003 -o symbols=D:\symbols -o offline=si -o pl
   herramientas ofensivas y de acceso remoto (también con el nombre truncado a 15 caracteres), líneas de comandos
   sospechosas, **conexiones externas** de intérpretes o procesos en ubicaciones sospechosas, **código inyectado**
   (`malfind`, más grave con cabecera PE y menos en procesos con JIT) y servicios sospechosos.
+
+## Ejecución de programas
+
+`forense -c CASO ejecucion` (y la página **Ejecución** de la web) reúne en una fila por programa todo lo que dicen
+Prefetch, Amcache, ShimCache, BAM, UserAssist, SRUM, la línea de tiempo de Windows, los eventos 4688/Sysmon 1, RunMRU y
+la memoria. Cada fuente escribe las rutas a su manera (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`,
+`%ProgramFiles%`, GUID de carpetas conocidas…); se normalizan para unirlas y obtener primera y última ejecución, número
+de ejecuciones, usuarios, SHA-1, líneas de comandos y las fuentes que lo respaldan. Se marcan las herramientas
+ofensivas o de acceso remoto, los nombres que imitan binarios del sistema (`scvhost.exe`) y las ubicaciones
+sospechosas. ShimCache y Amcache prueban presencia, no ejecución, y así se trata. La tabla también se exporta
+(`exportar execution`) y aparece en el informe.
 
 ## Revisión del analista
 
@@ -250,8 +275,14 @@ HTTPS.
 | `recyclebin` | `$Recycle.Bin\<SID>\$I*` | Ruta original, tamaño, fecha de borrado, usuario y si el contenido (`$R`) es recuperable |
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | Historial, descargas, **ejecutables descargados**, servicios de intercambio y paste |
 | `mft` | `$MFT` | Línea temporal $SI/$FN, entradas borradas, rutas completas, **Zone.Identifier** (URL de descarga), **timestomping** |
+| `usnjrnl` | `$Extend\$UsnJrnl:$J` | Creación, borrado y renombrado de archivos con rutas completas (usando el `$MFT`); herramientas ofensivas, ejecutables creados y borrados, borrado de Prefetch y EVTX, **renombrado masivo (ransomware)** y borrado masivo |
+| `tasks` | `Windows\System32\Tasks` | Tareas programadas: autor, desencadenadores, cuenta, acciones; **tareas ocultas**, con intérpretes o en ubicaciones sospechosas, como SYSTEM |
+| `wmi` | `wbem\Repository\OBJECTS.DATA` | **Persistencia WMI** (filtro + consumidor CommandLine/ActiveScript), también suscripciones borradas |
+| `psreadline` | `ConsoleHost_history.txt` | Comandos de PowerShell de cada usuario: descargas, ejecución codificada, desactivación de Defender, herramientas ofensivas |
+| `wintimeline` | `ActivitiesCache.db` | Aplicaciones y documentos usados, tiempo en primer plano e **historial del portapapeles** |
+| `setupapi` | `setupapi.dev.log` | Primera conexión de USB y dispositivos portátiles (fabricante, modelo, número de serie), convertida a UTC |
 | `memory` | Volcado de memoria o salidas JSON de Volatility 3 | Ver [Memoria RAM](#memoria-ram) |
-| `image` | E01/Ex01, raw, raw dividido, VHD fijo | Ver [Imágenes de disco](#imágenes-de-disco-y-recolección-en-vivo) |
+| `image` | E01/Ex01, raw, VHD/VHDX, VMDK, QCOW2 | Ver [Imágenes de disco](#imágenes-de-disco-y-recolección-en-vivo) |
 | `inventory` | Cualquier carpeta | Metadatos, hashes, tipo real por firma, **archivos camuflados**, línea temporal y *bodyfile* compatible con Sleuth Kit (`mactime`) |
 | `ioc` | Cualquier archivo | Cadenas ASCII/UTF-16, URL, IP, correos, claves de registro y lista de vigilancia (`-o watchlist=`) |
 | `hashset` | Cualquier carpeta | Coincidencias con listas de hashes MD5/SHA-1/SHA-256 (`-o hash_list=`) |
@@ -263,7 +294,7 @@ tardar). Severidades: crítico, alto, medio, bajo e informativo.
 
 Qué se puede registrar como evidencia:
 
-- **Imágenes de disco** (E01, raw, VHD fijo) y **volcados de memoria**.
+- **Imágenes de disco** (E01, raw, VHD/VHDX, VMDK, QCOW2) y **volcados de memoria**.
 - **Recolecciones de triaje**: la de `forense recolectar`, [KAPE](https://www.kroll.com/kape) (target `KapeTriage`),
   Velociraptor o CyLR. Se registra la carpeta completa.
 - **Imágenes montadas en solo lectura** (Arsenal Image Mounter, `ewfmount`).
@@ -317,11 +348,13 @@ caso/
 
 ```
 forense/
-├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, exportaciones
-├── parsers/     regf, lnk, $I, $MFT, ShimCache, EVTX, SRUM, shell items, Jump Lists, Volatility
-├── image/       imágenes de disco (libewf + The Sleuth Kit) y extractor por patrones
+├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones
+├── parsers/     regf (+ logs de transacciones), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM, shell items,
+│                Jump Lists, Volatility
+├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
 ├── sigma/       motor Sigma y reglas integradas
-├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft, memory)
+├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
+│                usnjrnl, tasks, wmi, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py recolección en vivo
 ├── report/      informe HTML (Jinja2)
@@ -368,26 +401,28 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 ## Limitaciones conocidas
 
-- **Colmenas con cambios pendientes**: los registros de transacciones (`.LOG1`/`.LOG2`) se extraen pero no se
-  aplican. Se avisa con un hallazgo para que sepas que pueden faltar datos recientes.
-- **Imágenes**: no se leen VMDK, VHDX ni VHD dinámicos (convierte a raw con `qemu-img`), ni volúmenes cifrados con
-  BitLocker (descífralos antes) ni instantáneas de volumen (VSS).
+- **Colmenas con cambios pendientes**: se recuperan en memoria aplicando sus logs de transacciones (`.LOG`, `.LOG1`,
+  `.LOG2`, formatos antiguo y nuevo, validando los hashes Marvin32); si no se recogieron los logs, un hallazgo avisa
+  de que pueden faltar datos recientes. Las claves y valores borrados aún no se recuperan.
+- **Imágenes**: no se leen volúmenes cifrados con otros sistemas (VeraCrypt, LUKS), ni sistemas de archivos que The
+  Sleuth Kit no admite (ReFS, APFS).
 - **Recolección en vivo**: el volumen se lee mientras el sistema funciona, por lo que un archivo que cambie durante la
   copia puede quedar incoherente (el hash registrado es el de lo copiado).
 - **Memoria**: Volatility necesita los símbolos de la versión exacta de Windows (se descargan de Microsoft o se indican
   con `-o symbols=`). Solo se analizan volcados de Windows.
 - **$MFT**: no combina los atributos de los registros de extensión (`$ATTRIBUTE_LIST`) de archivos muy fragmentados.
 - **Carving**: solo recupera archivos contiguos (no fragmentados). Un PDF termina en su primer `%%EOF`.
-- **Fechas en hora local**: las de los perfiles de red (`NetworkList`) se muestran como hora local del sistema, sin
-  convertir.
+- **Fechas en hora local** (perfiles de red, `setupapi`): se convierten a UTC con las reglas de zona horaria de la
+  colmena SYSTEM de la propia evidencia (incluido el horario de verano); sin ella se dejan como hora local.
+- **WMI**: el repositorio se analiza por búsqueda de cadenas (como PyWMIPersistenceFinder), no con un parser completo
+  del formato CIM.
 - **Heurísticas**: las reglas de detección son indicios para priorizar el trabajo, no veredictos.
 - La interfaz web usa el servidor integrado de Flask, pensado para uso local por un analista o un equipo pequeño.
 
 ## Hoja de ruta
 
-- Aplicación de los logs de transacciones del registro y recuperación de claves borradas
-- Instantáneas de volumen (VSS), VMDK/VHDX y BitLocker
-- Más artefactos: BITS, WMI (`OBJECTS.DATA`), `$UsnJrnl`, `$LogFile`, Timeline de Windows, notificaciones
+- Recuperación de claves y valores borrados del registro
+- Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache, Microsoft Defender (MPLog)
 - Firma digital de informes y exportación a PDF
 - Linux y macOS como sistemas analizados
 
