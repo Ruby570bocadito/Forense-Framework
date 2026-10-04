@@ -195,6 +195,6 @@ def test_every_module_is_described():
     names = [m.name for m in available_modules()]
     windows = {"evtx", "registry", "lnk", "recyclebin", "browsers", "mft", "prefetch", "srum", "shellbags",
                "jumplists", "memory", "tasks", "psreadline", "wintimeline", "setupapi",
-               "wmi", "usnjrnl"}
+               "wmi", "usnjrnl", "defender"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first

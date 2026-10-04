@@ -60,6 +60,8 @@ TRIAGE_PATTERNS = (
     "Windows/System32/wbem/Repository/INDEX.BTR", "Windows/System32/wbem/Repository/MAPPING*.MAP",
     "Windows/inf/setupapi*.log",
     "Users/*/AppData/Local/ConnectedDevicesPlatform/*/ActivitiesCache.db*",
+    "ProgramData/Microsoft/Windows Defender/Support/MPLog-*",
+    "ProgramData/Microsoft/Windows Defender/Scans/History/Service/DetectionHistory/**",
     "Users/Public/**/*.exe", "Users/*/AppData/Local/Temp/*.exe", "Users/*/Downloads/*.exe",
     "Windows/Temp/*.exe", "Windows/Temp/*.ps1", "Users/*/AppData/Local/Temp/*.ps1",
 )

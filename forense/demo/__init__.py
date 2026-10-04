@@ -60,6 +60,7 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _setupapi(c / "Windows/inf/setupapi.dev.log")
     _wmi_repository(c / "Windows/System32/wbem/Repository/OBJECTS.DATA")
     _usn_journal(c / "$Extend/$J")
+    _defender(c / "ProgramData/Microsoft/Windows Defender")
 
     image = dest / "disk_unallocated.img"
     _disk_image(image)
@@ -680,3 +681,41 @@ def _usn_journal(path: Path) -> None:
         usn += len(record)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(bytes(data))
+
+
+def _defender(folder: Path) -> None:
+    """Defender support log and detection history: mimikatz detected, then real-time protection was disabled."""
+    def ts(minutes: float) -> str:
+        return _t(minutes).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+
+    implant = "\\Device\\HarddiskVolume3\\Users\\Public\\svchost.exe"
+    lines = [
+        f"{ts(-600)} Engine:Begin Update MP engine 1.1.24080.9",
+        f"{ts(25.1)} SDN:Issuing SDN query for {implant} ({implant}) "
+        f"(sha1={hashlib.sha1(MALWARE).hexdigest()}, sha2={hashlib.sha256(MALWARE).hexdigest()})",
+        f"{ts(26)} ProcessImageName: svchost.exe, Pid: 6248, TotalTime: 412, Count: 96, MaxTime: 31, "
+        f"MaxTimeFile: \\Device\\HarddiskVolume3\\Users\\maria\\Documents\\finanzas\\nominas.xlsx->(UTF-16LE), "
+        f"EstimatedImpact: 12%",
+        f"{ts(56.2)} DETECTION_ADD#1 HackTool:Win32/Mimikatz!pz file:C:\\Users\\Public\\Tools\\mimikatz.exe "
+        f"PidTid: 5208",
+        f"{ts(56.2)} DETECTIONEVENT MPSOURCE_REALTIME HackTool:Win32/Mimikatz!pz "
+        f"file:C:\\Users\\Public\\Tools\\mimikatz.exe;",
+        f"{ts(57)} [RTP] Real-time protection disabled by policy",
+        f"{ts(58.3)} ProcessImageName: mimikatz.exe, Pid: 7012, TotalTime: 18, Count: 4, MaxTime: 9, "
+        f"MaxTimeFile: \\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe->(PE), EstimatedImpact: 1%",
+        f"{ts(121)} ProcessImageName: rclone.exe, Pid: 7344, TotalTime: 1532, Count: 412, MaxTime: 88, "
+        f"MaxTimeFile: \\Device\\HarddiskVolume3\\Users\\maria\\Desktop\\clientes_2026.zip->(ZIP), "
+        f"EstimatedImpact: 37%",
+    ]
+    log = folder / "Support" / "MPLog-20260901-081500.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_bytes("\ufeff".encode("utf-16-le") + "\r\n".join(lines).encode("utf-16-le"))
+    _touch(log, _t(121))
+    history = folder / "Scans/History/Service/DetectionHistory/02/5E7C3B9A-2D41-4F0B-9C4A-71D2E8A1B6F0"
+    history.parent.mkdir(parents=True, exist_ok=True)
+    strings = ["Magic.Version:1.2", "HackTool:Win32/Mimikatz!pz", "file:_C:\\Users\\Public\\Tools\\mimikatz.exe",
+               f"{HOST}\\{USER}", "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"]
+    blob = b"\x08\x00\x00\x00" + b"".join(text.encode("utf-16-le") + b"\x00\x00" + b"\x01\x00\x00\x00"
+                                       for text in strings)
+    history.write_bytes(blob)
+    _touch(history, _t(56.2))

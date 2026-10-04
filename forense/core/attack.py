@@ -167,7 +167,8 @@ def techniques_for(finding: dict) -> list[str]:
         for rule in str(params.get(key) or "").split(","):
             found += BY_RULE.get(rule.strip(), ())
     if code.endswith((".attack_tool", ".remote_access")) or code in ("psreadline.suspicious_command",
-                                                                    "evtx.suspicious_command"):
+                                                                    "evtx.suspicious_command", "defender.detection",
+                                                                    "evtx.defender_detection"):
         text = " ".join(str(v) for v in params.values()).lower()
         for match in _TOOL_NAMES.finditer(text):
             found += [tech for tech, names in TOOLS.items() if match.group(1) in names]

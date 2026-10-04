@@ -13,6 +13,7 @@ from forense.modules.base import (  # noqa: F401
 from forense.modules.generic import carving, hashset, image, inventory, ioc, yara  # noqa: F401
 from forense.modules.windows import (  # noqa: F401
     browsers,
+    defender,
     evtx,
     jumplists,
     lnk,

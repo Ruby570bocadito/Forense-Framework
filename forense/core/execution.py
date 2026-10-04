@@ -22,7 +22,7 @@ from forense.core.heuristics import is_suspicious_location, lookalike_of, strip_
 SOURCES = {
     "prefetch": "prefetch", "amcache_file": "amcache", "shimcache": "shimcache", "bam": "bam",
     "userassist": "userassist", "srum_app_usage": "srum", "timeline_activity": "timeline",
-    "memory_process": "memory", "event": "evtx", "run_mru": "runmru",
+    "memory_process": "memory", "event": "evtx", "run_mru": "runmru", "defender_process": "defender",
 }
 _FOLDERS = {
     "%programfiles%": "\\program files", "%programfiles(x86)%": "\\program files (x86)",
@@ -135,6 +135,9 @@ def _observations(artifact: str, data: dict) -> Iterable[dict]:
         elif data.get("event_id") == 1 and "sysmon" in str(data.get("channel", "")).lower() and values.get("Image"):
             yield {"path": values["Image"], "times": [data.get("timestamp")], "user": values.get("User"),
                    "command": values.get("CommandLine")}
+    elif artifact == "defender_process":
+        # Defender saw the process's file activity: it was running at that time (the name has no folder)
+        yield {"path": data.get("name", ""), "times": [data.get("timestamp")]}
     elif artifact == "run_mru":
         command = data.get("command", "")
         yield {"path": executable_of(command), "times": [], "user": data.get("user"),

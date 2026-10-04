@@ -341,7 +341,8 @@ forense -c CASE analyze memory EV-003 -o symbols=D:\symbols -o offline=yes -o pl
 ## Program execution
 
 `forense -c CASE execution` (and the **Execution** web page) gathers in one row per program everything Prefetch,
-Amcache, ShimCache, BAM, UserAssist, SRUM, the Windows Timeline, 4688/Sysmon 1 events, RunMRU and memory say about it.
+Amcache, ShimCache, BAM, UserAssist, SRUM, the Windows Timeline, 4688/Sysmon 1 events, RunMRU, Microsoft Defender and
+memory say about it.
 Each source writes paths its own way (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`, `%ProgramFiles%`,
 known-folder GUIDs…); they are normalised to join them, giving first and last execution, run count, users, SHA-1,
 command lines and the supporting sources. Offensive and remote-access tools, names imitating system binaries
@@ -441,6 +442,7 @@ password for container health checks.
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
 | `tasks` | `Windows\System32\Tasks` | Scheduled tasks: author, triggers, account, actions; **hidden tasks**, tasks running interpreters or binaries from suspicious locations, as SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **WMI persistence** (filter + CommandLine/ActiveScript consumer), deleted subscriptions included |
+| `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detections (threat, resource, user), processes active according to its performance log (evidence of execution that survives clearing the EVTX) and files queried with SHA-1/SHA-256 |
 | `psreadline` | `ConsoleHost_history.txt` | Each user's PowerShell commands: downloads, encoded execution, Defender tampering, offensive tools |
 | `wintimeline` | `ActivitiesCache.db` | Applications and documents used, time in focus and **clipboard history** |
 | `setupapi` | `setupapi.dev.log` | First connection of USB and portable devices (vendor, model, serial number), converted to UTC |
@@ -585,7 +587,7 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 ## Roadmap
 
-- More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache, Microsoft Defender (MPLog)
+- More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache
 - Digital signature of reports
 - Cross-case correlation and intelligence import from MISP/OpenCTI
 - Linux and macOS as analysed systems

@@ -344,8 +344,8 @@ forense -c CASO analizar memory EV-003 -o symbols=D:\symbols -o offline=si -o pl
 ## Ejecución de programas
 
 `forense -c CASO ejecucion` (y la página **Ejecución** de la web) reúne en una fila por programa todo lo que dicen
-Prefetch, Amcache, ShimCache, BAM, UserAssist, SRUM, la línea de tiempo de Windows, los eventos 4688/Sysmon 1, RunMRU y
-la memoria. Cada fuente escribe las rutas a su manera (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`,
+Prefetch, Amcache, ShimCache, BAM, UserAssist, SRUM, la línea de tiempo de Windows, los eventos 4688/Sysmon 1, RunMRU,
+Microsoft Defender y la memoria. Cada fuente escribe las rutas a su manera (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`,
 `%ProgramFiles%`, GUID de carpetas conocidas…); se normalizan para unirlas y obtener primera y última ejecución, número
 de ejecuciones, usuarios, SHA-1, líneas de comandos y las fuentes que lo respaldan. Se marcan las herramientas
 ofensivas o de acceso remoto, los nombres que imitan binarios del sistema (`scvhost.exe`) y las ubicaciones
@@ -447,6 +447,7 @@ las comprobaciones de estado de contenedores.
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | Creación, borrado y renombrado de archivos con rutas completas (usando el `$MFT`); herramientas ofensivas, ejecutables creados y borrados, borrado de Prefetch y EVTX, **renombrado masivo (ransomware)** y borrado masivo |
 | `tasks` | `Windows\System32\Tasks` | Tareas programadas: autor, desencadenadores, cuenta, acciones; **tareas ocultas**, con intérpretes o en ubicaciones sospechosas, como SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **Persistencia WMI** (filtro + consumidor CommandLine/ActiveScript), también suscripciones borradas |
+| `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detecciones (amenaza, recurso, usuario), procesos activos según su registro de rendimiento (prueba de ejecución que sobrevive al borrado de los EVTX) y ficheros consultados con SHA-1/SHA-256 |
 | `psreadline` | `ConsoleHost_history.txt` | Comandos de PowerShell de cada usuario: descargas, ejecución codificada, desactivación de Defender, herramientas ofensivas |
 | `wintimeline` | `ActivitiesCache.db` | Aplicaciones y documentos usados, tiempo en primer plano e **historial del portapapeles** |
 | `setupapi` | `setupapi.dev.log` | Primera conexión de USB y dispositivos portátiles (fabricante, modelo, número de serie), convertida a UTC |
@@ -592,7 +593,7 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 ## Hoja de ruta
 
-- Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache, Microsoft Defender (MPLog)
+- Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache
 - Firma digital de informes
 - Correlación entre casos e importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
