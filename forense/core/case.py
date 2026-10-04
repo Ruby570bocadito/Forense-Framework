@@ -148,6 +148,16 @@ class Page:
     rows: list = field(default_factory=list)
 
 
+def like(text: str) -> str:
+    """LIKE pattern that matches ``text`` literally anywhere (``%`` and ``_`` are not wildcards)."""
+    return "%" + text.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+
+
+def json_like(text: str) -> str:
+    """LIKE pattern for ``text`` inside JSON-encoded data (backslashes and quotes are escaped there)."""
+    return like(json.dumps(text, ensure_ascii=False)[1:-1])
+
+
 @contextmanager
 def transaction(conn: sqlite3.Connection) -> Iterator[None]:
     """Explicit write transaction (connections run in autocommit mode)."""
@@ -628,8 +638,8 @@ class Case(ReviewMixin):
             where.append("artifact = ?")
             params.append(artifact)
         if search:
-            where.append("data LIKE ?")
-            params.append(f"%{search}%")
+            where.append("data LIKE ? ESCAPE '!'")
+            params.append(json_like(search))
         clause = " AND ".join(where)
         total = self.conn.execute(f"SELECT COUNT(*) FROM records WHERE {clause}", params).fetchone()[0]
         sql = f"SELECT seq, artifact, data FROM records WHERE {clause} ORDER BY seq"
@@ -641,10 +651,10 @@ class Case(ReviewMixin):
             "SELECT artifact, COUNT(*) FROM records WHERE analysis_id = ? GROUP BY artifact ORDER BY artifact",
             (int(analysis_id),))]
 
-    def events(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
-               source: Optional[str] = None, evidence_id: Optional[str] = None, min_severity: Optional[str] = None,
-               bookmarked: bool = False, offset: int = 0, limit: Optional[int] = 200) -> Page:
-        """Timeline events; each row carries ``bookmark`` (the analyst's latest mark) or None."""
+    def _event_query(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
+                     source: Optional[str] = None, evidence_id: Optional[str] = None,
+                     min_severity: Optional[str] = None, bookmarked: bool = False) -> tuple[str, str, list]:
+        """FROM clause, WHERE clause and parameters of the timeline filters."""
         where, params = ["1=1"], []
         if start:
             where.append("e.timestamp >= ?")
@@ -653,8 +663,9 @@ class Case(ReviewMixin):
             where.append("e.timestamp <= ?")
             params.append(end)
         if search:
-            where.append("(e.details LIKE ? OR e.path LIKE ? OR e.type LIKE ? OR rv.note LIKE ?)")
-            params += [f"%{search}%"] * 4
+            where.append("(e.details LIKE ?1 ESCAPE '!' OR e.path LIKE ?1 ESCAPE '!' OR e.type LIKE ?1 ESCAPE '!' "
+                         "OR rv.note LIKE ?1 ESCAPE '!')".replace("?1", "?"))
+            params += [like(search)] * 4
         if source:
             where.append("e.source = ?")
             params.append(source)
@@ -668,8 +679,37 @@ class Case(ReviewMixin):
             params.append(SEVERITY_RANK.get(min_severity, 0))
         if bookmarked:
             where.append("rv.status = 'bookmarked'")
-        clause = " AND ".join(where)
         source_sql = f"events e LEFT JOIN {latest_review_sql('event')} rv ON rv.target_id = e.id"
+        return source_sql, " AND ".join(where), params
+
+    def event_histogram(self, start: Optional[str] = None, end: Optional[str] = None, **filters: object
+                        ) -> tuple[list[tuple[str, int, int]], Optional[str], Optional[str], int]:
+        """Rows ``(time, events, events of medium+ severity)`` of the filtered timeline, its first and last
+        time, and the resolution of the rows in seconds (per minute, hour or day depending on the span)."""
+        source_sql, clause, params = self._event_query(start, end, **filters)
+        first, last = self.conn.execute(f"SELECT MIN(e.timestamp), MAX(e.timestamp) FROM {source_sql} "
+                                        f"WHERE {clause}", params).fetchone()
+        if not first:
+            return [], None, None, 3600
+        low, high = (start or first)[:19], (end or last)[:19]
+        try:
+            span = (datetime.fromisoformat(high) - datetime.fromisoformat(low)).total_seconds()
+        except ValueError:
+            span = 86400 * 365
+        width, suffix, resolution = ((16, ":00Z", 60) if span <= 2 * 86400 else
+                                     (13, ":00:00Z", 3600) if span <= 62 * 86400 else (10, "T00:00:00Z", 86400))
+        rows = self.conn.execute(
+            f"SELECT substr(e.timestamp, 1, {width}) || '{suffix}', COUNT(*), "
+            f"SUM(CASE WHEN e.severity IN ('medium', 'high', 'critical') THEN 1 ELSE 0 END) "
+            f"FROM {source_sql} WHERE {clause} GROUP BY 1 ORDER BY 1", params).fetchall()
+        return [(r[0], r[1], r[2] or 0) for r in rows], first, last, resolution
+
+    def events(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
+               source: Optional[str] = None, evidence_id: Optional[str] = None, min_severity: Optional[str] = None,
+               bookmarked: bool = False, offset: int = 0, limit: Optional[int] = 200) -> Page:
+        """Timeline events; each row carries ``bookmark`` (the analyst's latest mark) or None."""
+        source_sql, clause, params = self._event_query(start, end, search, source, evidence_id, min_severity,
+                                                       bookmarked)
         total = self.conn.execute(f"SELECT COUNT(*) FROM {source_sql} WHERE {clause}", params).fetchone()[0]
         rows = self.conn.execute(
             f"SELECT e.*, rv.status AS review_status, rv.note AS review_note, rv.actor AS review_actor, "

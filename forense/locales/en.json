@@ -1312,6 +1312,8 @@
  "verify.summary_ok": "Integrity verified: everything matches.",
  "verify.unreadable": "the evidence cannot be read",
  "web.activity": "Activity during the incident",
+ "web.activity_filtered": "Activity of the selection",
+ "web.activity_filtered_help": "Timeline events with the current filters; click a bar to narrow down to that interval.",
  "web.add_evidence": "Register evidence",
  "web.alerts": "with alerts",
  "web.all_findings": "See all findings",
@@ -1400,6 +1402,14 @@
  "web.run_auto": "Automatic",
  "web.run_module": "Run a module",
  "web.run_triage": "Run triage",
+ "web.search_case": "Search the case…",
+ "web.search_example": "Example",
+ "web.search_help": "Searches findings, timeline, analysis records, executed programs and evidence at once (case-insensitive; paths with \\ supported).",
+ "web.search_none": "Nothing matches \"{query}\".",
+ "web.search_open_timeline": "Show the {total} events in the timeline",
+ "web.search_records": "Analysis records",
+ "web.search_results": "Case search",
+ "web.search_too_short": "Type at least two characters.",
  "web.seen_elsewhere": "Seen in other cases",
  "web.shared_iocs": "shared indicators of compromise",
  "web.shared_observables": "shared observables",
@@ -1422,5 +1432,6 @@
  "web.unit.week": "per week",
  "web.use_as_conclusions": "Save as conclusions",
  "web.verify": "Verify",
- "web.workspace": "Workspace"
+ "web.workspace": "Workspace",
+ "web.zoom_out": "Clear the interval"
 }

@@ -417,6 +417,10 @@ forense web -w ./casos            # http://127.0.0.1:8765
   ATT&CK, y evidencias con botones **Automático** (playbook completo) y **Triaje**. Los gráficos tienen vista de tabla,
   descripciones emergentes y siguen el tema claro u oscuro del sistema.
 - **ATT&CK**: matriz de técnicas observadas, secuencia del incidente y borrador del relato.
+- **Búsqueda en el caso** (caja de la barra superior): busca a la vez en hallazgos, línea temporal, registros de todos
+  los análisis, programas ejecutados y evidencias; admite rutas con `\` y trata `%` y `_` como texto.
+- **Línea temporal** con gráfico de actividad de la selección: respeta los filtros y cada barra acota a su intervalo
+  (de meses a tramos de 10 minutos).
 - **Evidencias**: alta por ruta (el hash se calcula en segundo plano), hashes, origen de las evidencias derivadas y
   verificación de integridad.
 - **Análisis**: formulario por módulo con sus opciones, triaje automático, resultados paginados con búsqueda por

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge with context %}
+{% block content %}
+<h1>{{ _('web.search_results') }}</h1>
+<form class="panel" method="get">
+  <div class="row">
+    <div><input type="search" name="q" value="{{ query }}" placeholder="{{ _('web.search_case') }}" autofocus></div>
+    <div style="flex:0 0 auto"><button type="submit">{{ _('common.search') }}</button></div>
+  </div>
+  <div class="muted small">{{ _('web.search_help') }}</div>
+</form>
+{% if query and query | length < 2 %}<div class="panel empty">{{ _('web.search_too_short') }}</div>
+{% elif query %}
+<div class="tabs">
+  <a href="#s-findings">{{ _('nav.findings') }} ({{ results.findings | length }})</a>
+  <a href="#s-events">{{ _('nav.timeline') }} ({{ results.events_total }})</a>
+  <a href="#s-records">{{ _('web.search_records') }} ({{ results.records | sum(attribute='count') }})</a>
+  <a href="#s-programs">{{ _('nav.execution') }} ({{ results.programs | length }})</a>
+  <a href="#s-evidence">{{ _('nav.evidence') }} ({{ results.evidence | length }})</a>
+</div>
+{% if not results.total %}<div class="panel empty">{{ _('web.search_none', query=query) }}</div>{% endif %}
+
+{% if results.findings %}
+<section class="panel" id="s-findings">
+  <div class="panel-head"><h2>{{ _('nav.findings') }}</h2><a href="{{ url_for('findings', slug=slug) }}">{{ _('web.all_findings') }} →</a></div>
+  <ul class="list-findings">
+  {% for f in results.findings[:50] %}
+    <li>{{ sevbadge(f.severity) }} <a href="{{ url_for('findings', slug=slug) }}#f{{ f.id }}"><b>{{ finding_title(f) }}</b></a>
+      <br><span class="muted small">{{ f.timestamp | ts }} · #{{ f.id }} · {{ f.evidence_id }}</span> <span class="small">{{ finding_description(f) }}</span></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.events %}
+<section class="panel" id="s-events">
+  <div class="panel-head"><h2>{{ _('nav.timeline') }}</h2><a href="{{ url_for('timeline', slug=slug, q=query) }}">{{ _('web.search_open_timeline', total=results.events_total) }} →</a></div>
+  <div class="table-wrap"><table>
+    <tr><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
+    {% for e in results.events %}
+    <tr><td class="mono" style="white-space:nowrap"><a href="{{ url_for('timeline', slug=slug, q=query) }}#e{{ e.id }}">{{ e.timestamp | ts }}</a></td>
+      <td>{{ e.type | etype }}</td><td class="wrap">{{ e.details }}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endif %}
+
+{% if results.records %}
+<section class="panel" id="s-records">
+  <div class="panel-head"><h2>{{ _('web.search_records') }}</h2></div>
+  <div class="table-wrap"><table>
+    <tr><th>{{ _('nav.analyses') }}</th><th>{{ _('field.artifact') }}</th><th>{{ _('field.count') }}</th><th>{{ _('web.search_example') }}</th></tr>
+    {% for r in results.records %}
+    <tr><td>#{{ r.analysis_id }} · {{ r.module }} · {{ r.evidence_id }}</td>
+      <td><a href="{{ url_for('analysis', slug=slug, analysis_id=r.analysis_id, artifact=r.artifact, q=query) }}">{{ r.artifact | artifact }}</a></td>
+      <td>{{ r.count }}</td><td class="wrap mono small">{{ r.sample }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endif %}
+
+{% if results.programs %}
+<section class="panel" id="s-programs">
+  <div class="panel-head"><h2>{{ _('nav.execution') }}</h2><a href="{{ url_for('execution', slug=slug, q=query) }}">{{ _('nav.execution') }} →</a></div>
+  <ul class="list-findings">
+  {% for p in results.programs %}
+    <li><b>{{ p.name }}</b>{% for flag in p.flags %} <span class="badge high">{{ flag | rule }}</span>{% endfor %}
+      <div class="muted mono small">{{ p.path }}</div>
+      <div class="small">{{ p.first | ts }} → {{ p.last | ts }} · {% for s, n in p.sources | dictsort %}<span class="tag">{{ s }}</span> {% endfor %}</div></li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if results.evidence %}
+<section class="panel" id="s-evidence">
+  <div class="panel-head"><h2>{{ _('nav.evidence') }}</h2></div>
+  {% for ev in results.evidence %}<div><b>{{ ev.id }}</b> {{ ev.description }} <span class="muted mono small">{{ ev.source }}</span></div>{% endfor %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

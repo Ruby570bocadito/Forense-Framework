@@ -63,6 +63,12 @@ _DELETED_SERVICE = re.compile(r"(^|\\)controlset\d{3}\\services\\([^\\]+)$", re.
 _DELETED_TASK = re.compile(r"\\schedule\\taskcache\\tree\\(.+)$", re.IGNORECASE)
 _DELETED_IFEO = re.compile(r"\\image file execution options\\([^\\]+)$", re.IGNORECASE)
 _DELETED_RUN = re.compile(r"\\currentversion\\(run|runonce)$", re.IGNORECASE)
+# with many deleted keys (normal Windows churn), only these reach the timeline
+_DELETED_NOTABLE = re.compile(r"\\(services|currentversion\\run|runonce|taskcache|enum\\usbstor|enum\\usb\\"
+                              r"|image file execution options|winlogon|uninstall|mounteddevices|bam\\state"
+                              r"|appcompatflags|terminal server client|wow6432node\\microsoft\\windows\\currentversion"
+                              r"\\run)", re.IGNORECASE)
+MAX_DELETED_EVENTS = 200
 
 
 def _filetime_bytes(raw: object) -> Optional[datetime]:
@@ -166,7 +172,8 @@ class RegistryModule(Module):
             })
             if key.still_present:
                 continue  # an older copy of a key that still exists
-            ctx.event(key.last_written, "registry_key_deleted", key.path, path=rel)
+            if len(keys) <= MAX_DELETED_EVENTS or _DELETED_NOTABLE.search("\\" + key.path):
+                ctx.event(key.last_written, "registry_key_deleted", key.path, path=rel)
             data = {(v.name or "").lower(): _text(v.data) for v in key.values}
             service, task, ifeo = (_DELETED_SERVICE.search(key.path), _DELETED_TASK.search(key.path),
                                    _DELETED_IFEO.search(key.path))

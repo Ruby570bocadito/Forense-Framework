@@ -1312,6 +1312,8 @@
  "verify.summary_ok": "Integridad verificada: todo coincide.",
  "verify.unreadable": "la evidencia no se puede leer",
  "web.activity": "Actividad en el periodo del incidente",
+ "web.activity_filtered": "Actividad de la selección",
+ "web.activity_filtered_help": "Eventos de la línea temporal con los filtros actuales; pulse una barra para acotar a ese intervalo.",
  "web.add_evidence": "Registrar evidencia",
  "web.alerts": "con alertas",
  "web.all_findings": "Ver todos los hallazgos",
@@ -1400,6 +1402,14 @@
  "web.run_auto": "Automático",
  "web.run_module": "Ejecutar un módulo",
  "web.run_triage": "Lanzar triaje",
+ "web.search_case": "Buscar en el caso…",
+ "web.search_example": "Ejemplo",
+ "web.search_help": "Busca a la vez en hallazgos, línea temporal, registros de los análisis, programas ejecutados y evidencias (sin distinguir mayúsculas; rutas con \\ admitidas).",
+ "web.search_none": "Nada coincide con «{query}».",
+ "web.search_open_timeline": "Ver los {total} eventos en la línea temporal",
+ "web.search_records": "Registros de los análisis",
+ "web.search_results": "Búsqueda en el caso",
+ "web.search_too_short": "Escriba al menos dos caracteres.",
  "web.seen_elsewhere": "Visto en otros casos",
  "web.shared_iocs": "indicadores de compromiso compartidos",
  "web.shared_observables": "elementos compartidos",
@@ -1422,5 +1432,6 @@
  "web.unit.week": "por semana",
  "web.use_as_conclusions": "Guardar como conclusiones",
  "web.verify": "Verificar",
- "web.workspace": "Espacio de trabajo"
+ "web.workspace": "Espacio de trabajo",
+ "web.zoom_out": "Quitar el intervalo"
 }

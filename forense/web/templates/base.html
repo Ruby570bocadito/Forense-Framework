@@ -13,6 +13,11 @@
   <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Forense<span>-Framework</span></span></a>
   {% if slug is defined %}<span class="case-name">/ {{ case.name }} <span class="mono">({{ case.id }})</span></span>{% endif %}
   <span class="spacer"></span>
+  {% if slug is defined %}
+  <form method="get" action="{{ url_for('search', slug=slug) }}" role="search" class="global-search">
+    <input type="search" name="q" value="{{ query if query is defined else '' }}" placeholder="{{ _('web.search_case') }}" aria-label="{{ _('web.search_case') }}">
+  </form>
+  {% endif %}
   <form method="post" action="{{ url_for('set_analyst') }}" title="{{ _('web.analyst_help') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input name="analyst" value="{{ analyst }}" placeholder="{{ _('web.analyst') }}" aria-label="{{ _('web.analyst') }}">

@@ -52,7 +52,9 @@ a:hover { text-decoration: underline; }
 .brand:hover { text-decoration: none; }
 .brand img { width: 26px; height: 26px; }
 .brand-name span { color: #7fb6ec; font-weight: 600; }
-.topbar .case-name { color: var(--top-muted); }
+.topbar .case-name { color: var(--top-muted); min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+@media (min-width: 901px) { .topbar { flex-wrap: nowrap; } .topbar .lang { white-space: nowrap; } }
 .topbar .case-name .mono { color: var(--top-muted); }
 .topbar .spacer { flex: 1; }
 .topbar form { display: flex; gap: 6px; align-items: center; margin: 0; }
@@ -225,3 +227,5 @@ textarea.draft { min-height: 180px; font-family: inherit; }
 ul.shared { list-style: none; margin: 0; padding: 0; }
 ul.shared li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 ul.shared li:last-child { border-bottom: 0; }
+.topbar .global-search input { width: 240px; }
+@media (max-width: 900px) { .topbar .global-search input { width: 130px; } }

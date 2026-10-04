@@ -14,6 +14,13 @@
     <div style="flex:0 0 auto"><button type="submit">{{ _('common.filter') }}</button></div>
   </div>
 </form>
+{% if chart %}
+<section class="panel">
+  <div class="panel-head"><h2>{{ _('web.activity_filtered') }}</h2>{% if args.get('from') or args.get('to') %}<a href="{{ url_for('timeline', slug=slug, **(filter_args | reject_keys('from', 'to'))) }}">{{ _('web.zoom_out') }}</a>{% endif %}</div>
+  <div class="muted small">{{ _('web.activity_filtered_help') }}</div>
+  {{ chart }}
+</section>
+{% endif %}
 <form method="post" action="{{ url_for('export', slug=slug, what='timeline', **filter_args) }}" style="margin-bottom:8px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>

@@ -412,6 +412,10 @@ forense web -w ./cases            # http://127.0.0.1:8765
   **Automatic** (full playbook) and **Triage** buttons. Charts come with a table view and tooltips and follow the
   system light or dark theme.
 - **ATT&CK**: matrix of techniques observed, incident sequence and draft storyline.
+- **Case search** (box in the top bar): searches findings, timeline, records of every analysis, executed programs
+  and evidence at once; paths with `\` work and `%` and `_` are plain text.
+- **Timeline** with an activity chart of the selection: it follows the filters and each bar narrows down to its
+  interval (from months to 10-minute slots).
 - **Evidence**: registration by path (hashed in the background), hashes, origin of derived evidence and integrity
   verification.
 - **Analyses**: per-module form with its options, automatic triage, paginated results with per-artifact search and

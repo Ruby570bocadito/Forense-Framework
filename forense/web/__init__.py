@@ -12,6 +12,7 @@ import math
 import os
 import re
 import secrets
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -120,6 +121,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         "etype": lambda e: event_type_label(e, g.get("lang")), "artifact": lambda a: artifact_label(a, g.get("lang")),
         "action": lambda a: custody_action_label(a, g.get("lang")), "status": lambda s: status_label(s, g.get("lang")),
         "rule": lambda r: rule_label(r, g.get("lang")),
+        "reject_keys": lambda d, *keys: {k: v for k, v in d.items() if k not in keys},
     }.items():
         app.jinja_env.filters[name] = func
 
@@ -443,9 +445,39 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             events = case.events(offset=(page - 1) * PAGE_SIZE, limit=PAGE_SIZE, **filters)
             filter_args = {k: request.args[k] for k in ("from", "to", "q", "source", "severity", "evidence",
                                                         "bookmarked") if request.args.get(k)}
+            chart = _timeline_chart(case, slug, filters, filter_args) if events.total else ""
             return render_template("timeline.html", slug=slug, case=case.info, events=events, page=page,
                                    pages=max(1, math.ceil(events.total / PAGE_SIZE)), sources=case.event_sources(),
-                                   args=request.args, filter_args=filter_args)
+                                   args=request.args, filter_args=filter_args, chart=chart)
+
+    def _timeline_chart(case: Case, slug: str, filters: dict, filter_args: dict):
+        """Events over time for the current filters; each bar narrows the timeline to its interval."""
+        from forense.charts import activity_chart, bucketize
+        from forense.core.overview import _parse
+
+        rows, first, last, resolution = case.event_histogram(**filters)
+        start = _parse(filters.get("start")) or _parse(first)
+        end = _parse(filters.get("end")) or _parse(last)
+        if not rows or start is None or end is None:
+            return ""
+        if end <= start:
+            end = start + timedelta(hours=1)
+        buckets, unit = bucketize(rows, start, end, min_seconds=min(resolution, 3600) if resolution < 86400 else 86400)
+        findings = [{"timestamp": f["timestamp"], "severity": f["severity"],
+                     "label": f"{severity_label(f['severity'], g.lang)} · {finding_title(f, g.lang)}"}
+                    for f in case.findings() if f["severity"] in ("medium", "high", "critical") and f.get("timestamp")
+                    and (f.get("review") or {}).get("status") != "false_positive"]
+        others = {k: v for k, v in filter_args.items() if k not in ("from", "to")}
+        return activity_chart(buckets, unit, findings, _chart_labels(), link=url_for("timeline", slug=slug, **others))
+
+    @app.route("/c/<slug>/search")
+    def search(slug: str):
+        from forense.core.search import search_case
+
+        query = request.args.get("q", "").strip()[:200]
+        with open_case(slug) as case:
+            results = search_case(case, query, g.lang)
+            return render_template("search.html", slug=slug, case=case.info, query=query, results=results)
 
     @app.route("/c/<slug>/execution")
     def execution(slug: str):

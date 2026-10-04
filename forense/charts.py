@@ -68,22 +68,24 @@ class Bucket:
 
 
 UNITS = (  # (name, seconds, label format)
-    ("hour", 3600, "%d/%m %H:%M"), ("6h", 6 * 3600, "%d/%m %H:%M"), ("day", 86400, "%d/%m/%Y"),
+    ("10min", 600, "%d/%m %H:%M"), ("30min", 1800, "%d/%m %H:%M"), ("hour", 3600, "%d/%m %H:%M"), ("6h", 6 * 3600, "%d/%m %H:%M"), ("day", 86400, "%d/%m/%Y"),
     ("week", 7 * 86400, "%d/%m/%Y"), ("month", 30 * 86400, "%m/%Y"),
 )
 
 
-def choose_unit(start: datetime, end: datetime, max_buckets: int = 72) -> tuple[str, int, str]:
+def choose_unit(start: datetime, end: datetime, max_buckets: int = 72, min_seconds: int = 3600) -> tuple[str, int, str]:
+    """The finest unit that keeps at most ``max_buckets`` bars and is not finer than the data (``min_seconds``)."""
     span = max((end - start).total_seconds(), 1)
     for unit in UNITS:
-        if span / unit[1] <= max_buckets:
+        if unit[1] >= min_seconds and span / unit[1] <= max_buckets:
             return unit
     return UNITS[-1]
 
 
-def bucketize(rows: list[tuple[str, int, int]], start: datetime, end: datetime) -> tuple[list[Bucket], str]:
-    """``(timestamp, events, flagged events)`` rows (e.g. per hour) summed per bucket between ``start`` and ``end``."""
-    name, seconds, _ = choose_unit(start, end)
+def bucketize(rows: list[tuple[str, int, int]], start: datetime, end: datetime,
+              min_seconds: int = 3600) -> tuple[list[Bucket], str]:
+    """``(timestamp, events, flagged events)`` rows (per hour, or per ``min_seconds``) summed per bucket."""
+    name, seconds, _ = choose_unit(start, end, min_seconds=min_seconds)
     origin = datetime.fromtimestamp(math.floor(start.timestamp() / seconds) * seconds, timezone.utc)
     total = max(1, math.ceil((end - origin).total_seconds() / seconds))
     buckets = [Bucket(origin + timedelta(seconds=i * seconds), 0) for i in range(total)]
@@ -128,12 +130,13 @@ def activity_chart(buckets: list[Bucket], unit: str, findings: list[dict], label
         h = max(1.0, b.count * scale)
         y = top + plot_h - h
         end = b.start + timedelta(seconds=seconds)
-        end_text = end.strftime("%H:%M" if unit in ("hour", "6h") else "%Y-%m-%d")
+        end_text = end.strftime("%H:%M" if unit in ("10min", "30min", "hour", "6h") else "%Y-%m-%d")
         tip = f'{b.start:%Y-%m-%d %H:%M} – {end_text}: {b.count:,} {labels["events"]}' + \
             (f', {b.flagged} {labels["flagged"]}' if b.flagged else "")
         radius = min(4.0, bar / 2, h)
         cls = "viz-bar viz-bar-flagged" if b.flagged else "viz-bar"
-        href = f'{link}?from={b.start:%Y-%m-%dT%H:%M}&to={end:%Y-%m-%dT%H:%M}' if link else ""
+        joiner = "&" if link and "?" in link else "?"
+        href = f'{link}{joiner}from={b.start:%Y-%m-%dT%H:%M}&to={end:%Y-%m-%dT%H:%M}' if link else ""
         shape = (f'<path class="{cls}" d="M{x:.1f},{y + h:.1f} V{y + radius:.1f} Q{x:.1f},{y:.1f} '
                  f'{x + radius:.1f},{y:.1f} H{x + bar - radius:.1f} Q{x + bar:.1f},{y:.1f} {x + bar:.1f},'
                  f'{y + radius:.1f} V{y + h:.1f} Z"{_tip(tip)}><title>{escape(tip)}</title></path>')
