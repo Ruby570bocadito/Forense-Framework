@@ -11,7 +11,7 @@
   {% set v = verifications.get(ev.id) %}
   <tr>
     <td><b>{{ ev.id }}</b><div class="muted">{{ ev.added_at | ts }}<br>{{ ev.added_by }}</div></td>
-    <td class="wrap">{{ ev.description }}<div class="muted mono">{{ ev.source }}</div>{% if ev.copied %}<div class="muted">{{ _('evidence.working_copy') }}</div>{% endif %}</td>
+    <td class="wrap">{{ ev.description }}<div class="muted mono">{{ ev.source }}</div>{% if ev.derived_from %}<div class="muted">{{ _('evidence.derived_from', id=ev.derived_from) }}</div>{% endif %}{% if ev.copied %}<div class="muted">{{ _('evidence.working_copy') }}</div>{% endif %}</td>
     <td>{{ _('evidence.kind.' + ev.kind) }}<div class="muted">{{ ev.file_count }} {{ _('field.files') | lower }}</div></td>
     <td>{{ ev.size }} B</td>
     <td class="mono wrap">{% for algo, value in ev.hashes.items() %}{{ algo | upper }}: {{ value }}<br>{% endfor %}</td>

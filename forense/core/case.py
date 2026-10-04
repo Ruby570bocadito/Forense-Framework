@@ -35,6 +35,7 @@ from forense.core.errors import CaseError, ForenseError
 from forense.core.hashing import DEFAULT_ALGORITHMS, ProgressCallback, hash_file, hash_tree
 from forense.core.review import REVIEW_SCHEMA, ReviewMixin, latest_review_sql
 from forense.core.utils import utc_now
+from forense.i18n import t
 
 DB_NAME = "forense.db"
 SCHEMA_VERSION = 1
@@ -94,12 +95,13 @@ class Evidence:
     added_at: str
     added_by: str
     copied: bool
+    derived_from: Optional[str] = None  # evidence id this was extracted from (disk images)
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Evidence":
         return cls(row["id"], row["path"], row["source"], row["kind"], row["size"], row["file_count"],
                    json.loads(row["hashes"]), row["description"], row["added_at"], row["added_by"],
-                   bool(row["copied"]))
+                   bool(row["copied"]), row["derived_from"])
 
 
 @dataclass
@@ -232,6 +234,7 @@ class Case(ReviewMixin):
             (root / sub).mkdir(exist_ok=True)
         conn = cls._connect(root / DB_NAME)
         conn.executescript(_SCHEMA)
+        _migrate(conn)
         now = datetime.now(timezone.utc)
         meta = {
             "id": f"CASE-{now:%Y%m%d}-{uuid.uuid4().hex[:6].upper()}",
@@ -258,6 +261,7 @@ class Case(ReviewMixin):
             raise CaseError("error.case_not_found", path=str(root))
         conn = cls._connect(root / DB_NAME)
         conn.executescript(_SCHEMA)
+        _migrate(conn)
         return cls(root, conn)
 
     def close(self) -> None:
@@ -306,13 +310,22 @@ class Case(ReviewMixin):
         raise CaseError("error.evidence_unsupported", path=str(path))
 
     def add_evidence(self, source: Path, description: str = "", copy: bool = False,
-                     actor: Optional[str] = None, progress: Optional[ProgressCallback] = None) -> Evidence:
-        """Register evidence: hash it and, with ``copy``, make a verified read-only working copy."""
+                     actor: Optional[str] = None, progress: Optional[ProgressCallback] = None,
+                     derived_from: Optional[str] = None, analysis_id: Optional[int] = None) -> Evidence:
+        """Register evidence: hash it and, with ``copy``, make a verified read-only working copy.
+
+        ``derived_from`` registers files produced by the case itself (artifacts extracted from a disk
+        image by analysis ``analysis_id``); they live in the case folder and are made read-only.
+        """
         source = Path(source).expanduser().resolve()
         if not source.exists():
             raise CaseError("error.evidence_missing", path=str(source))
-        if source == self.root or self.root in source.parents:
+        inside = source == self.root or self.root in source.parents
+        if inside and not (derived_from and (self.root / "analyses") in source.parents):
             raise CaseError("error.evidence_inside_case", path=str(source))
+        if derived_from:
+            self.get_evidence(derived_from)
+            copy = False
         actor = self.actor(actor)
         try:
             kind, hashes, size, count = self._measure(source, progress)
@@ -325,19 +338,35 @@ class Case(ReviewMixin):
             work_path = self._copy_evidence(source, evidence_id, kind, hashes, progress)
 
         evidence = Evidence(evidence_id, str(work_path), str(source), kind, size, count, hashes,
-                            description.strip(), utc_now(), actor, copy)
+                            description.strip(), utc_now(), actor, copy, derived_from)
+        if derived_from:
+            _make_read_only(source)
         with transaction(self.conn):
             self.conn.execute(
                 "INSERT INTO evidence (id, path, source, kind, size, file_count, hashes, description, added_at, "
-                "added_by, copied) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "added_by, copied, derived_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (evidence.id, evidence.path, evidence.source, kind, size, count, json.dumps(hashes),
-                 evidence.description, evidence.added_at, actor, int(copy)),
+                 evidence.description, evidence.added_at, actor, int(copy), derived_from),
             )
-            self.custody.append("evidence_added", actor, {
-                "evidence_id": evidence_id, "source": str(source), "path": str(work_path), "kind": kind,
-                "size": size, "file_count": count, "copied": copy, **hashes,
-            })
+            details = {"evidence_id": evidence_id, "source": str(source), "path": str(work_path), "kind": kind,
+                       "size": size, "file_count": count, "copied": copy, **hashes}
+            if derived_from:
+                details.update({"derived_from": derived_from, "analysis_id": analysis_id})
+            self.custody.append("evidence_derived" if derived_from else "evidence_added", actor, details)
         return evidence
+
+    def extract_image(self, evidence_id: str, options: Optional[dict] = None, actor: Optional[str] = None,
+                      progress: Optional[Callable[[str], None]] = None) -> tuple["Analysis", Optional[Evidence]]:
+        """Extract artifacts from a disk image and register them as derived evidence."""
+        analysis = self.run_analysis("image", evidence_id, options, actor, progress)
+        extracted = self.root / analysis.output_dir / "extracted"
+        if not analysis.summary.get("files_extracted") or not extracted.is_dir():
+            return analysis, None
+        source = self.get_evidence(evidence_id)
+        description = t("evidence.derived_description", source=source.description or source.id, analysis=analysis.id)
+        derived = self.add_evidence(extracted, description, actor=actor, derived_from=source.id,
+                                    analysis_id=analysis.id)
+        return analysis, derived
 
     def _copy_evidence(self, source: Path, evidence_id: str, kind: str, expected: dict,
                        progress: Optional[ProgressCallback]) -> Path:
@@ -451,11 +480,23 @@ class Case(ReviewMixin):
         Returns ``(module, analysis or None, error code)`` per module; a failing
         module does not stop the others.
         """
+        from forense.image import is_disk_image
         from forense.modules.base import available_modules
 
         evidence = self.get_evidence(evidence_id)
         target = Path(evidence.path)
         results: list[tuple[str, Optional[Analysis], str]] = []
+        if is_disk_image(target) or (target.is_dir() and any(is_disk_image(p) for p in target.iterdir())):
+            if progress:
+                progress("image")
+            try:
+                analysis, derived = self.extract_image(evidence.id, actor=actor, progress=progress)
+            except Exception:  # noqa: BLE001 - recorded as a failed analysis
+                return [("image", None, "triage.failed")]
+            results.append(("image", analysis, ""))
+            if derived is None:
+                return results
+            evidence, target = derived, Path(derived.path)
         for module in available_modules():
             if not module.triage:
                 continue
@@ -677,3 +718,10 @@ def _force_rmtree(path: Path) -> None:
         shutil.rmtree(path, onexc=_retry)
     else:
         shutil.rmtree(path, onerror=_retry)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring cases created by older versions up to the current schema."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(evidence)")}
+    if "derived_from" not in columns:
+        conn.execute("ALTER TABLE evidence ADD COLUMN derived_from TEXT")

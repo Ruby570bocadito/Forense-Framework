@@ -7,6 +7,7 @@
 | `jumplists/*.automaticDestinations-ms`, `jumplists/*.customDestinations-ms` | plaso `test_data/` | Apache-2.0 |
 | `SRUDB.dat.gz` (gzip of `SRUDB.dat`) | plaso `test_data/` | Apache-2.0 |
 | `image.E01` | plaso `test_data/` | Apache-2.0 |
+| `ntfs.E01` | Generated for this project: 24 MiB NTFS volume (mkntfs + ntfs-3g) holding the demo Windows artifacts, acquired with `ewfacquire` | Same as the project |
 
 Every other artifact used by the tests (registry hives, LNK, `$I`, `$MFT`,
 browser databases, Prefetch v23, ShellBags, images) is generated on the fly

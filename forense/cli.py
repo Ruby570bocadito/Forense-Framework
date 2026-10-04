@@ -243,6 +243,51 @@ def cmd_triage(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_image(args: argparse.Namespace) -> int:
+    with _open_case(args) as case:
+        options = {"verify": args.verify, "all_files": args.all_files}
+        if args.pattern:
+            options["patterns"] = args.pattern
+        progress = _Progress()
+        _out(t("cli.image_running", evidence=args.evidence))
+        analysis, derived = case.extract_image(args.evidence, options, args.analyst, progress=progress.message)
+        progress.done()
+        _print_analysis(analysis)
+        verification = analysis.summary.get("verification")
+        if verification and verification.get("match") is False:
+            _err(t("cli.image_hash_mismatch"))
+        if derived is None:
+            _out(t("cli.image_nothing_extracted"))
+            return EXIT_ERROR if analysis.status != "completed" else EXIT_OK
+        _out(t("cli.image_derived", id=derived.id, files=analysis.summary.get("files_extracted", 0)))
+        if args.triage:
+            args.evidence = derived.id
+    if args.triage:
+        return cmd_triage(args)
+    _out(t("cli.image_next", id=derived.id))
+    return EXIT_OK
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    from forense.collector import collect
+
+    progress = _Progress()
+    dest = Path(args.destination).resolve()
+    _out(t("cli.collect_running", source=args.source or t("cli.collect_system_drive"), dest=str(dest)))
+    result = collect(dest, args.source, volatile=args.volatile, progress=progress.message)
+    progress.done()
+    _out(t("cli.collect_done", files=result["files"], size=human_size(result["bytes"]), errors=len(result["errors"]),
+           manifest=result["manifest_sha256"]))
+    for error in result["errors"][:10]:
+        _out(f"  ! {error['path']}: {error['error']}")
+    if args.add_to_case:
+        with _open_case(args) as case:
+            evidence = case.add_evidence(dest, t("cli.collect_evidence", host=result["host"], date=result["started"]),
+                                         copy=args.copy, actor=args.analyst)
+        _out(t("cli.evidence_added", id=evidence.id, files=evidence.file_count, size=human_size(evidence.size)))
+    return EXIT_OK
+
+
 def _findings_brief(case: Case, analysis_id: Optional[int], min_severity: str = "low", limit: int = 15) -> None:
     findings = case.findings(min_severity=min_severity, analysis_id=analysis_id)
     if not findings:
@@ -532,6 +577,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = _add(sub, "triage", "triaje", "cli.cmd.triage", cmd_triage, [common])
     p.add_argument("evidence")
+
+    p = _add(sub, "image", "imagen", "cli.cmd.image", cmd_image, [common])
+    p.add_argument("evidence")
+    p.add_argument("--verify", "--verificar", action="store_true", help=t("cli.opt.image_verify"))
+    p.add_argument("--all-files", "--todo", action="store_true", help=t("cli.opt.image_all"))
+    p.add_argument("-p", "--pattern", "--patron", action="append", default=[], help=t("cli.opt.image_pattern"))
+    p.add_argument("--triage", "--triaje", action="store_true", help=t("cli.opt.image_triage"))
+
+    p = _add(sub, "collect", "recolectar", "cli.cmd.collect", cmd_collect, [common])
+    p.add_argument("destination")
+    p.add_argument("-s", "--source", "--origen", help=t("cli.opt.collect_source"))
+    p.add_argument("--volatile", "--volatil", action="store_true", help=t("cli.opt.collect_volatile"))
+    p.add_argument("--add-to-case", "--agregar-al-caso", action="store_true", help=t("cli.opt.collect_add"))
+    p.add_argument("--copy", "--copiar", action="store_true", help=t("cli.opt.copy"))
 
     _add(sub, "analyses", "analisis", "cli.cmd.analyses", cmd_analyses, [common])
 
