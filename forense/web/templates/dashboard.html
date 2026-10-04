@@ -58,6 +58,17 @@
       <div class="panel-head"><h2>MITRE ATT&amp;CK</h2><a href="{{ url_for('attack', slug=slug) }}">{{ _('web.open_matrix') }} →</a></div>
       {{ charts.tactics }}
     </section>
+    {% if shared %}
+    <section class="panel">
+      <div class="panel-head"><h2>{{ _('web.seen_elsewhere') }}</h2><a href="{{ url_for('correlation') }}">{{ _('web.open_correlation') }} →</a></div>
+      <ul class="shared">
+      {% for s in shared %}
+        <li><span class="tag">{{ _('correlation.kind.' + s.kind) }}</span> <span class="mono">{{ s.display }}</span>{% if s.ioc %} <span class="badge high">IOC</span>{% endif %}
+          <div class="small muted">{% for index, o in s.cases if index.slug != slug %}<a href="{{ url_for('dashboard', slug=index.slug) }}">{{ index.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</div></li>
+      {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     <section class="panel">
       <div class="panel-head"><h2>{{ _('nav.evidence') }}</h2><a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }} →</a></div>
       {% for ev in evidence %}

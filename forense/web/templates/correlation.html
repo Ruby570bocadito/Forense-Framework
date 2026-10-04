@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon with context %}
+{% block title %}{{ _('web.correlation') }} · Forense-Framework{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ _('web.correlation') }}</h1>
+  <div class="subtitle">{{ _('web.correlation_help') }}</div></div>
+  <a class="button secondary" href="{{ url_for('index') }}">← {{ _('web.cases') }}</a>
+</div>
+<div class="kpis">
+  <div class="kpi"><b>{{ indexes | length }}</b><span>{{ _('web.cases_indexed') }}</span></div>
+  <div class="kpi"><b>{{ total }}</b><span>{{ _('web.shared_observables') }}</span></div>
+  <div class="kpi"><b>{{ iocs }}</b><span>{{ _('web.shared_iocs') }}</span></div>
+</div>
+<div class="tabs" role="navigation">
+  <a href="{{ url_for('correlation') }}" class="{{ 'active' if not kind }}">{{ _('common.all') }} ({{ total }})</a>
+  {% for k in kinds if counts[k] %}<a href="{{ url_for('correlation', type=k) }}" class="{{ 'active' if kind == k }}">{{ _('correlation.kind.' + k) }} ({{ counts[k] }})</a>{% endfor %}
+</div>
+{% if shared %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('correlation.type') }}</th><th>{{ _('correlation.value') }}</th><th>{{ _('correlation.cases') }}</th><th>{{ _('field.first') }} (UTC)</th></tr>
+  {% for s in shared %}
+  <tr class="{{ 'flagged' if s.ioc }}">
+    <td><span class="tag">{{ _('correlation.kind.' + s.kind) }}</span></td>
+    <td class="wrap"><span class="mono">{{ s.display }}</span>{% if s.ioc %} <span class="badge high" title="{{ _('web.ioc_help') }}">IOC</span>{% endif %}</td>
+    <td class="wrap">{% for index, o in s.cases %}
+      <div><a href="{{ url_for('dashboard', slug=index.slug) }}"><b>{{ index.name }}</b></a> <span class="muted small mono">{{ index.slug }}</span>
+        <div class="muted small">{{ o.first_seen | ts or '—' }} · {% for src in o.sources | sort %}{{ source_label(src) }}{% if not loop.last %}, {% endif %}{% endfor %}</div></div>
+    {% endfor %}</td>
+    <td class="mono" style="white-space:nowrap">{{ s.first_seen | ts }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}
+<div class="panel empty">{{ _('web.correlation_none') if indexes | length > 1 else _('web.correlation_needs_cases') }}</div>
+{% endif %}
+{% endblock %}

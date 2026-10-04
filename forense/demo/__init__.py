@@ -621,7 +621,8 @@ def _setupapi(path: Path) -> None:
     local = _t(90) + timedelta(hours=2)  # Romance Daylight Time
     path.write_text(
         "[Device Install Log]\n     OS Version = 10.0.19045\n     Service Pack = 0.0\n\n"
-        ">>>  [Device Install (Hardware initiated) - SWD\\WPDBUSENUM\\_??_USBSTOR#Disk&Ven_Kingston]\n"
+        ">>>  [Device Install (Hardware initiated) - SWD\\WPDBUSENUM\\_??_USBSTOR#Disk&Ven_Kingston&Prod_DataTraveler_3.0"
+        "&Rev_PMAP#60A44C3FAE2BE2B0E9160123&0#{53f56307-b6bf-11d0-94f2-00a0c91efb8b}]\n"
         f">>>  Section start {local:%Y/%m/%d %H:%M:%S}.402\n<<<  Section end {local:%Y/%m/%d %H:%M:%S}.990\n"
         "<<<  [Exit status: SUCCESS]\n\n"
         ">>>  [Device Install (Hardware initiated) - USBSTOR\\Disk&Ven_Kingston&Prod_DataTraveler_3.0&Rev_PMAP"

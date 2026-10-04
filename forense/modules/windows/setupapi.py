@@ -26,6 +26,8 @@ _END = re.compile(r"^<<<\s+\[Exit status:\s*(?P<status>[^\]]+)\]")
 _USBSTOR = re.compile(r"^USBSTOR\\(?P<type>[^&\\]+)&Ven_(?P<vendor>[^&\\]*)&Prod_(?P<product>[^&\\]*)"
                       r"(?:&Rev_(?P<rev>[^\\]*))?\\(?P<serial>.+)$", re.IGNORECASE)
 _USB = re.compile(r"^USB\\VID_(?P<vid>[0-9a-f]{4})&PID_(?P<pid>[0-9a-f]{4})(?:&[^\\]*)?\\(?P<serial>.+)$", re.IGNORECASE)
+_WPD_USBSTOR = re.compile(r"USBSTOR#[^&#]+&Ven_(?P<vendor>[^&#]*)&Prod_(?P<product>[^&#]*)(?:&Rev_[^#]*)?"
+                          r"#(?P<serial>[^#&]+)(?:&\d+)?#", re.IGNORECASE)
 _OFFSET = re.compile(r"^([+-])(\d{1,2}):?(\d{2})$")
 
 
@@ -53,7 +55,12 @@ def classify(device: str) -> dict:
                 "product": f"PID_{match.group('pid').upper()}", "serial": match.group("serial")}
     upper = device.upper()
     if upper.startswith(("SWD\\WPDBUSENUM", "WPDBUSENUMROOT")):
-        return {"class": "portable_device", "vendor": "", "product": "", "serial": device.rsplit("\\", 1)[-1]}
+        # volume of a USB disk: ...\_??_USBSTOR#Disk&Ven_X&Prod_Y&Rev_Z#SERIAL&0#{GUID}
+        match = _WPD_USBSTOR.search(device)
+        if match:
+            return {"class": "portable_device", "vendor": match.group("vendor").replace("_", " "),
+                    "product": match.group("product").replace("_", " "), "serial": match.group("serial")}
+        return {"class": "portable_device", "vendor": "", "product": "", "serial": ""}
     if upper.startswith("SCSI\\DISK") or upper.startswith("STORAGE\\VOLUME"):
         return {"class": "disk", "vendor": "", "product": "", "serial": ""}
     return {"class": "other", "vendor": "", "product": "", "serial": ""}

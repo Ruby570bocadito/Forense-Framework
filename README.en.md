@@ -197,6 +197,7 @@ Every command has an English name and a Spanish alias.
 | `forense auto EVIDENCE… [--new DIR] [-p PLAYBOOK]` | `auto` | From evidence to report in one command |
 | `forense watch FOLDER [-w WORKSPACE] [--once]` | `vigilar` | Automatically process whatever is dropped into a folder |
 | `forense config [show\|init\|path]` | `configuracion` | Configuration |
+| `forense correlate [-w WORKSPACE] [--type T] [--json]` | `correlacionar` | Items shared between cases |
 | `forense doctor` | `diagnostico` | Check the installation |
 | `forense sigma check PATH` / `sigma download DIR` | `sigma` | Validate Sigma rules or download SigmaHQ's |
 | `forense web [-w WORKSPACE] [--port 8765] [--password X] [--open]` | `web` | Web interface |
@@ -359,6 +360,16 @@ T1070.006…), by the rules that fired (encoded PowerShell, `ExecutionPolicy Byp
   e-mail addresses from the findings (hash lists, YARA, watchlists, memory connections, downloads) and from flagged
   programs, plus the ATT&CK techniques, ready for MISP, OpenCTI or a SIEM. Legitimate domains (downloads from
   7-zip.org, for instance) are left out.
+
+### Cross-case correlation
+
+`forense correlate -w WORKSPACE` (and the **Cross-case correlation** page of the web interface, linked from the list
+of cases) finds what the cases of a workspace share: indicators of compromise, **USB devices by serial number** (the
+same stick on two computers), IP addresses (memory connections, network and RDP logons, RDP destinations, UNC paths),
+computer names and domain accounts of remote logons. With `-c CASE` it shows only that case's items, and the case
+overview gets a **Seen in other cases** panel. The index of each case is kept in `WORKSPACE/.forense-correlation`
+and rebuilt only when its chain of custody changes; cases are never modified. Options: `--type usb`,
+`--min-cases 3`, `--json`.
 
 ## Reports
 

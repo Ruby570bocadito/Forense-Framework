@@ -165,6 +165,24 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                     cases.append({"slug": path.name, "info": {"name": path.name}, "stats": None})
         return render_template("index.html", cases=cases, workspace=app.config["WORKSPACE"])
 
+    @app.route("/correlation")
+    def correlation():
+        from forense.core.correlation import KINDS, correlate, workspace_indexes
+
+        kind = request.args.get("type") or None
+        indexes = workspace_indexes(app.config["WORKSPACE"])
+        shared = correlate(indexes)
+        counts = {k: sum(1 for s in shared if s.kind == k) for k in KINDS}
+        def source_label(source: str) -> str:
+            if source.startswith("evtx_"):
+                return f"EVTX {source[5:]}"
+            return t(f"correlation.source.{source}", g.lang)
+
+        return render_template("correlation.html", indexes=indexes, kinds=KINDS, kind=kind, counts=counts,
+                               source_label=source_label,
+                               shared=[s for s in shared if kind is None or s.kind == kind], total=len(shared),
+                               iocs=sum(1 for s in shared if s.ioc))
+
     @app.post("/cases")
     def create_case():
         slug = request.form.get("slug", "").strip()
@@ -193,6 +211,20 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                       techniques=t("web.techniques", lang))
         return labels
 
+    def _shared_with_other_cases(slug: str) -> Optional[list]:
+        """Observables of this case seen in other cases (only cached indexes of the others: never slow)."""
+        from forense.core.correlation import correlate, index_case, workspace_indexes
+
+        workspace = app.config["WORKSPACE"]
+        try:
+            others = [i for i in workspace_indexes(workspace, build=False) if i.slug != slug]
+            if not others:
+                return None
+            current = index_case(case_dir(slug), workspace)
+            return correlate([current, *others], focus=slug)[:8] if current else None
+        except Exception:  # noqa: BLE001 - correlation is a convenience: it must never break the dashboard
+            return None
+
     @app.route("/c/<slug>/")
     def dashboard(slug: str):
         from forense.charts import activity_chart, severity_bar, tactic_bars
@@ -216,7 +248,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                 "dashboard.html", slug=slug, case=case.info, stats=case.stats(), evidence=case.evidence_list(),
                 findings=[f for f in overview["findings"] if f["severity"] in ("medium", "high", "critical")][:10],
                 progress=case.review_progress(), overview=overview, charts=charts,
-                suspicious_programs=len(execution_overview(case, suspicious=True)))
+                suspicious_programs=len(execution_overview(case, suspicious=True)),
+                shared=_shared_with_other_cases(slug))
 
     @app.route("/c/<slug>/attack")
     def attack(slug: str):

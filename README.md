@@ -198,6 +198,7 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
 | `forense vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
 | `forense config [show\|init\|path]` | `config` | Configuración |
+| `forense correlacionar [-w ESPACIO] [--tipo T] [--json]` | `correlate` | Elementos compartidos entre casos |
 | `forense doctor` | `diagnostico` | Comprobar la instalación |
 | `forense sigma check RUTA` / `sigma download DIR` | `sigma` | Validar reglas Sigma o descargar las de SigmaHQ |
 | `forense web [-w ESPACIO] [--puerto 8765] [--clave X] [--abrir]` | `web` | Interfaz web |
@@ -364,6 +365,16 @@ Sigma. Con eso:
   correos de los hallazgos (listas de hashes, YARA, listas de vigilancia, conexiones de memoria, descargas) y de los
   programas marcados, más las técnicas ATT&CK, listo para MISP, OpenCTI o un SIEM. Los dominios legítimos (descargas de
   7-zip.org, por ejemplo) no se incluyen.
+
+### Correlación entre casos
+
+`forense correlacionar -w ESPACIO` (y la página **Correlación entre casos** de la web, enlazada desde la lista de
+casos) busca lo que comparten los casos de un espacio de trabajo: indicadores de compromiso, **dispositivos USB por
+número de serie** (el mismo pendrive en dos equipos), direcciones IP (conexiones en memoria, inicios de sesión de red y
+RDP, destinos RDP, rutas UNC), nombres de equipo y cuentas de dominio de inicios de sesión remotos. Con
+`-c CASO` muestra solo lo de ese caso, y su página de resumen incluye un panel **Visto en otros casos**. El índice de
+cada caso se guarda en `ESPACIO/.forense-correlation` y solo se rehace cuando cambia su cadena de custodia; los casos
+nunca se modifican. Opciones: `--tipo usb`, `--minimo 3`, `--json`.
 
 ## Informes
 

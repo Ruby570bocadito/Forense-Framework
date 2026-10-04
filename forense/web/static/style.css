@@ -222,3 +222,6 @@ textarea.draft { min-height: 180px; font-family: inherit; }
 .viz-hvalue { font-variant-numeric: tabular-nums; }
 .matrix .tactic h3 { min-height: 50px; }
 .brand-name { white-space: nowrap; }
+ul.shared { list-style: none; margin: 0; padding: 0; }
+ul.shared li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+ul.shared li:last-child { border-bottom: 0; }

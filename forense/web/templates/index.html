@@ -1,8 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sevbadge, render, pager with context %}
+{% from "_macros.html" import sevbadge, render, pager, icon with context %}
 {% block content %}
-<h1>{{ _('web.cases') }}</h1>
-<div class="subtitle">{{ _('web.workspace') }}: <span class="mono">{{ workspace }}</span></div>
+<div class="page-head">
+  <div><h1>{{ _('web.cases') }}</h1>
+  <div class="subtitle">{{ _('web.workspace') }}: <span class="mono">{{ workspace }}</span></div></div>
+  {% if cases | length > 1 %}<a class="button secondary" href="{{ url_for('correlation') }}">{{ icon('attack') }}{{ _('web.correlation') }}</a>{% endif %}
+</div>
 
 {% if cases %}
 <div class="table-wrap"><table>

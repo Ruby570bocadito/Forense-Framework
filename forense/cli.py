@@ -550,6 +550,35 @@ def cmd_sigma(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_correlate(args: argparse.Namespace) -> int:
+    import json
+
+    from forense.core.config import get_config
+    from forense.core.correlation import correlate, workspace_indexes
+
+    focus = None
+    if args.case_explicit:
+        focus = Path(args.case).resolve().name
+        workspace = Path(args.workspace) if args.workspace else Path(args.case).resolve().parent
+    else:
+        workspace = Path(args.workspace or os.environ.get("FORENSE_WORKSPACE") or get_config().value("workspace")
+                         or ".")
+    indexes = workspace_indexes(workspace, cache=not args.no_cache, progress=lambda name: _err(f"  {name}…"))
+    shared = correlate(indexes, args.min_cases, args.type or None, focus)
+    if args.json:
+        _out(json.dumps([{"type": s.kind, "value": s.value, "ioc": s.ioc, "first_seen": s.first_seen,
+                          "cases": [{"case": i.slug, "name": i.name, "id": i.case_id, "first_seen": o.first_seen,
+                                     "sources": sorted(o.sources)} for i, o in s.cases]} for s in shared],
+                        ensure_ascii=False, indent=1))
+        return EXIT_OK
+    _out(t("cli.correlation_summary", cases=len(indexes), shared=len(shared), workspace=str(workspace.resolve())))
+    _table([t("correlation.type"), t("correlation.value"), "IOC", t("correlation.cases"), label("first")],
+           [(t(f"correlation.kind.{s.kind}"), s.display, "★" if s.ioc else "",
+             ", ".join(f"{i.slug} ({len(o.sources)})" for i, o in s.cases), display_ts(s.first_seen) or "-")
+            for s in shared])
+    return EXIT_OK
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     import json
 
@@ -845,6 +874,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", "--puerto", type=int, default=int(config.value("web.port") or 8765))
     p.add_argument("--password", "--clave", help=t("cli.opt.password"))
     p.add_argument("--open", "--abrir", action="store_true", help=t("cli.opt.web_open"))
+
+    p = _add(sub, "correlate", "correlacionar", "cli.cmd.correlate", cmd_correlate, [common])
+    p.add_argument("-w", "--workspace", "--espacio", help=t("cli.opt.workspace"))
+    p.add_argument("--min-cases", "--minimo", type=int, default=2, help=t("cli.opt.min_cases"))
+    p.add_argument("--type", "--tipo", action="append", choices=("file", "ip", "domain", "url", "email", "usb",
+                                                                  "host", "account"), help=t("cli.opt.correlation_type"))
+    p.add_argument("--json", action="store_true", help=t("cli.opt.doctor_json"))
+    p.add_argument("--no-cache", "--sin-cache", action="store_true", help=t("cli.opt.no_cache"))
 
     p = _add(sub, "doctor", "diagnostico", "cli.cmd.doctor", cmd_doctor)
     p.add_argument("--json", action="store_true", help=t("cli.opt.doctor_json"))
