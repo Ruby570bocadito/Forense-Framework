@@ -63,7 +63,12 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     watchlist = dest / "ioc_watchlist.txt"
     watchlist.write_text("# IOC watchlist (demo)\n198.51.100.23\nupdate-cdn.example\nexfil@proton.example\n",
                          encoding="utf-8")
-    return {"triage": triage, "image": image, "hashes": hashes, "watchlist": watchlist}
+    yara_rules = dest / "rules.yar"
+    yara_rules.write_text(
+        'rule forense_demo_implant : demo\n{\n    meta:\n        description = "FORENSE-DEMO implant (fictitious)"\n'
+        '        severity = "critical"\n    strings:\n        $marker = "FORENSE-DEMO-IMPLANT"\n'
+        '        $mz = { 4D 5A }\n    condition:\n        $mz at 0 and $marker\n}\n', encoding="utf-8")
+    return {"triage": triage, "image": image, "hashes": hashes, "watchlist": watchlist, "yara": yara_rules}
 
 
 # -- registry ---------------------------------------------------------------

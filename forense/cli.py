@@ -427,6 +427,21 @@ def cmd_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_sigma(args: argparse.Namespace) -> int:
+    from forense.sigma import SigmaRuleSet
+    from forense.sigma.download import download_sigmahq
+
+    if args.action == "download":
+        count = download_sigmahq(Path(args.path))
+        _out(t("cli.sigma_downloaded", path=str(Path(args.path).resolve()), count=count))
+        return EXIT_OK
+    ruleset, errors = SigmaRuleSet.load([Path(args.path)], min_level=args.min_level or "info")
+    for file, error in errors[:50]:
+        _out(f"  ! {file}: {error}")
+    _out(t("cli.sigma_loaded", rules=len(ruleset.rules), errors=len(errors)))
+    return EXIT_OK
+
+
 def cmd_web(args: argparse.Namespace) -> int:
     from forense.web import run_server
 
@@ -455,6 +470,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
         case.triage(triage.id)
         case.run_analysis("ioc", triage.id, {"watchlist": str(paths["watchlist"])})
         case.run_analysis("hashset", triage.id, {"hash_list": str(paths["hashes"])})
+        case.run_analysis("yara", triage.id, {"rules": str(paths["yara"])})
         case.run_analysis("carving", image.id)
         stats = case.stats()
     _out(t("cli.demo_case", path=str(case_dir), findings=stats["findings"], events=stats["events"]))
@@ -567,6 +583,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = _add(sub, "report", "informe", "cli.cmd.report", cmd_report, [common])
     p.add_argument("-o", "--output", "--salida")
     p.add_argument("--verify", "--verificar", action="store_true", help=t("cli.opt.report_verify"))
+
+    p = _add(sub, "sigma", "", "cli.cmd.sigma", cmd_sigma)
+    p.add_argument("action", choices=("check", "download"), metavar="check|download")
+    p.add_argument("path")
+    p.add_argument("--min-level", "--nivel", choices=("info", "low", "medium", "high", "critical"))
 
     p = _add(sub, "web", "", "cli.cmd.web", cmd_web)
     p.add_argument("-w", "--workspace", "--espacio", default=os.environ.get("FORENSE_WORKSPACE", "."),

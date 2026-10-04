@@ -1,0 +1,21 @@
+title: Shadow copies deleted with PowerShell/WMI
+id: c1fef3a2-8211-5d76-af37-8d12972f04fc
+status: experimental
+description: 'Ransomware deletes volume shadow copies to prevent recovery.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.impact
+    - attack.t1490
+logsource:
+    category: ps_script
+    product: windows
+detection:
+    selection:
+        ScriptBlockText|contains|all:
+            - 'Win32_ShadowCopy'
+            - 'Delete'
+    condition: selection
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: critical

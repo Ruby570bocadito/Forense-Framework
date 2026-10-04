@@ -1,0 +1,31 @@
+title: Scheduled task created to run from a suspicious location or interpreter
+id: 4052b750-9bb9-544b-b27c-242fc1d80efd
+status: experimental
+description: 'Scheduled tasks that start scripts or binaries from writable folders are a frequent persistence method.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.persistence
+    - attack.execution
+    - attack.t1053.005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        Image|endswith: '\schtasks.exe'
+        CommandLine|contains: '/create'
+    suspicious:
+        CommandLine|contains:
+            - '\AppData\'
+            - '\Users\Public\'
+            - '\Temp\'
+            - 'powershell'
+            - 'cmd /c'
+            - 'cmd.exe /c'
+            - 'mshta'
+            - 'rundll32'
+    condition: selection and suspicious
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

@@ -10,7 +10,7 @@ from forense.modules.base import (  # noqa: F401
     get_module,
     register,
 )
-from forense.modules.generic import carving, hashset, inventory, ioc  # noqa: F401
+from forense.modules.generic import carving, hashset, inventory, ioc, yara  # noqa: F401
 from forense.modules.windows import (  # noqa: F401
     browsers,
     evtx,

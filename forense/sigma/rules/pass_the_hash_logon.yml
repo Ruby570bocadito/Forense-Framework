@@ -1,0 +1,22 @@
+title: Logon with new credentials through seclogo (pass-the-hash pattern)
+id: b5b67dd8-0dc4-5c5c-8aac-bf98871e3d70
+status: experimental
+description: 'Mimikatz sekurlsa::pth and runas /netonly create logon type 9 sessions through seclogo.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.lateral-movement
+    - attack.t1550.002
+logsource:
+    service: security
+    product: windows
+detection:
+    selection:
+        EventID: 4624
+        LogonType: 9
+        LogonProcessName: 'seclogo'
+        AuthenticationPackageName: 'Negotiate'
+    condition: selection
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

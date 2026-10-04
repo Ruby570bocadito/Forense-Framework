@@ -1,0 +1,25 @@
+title: Directory replication requested by a user account (DCSync)
+id: 7b55530e-9dcf-5d97-af62-f280f21627cf
+status: experimental
+description: 'Only domain controllers should replicate directory secrets; a user account doing so indicates DCSync.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.credential-access
+    - attack.t1003.006
+logsource:
+    service: security
+    product: windows
+detection:
+    selection:
+        EventID: 4662
+        Properties|contains:
+            - '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'
+            - '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'
+            - '89e95b76-444d-4c62-991a-0facbeda640c'
+    filter_machine:
+        SubjectUserName|endswith: '$'
+    condition: selection and not filter_machine
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: critical

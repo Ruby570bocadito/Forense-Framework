@@ -1,0 +1,25 @@
+title: Kerberos service ticket with RC4 encryption (Kerberoasting)
+id: 1ad7762e-f168-5cd8-8e1b-e339432a6d85
+status: experimental
+description: 'Requesting RC4 tickets for user service accounts allows offline password cracking.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.credential-access
+    - attack.t1558.003
+logsource:
+    service: security
+    product: windows
+detection:
+    selection:
+        EventID: 4769
+        TicketEncryptionType: '0x17'
+        Status: '0x0'
+    filter_machine:
+        ServiceName|endswith: '$'
+    filter_krbtgt:
+        ServiceName: 'krbtgt'
+    condition: selection and not 1 of filter_*
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: medium

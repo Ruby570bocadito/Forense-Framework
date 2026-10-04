@@ -1,0 +1,28 @@
+title: Run key pointing to a user-writable location
+id: c89e9eaf-2f1d-58a3-b19f-692d18d3c533
+status: experimental
+description: 'Autostart entries in temporary or public folders are a common malware persistence technique.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.persistence
+    - attack.t1547.001
+logsource:
+    category: registry_set
+    product: windows
+detection:
+    selection_key:
+        TargetObject|contains:
+            - '\CurrentVersion\Run\'
+            - '\CurrentVersion\RunOnce\'
+    selection_path:
+        Details|contains:
+            - '\AppData\Local\Temp\'
+            - '\Users\Public\'
+            - '\Windows\Temp\'
+            - '\PerfLogs\'
+            - '\Downloads\'
+    condition: all of selection_*
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: medium

@@ -1,0 +1,21 @@
+title: Remote thread created in LSASS
+id: bdcdf270-b39f-54d9-9d5e-7364bc06bdc7
+status: experimental
+description: 'Code injection into LSASS is used to dump credentials or install malicious security packages.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.credential-access
+    - attack.t1003.001
+    - attack.defense-evasion
+    - attack.t1055
+logsource:
+    category: create_remote_thread
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith: '\lsass.exe'
+    condition: selection
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: critical

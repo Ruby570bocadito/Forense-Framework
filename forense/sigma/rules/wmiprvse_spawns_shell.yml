@@ -1,0 +1,27 @@
+title: WMI provider host spawning a shell
+id: 380d055a-06b1-5dea-820d-aae81503de3f
+status: experimental
+description: 'Commands executed through WMI (wmic /node, Invoke-WmiMethod, impacket wmiexec) run under WmiPrvSE.exe.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.execution
+    - attack.t1047
+    - attack.lateral-movement
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    selection:
+        ParentImage|endswith: '\WmiPrvSE.exe'
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\mshta.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+    condition: selection
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

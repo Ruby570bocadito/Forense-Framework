@@ -141,13 +141,18 @@ class EvtxModule(Module):
         Option("records", "all", "choice", choices=("all", "notable", "none")),
         Option("timeline_all", False, "bool"),
         Option("brute_force_threshold", 10, "int"),
+        Option("sigma", True, "bool"),
+        Option("sigma_rules", None, "path"),
+        Option("sigma_min_level", "medium", "choice", choices=("info", "low", "medium", "high", "critical")),
     )
+    SIGMA_FINDINGS_PER_RULE = 25
 
     def discover(self, target: Path) -> list[Path]:
         return find_files(target, lambda p: p.suffix.lower() == ".evtx")
 
     def analyze(self, ctx: AnalysisContext) -> None:
         state = _State(ctx.options["brute_force_threshold"])
+        state.sigma = self._load_sigma(ctx)
         files = self.discover(ctx.target)
         for path in files:
             rel = relative_name(path, ctx.target)
@@ -166,6 +171,40 @@ class EvtxModule(Module):
                 ctx.error(rel, f"{len(errors)} corrupt records skipped (first: {errors[0]})")
             state.per_file[rel] = count
         state.finish(ctx)
+        if state.sigma is not None:
+            ctx.summary["sigma_rules"] = len(state.sigma.rules)
+            ctx.summary["sigma_matches"] = dict(state.sigma_hits.most_common())
+
+    @staticmethod
+    def _load_sigma(ctx: AnalysisContext):
+        from forense.sigma import BUILTIN_RULES, SigmaRuleSet
+
+        sources = ([BUILTIN_RULES] if ctx.options["sigma"] else []) + \
+            ([ctx.options["sigma_rules"]] if ctx.options["sigma_rules"] else [])
+        if not sources:
+            return None
+        ctx.progress("Sigma")
+        ruleset, errors = SigmaRuleSet.load(sources, min_level=ctx.options["sigma_min_level"])
+        if errors:
+            ctx.summary["sigma_rules_skipped"] = len(errors)
+            for file, error in errors[:20]:
+                ctx.error(file, f"Sigma: {error}")
+        return ruleset
+
+    def _sigma(self, ctx: AnalysisContext, state: "_State", event: WinEvent, file: str) -> None:
+        flat = {**event.data, "EventID": event.event_id, "Channel": event.channel, "Provider_Name": event.provider,
+                "Computer": event.computer}
+        for rule in state.sigma.match(event.channel, event.event_id, flat):
+            state.sigma_hits[rule.title] += 1
+            details = "; ".join(f"{k}={_clean(v, 160)}" for k, v in list(event.data.items())[:6]
+                                if v not in (None, "", "-"))
+            ctx.event(event.timestamp, "sigma_match", f"[{rule.level}] {rule.title} — {event.computer} {details}",
+                      f"{file}#{event.record_id}", rule.level)
+            if state.sigma_hits[rule.title] <= self.SIGMA_FINDINGS_PER_RULE:
+                techniques = ", ".join(t[7:].upper() for t in rule.tags if t.startswith("attack.t")) or "-"
+                ctx.finding("sigma.match", rule.level, event.timestamp, title=rule.title, rule_id=rule.id,
+                            techniques=techniques, computer=event.computer, channel=event.channel,
+                            event_id=event.event_id, record_id=event.record_id, details=details)
 
     def _process(self, ctx: AnalysisContext, state: "_State", event: WinEvent, file: str) -> None:
         channel = event.channel.lower()
@@ -173,6 +212,8 @@ class EvtxModule(Module):
         if rule is None and channel.startswith(POWERSHELL_CLASSIC) and event.event_id == 400:
             rule = RULES[(POWERSHELL_CLASSIC, 400)]
         state.observe(event, channel)
+        if state.sigma is not None:
+            self._sigma(ctx, state, event, file)
 
         mode = ctx.options["records"]
         if mode == "all" or (mode == "notable" and rule is not None):
@@ -308,6 +349,8 @@ class _State:
         self.rdp_sources: Counter = Counter()
         self.rdp_first: dict[tuple, str] = {}
         self.sid_names: dict[str, str] = {}
+        self.sigma = None
+        self.sigma_hits: Counter = Counter()
 
     def observe(self, event: WinEvent, channel: str) -> None:
         self.channels[event.channel] += 1

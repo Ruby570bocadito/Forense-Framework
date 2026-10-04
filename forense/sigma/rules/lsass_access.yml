@@ -1,0 +1,31 @@
+title: LSASS memory read by a non-system process
+id: c416642f-dccb-5d1c-8cb8-898ac6540883
+status: experimental
+description: 'Credential dumping tools open LSASS with memory read rights.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.credential-access
+    - attack.t1003.001
+logsource:
+    category: process_access
+    product: windows
+detection:
+    selection:
+        TargetImage|endswith: '\lsass.exe'
+        GrantedAccess|contains:
+            - '0x1010'
+            - '0x1410'
+            - '0x1438'
+            - '0x143a'
+            - '0x1fffff'
+    filter_system:
+        SourceImage|startswith:
+            - 'C:\Windows\System32\'
+            - 'C:\Windows\SysWOW64\'
+            - 'C:\Program Files\Windows Defender\'
+            - 'C:\ProgramData\Microsoft\Windows Defender\'
+    condition: selection and not filter_system
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

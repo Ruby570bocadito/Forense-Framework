@@ -1,0 +1,32 @@
+title: PsExec-style remote execution service installed
+id: bec253ee-4409-5b8c-9137-8f9145e6e362
+status: experimental
+description: 'PsExec and similar tools install a temporary service on the target to run commands remotely.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.execution
+    - attack.t1569.002
+    - attack.lateral-movement
+    - attack.t1021.002
+logsource:
+    service: system
+    product: windows
+detection:
+    selection_name:
+        EventID: 7045
+        ServiceName:
+            - 'PSEXESVC'
+            - 'PAExec'
+            - 'RemComSvc'
+            - 'csexecsvc'
+    selection_path:
+        EventID: 7045
+        ImagePath|contains:
+            - '\PSEXESVC.exe'
+            - '\PAExec'
+            - '\RemComSvc'
+    condition: 1 of selection_*
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

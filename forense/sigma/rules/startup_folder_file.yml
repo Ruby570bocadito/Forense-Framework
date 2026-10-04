@@ -1,0 +1,21 @@
+title: File created in a Startup folder
+id: dcfb3775-d786-5554-9e74-63080d229171
+status: experimental
+description: 'Anything placed in a Startup folder runs at every logon.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.persistence
+    - attack.t1547.001
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|contains: '\Start Menu\Programs\Startup\'
+    filter_desktop_ini:
+        TargetFilename|endswith: '\desktop.ini'
+    condition: selection and not filter_desktop_ini
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: medium

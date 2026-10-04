@@ -1,0 +1,40 @@
+title: Office application spawning a shell or script host
+id: 5d072612-79ad-5dea-8453-6a9af9419780
+status: experimental
+description: 'A document opened in Microsoft Office started a command interpreter: typical of malicious macros.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.execution
+    - attack.t1204.002
+    - attack.initial-access
+    - attack.t1566.001
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    parent:
+        ParentImage|endswith:
+            - '\winword.exe'
+            - '\excel.exe'
+            - '\powerpnt.exe'
+            - '\outlook.exe'
+            - '\onenote.exe'
+            - '\msaccess.exe'
+            - '\mspub.exe'
+    child:
+        Image|endswith:
+            - '\cmd.exe'
+            - '\powershell.exe'
+            - '\pwsh.exe'
+            - '\wscript.exe'
+            - '\cscript.exe'
+            - '\mshta.exe'
+            - '\rundll32.exe'
+            - '\regsvr32.exe'
+            - '\certutil.exe'
+            - '\bitsadmin.exe'
+    condition: parent and child
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

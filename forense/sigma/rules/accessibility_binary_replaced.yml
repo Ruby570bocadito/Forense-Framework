@@ -1,0 +1,29 @@
+title: Accessibility binary written to System32
+id: 836b463c-7bc5-5dd1-9f15-a768c3836211
+status: experimental
+description: 'Replacing accessibility tools gives a SYSTEM shell from the logon screen.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.persistence
+    - attack.t1546.008
+logsource:
+    category: file_event
+    product: windows
+detection:
+    selection:
+        TargetFilename|endswith:
+            - '\System32\sethc.exe'
+            - '\System32\utilman.exe'
+            - '\System32\osk.exe'
+            - '\System32\narrator.exe'
+            - '\System32\magnify.exe'
+            - '\System32\displayswitch.exe'
+    filter_installer:
+        Image|endswith:
+            - '\TrustedInstaller.exe'
+            - '\TiWorker.exe'
+    condition: selection and not filter_installer
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: high

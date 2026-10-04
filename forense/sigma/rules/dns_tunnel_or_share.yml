@@ -1,0 +1,31 @@
+title: DNS query to a tunneling or file-sharing service
+id: e1eed1e5-2ec4-50fc-a6cc-c92924a022d6
+status: experimental
+description: 'These services are frequently used to tunnel command-and-control traffic or exfiltrate data.'
+author: Forense-Framework
+date: 2026-10-04
+tags:
+    - attack.exfiltration
+    - attack.t1567
+    - attack.command-and-control
+    - attack.t1572
+logsource:
+    category: dns_query
+    product: windows
+detection:
+    selection:
+        QueryName|endswith:
+            - '.ngrok.io'
+            - '.ngrok-free.app'
+            - '.trycloudflare.com'
+            - 'transfer.sh'
+            - 'pastebin.com'
+            - 'mega.nz'
+            - 'gofile.io'
+            - 'anonfiles.com'
+            - 'file.io'
+            - 'temp.sh'
+    condition: selection
+falsepositives:
+    - Legitimate administration; review the surrounding activity.
+level: medium
