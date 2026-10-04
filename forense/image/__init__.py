@@ -36,7 +36,6 @@ TRIAGE_PATTERNS = (
     "Windows/System32/Tasks/**",
     "Windows/Prefetch/*.pf",
     "Windows/appcompat/Programs/Amcache.hve", "Windows/appcompat/Programs/Amcache.hve.LOG*",
-    "Windows/inf/setupapi.dev.log",
     "Users/*/NTUSER.DAT", "Users/*/NTUSER.DAT.LOG*",
     "Users/*/AppData/Local/Microsoft/Windows/UsrClass.dat", "Users/*/AppData/Local/Microsoft/Windows/UsrClass.dat.LOG*",
     "Users/*/AppData/Roaming/Microsoft/Windows/Recent/**",
@@ -50,6 +49,11 @@ TRIAGE_PATTERNS = (
     "Users/*/AppData/Roaming/Mozilla/Firefox/Profiles/*/places.sqlite",
     "Users/*/AppData/Roaming/Mozilla/Firefox/Profiles/*/places.sqlite-wal",
     "$Recycle.Bin/*/$I*",
+    "$Extend/$UsnJrnl:$J",
+    "Windows/System32/wbem/Repository/OBJECTS.DATA",
+    "Windows/System32/wbem/Repository/INDEX.BTR", "Windows/System32/wbem/Repository/MAPPING*.MAP",
+    "Windows/inf/setupapi*.log",
+    "Users/*/AppData/Local/ConnectedDevicesPlatform/*/ActivitiesCache.db*",
     "Users/Public/**/*.exe", "Users/*/AppData/Local/Temp/*.exe", "Users/*/Downloads/*.exe",
     "Windows/Temp/*.exe", "Windows/Temp/*.ps1", "Users/*/AppData/Local/Temp/*.ps1",
 )
@@ -278,7 +282,12 @@ class Extractor:
                  progress: Optional[Callable[[str], None]] = None) -> None:
         self.fs = fs
         self.dest = Path(dest)
-        self.patterns = [tuple(p.split("/")) for p in patterns]
+        # "dir/file:stream" selects an alternate data stream ($Extend/$UsnJrnl:$J, file.exe:Zone.Identifier)
+        self.streams: list[tuple[tuple[str, ...], Optional[str]]] = []
+        for pattern in patterns:
+            path, _, stream = pattern.partition(":")
+            self.streams.append((tuple(path.split("/")), stream or None))
+        self.patterns = [segments for segments, _ in self.streams]
         self.max_file_size = max_file_size
         self.on_error = on_error
         self.progress = progress
@@ -312,10 +321,13 @@ class Extractor:
                 if name == "$OrphanFiles" or not any(_could_match(child, p) for p in self.patterns):
                     continue
                 self._walk(child_path, child, results, depth + 1)
-            elif meta_type == pytsk3.TSK_FS_META_TYPE_REG and any(_matches(child, p) for p in self.patterns):
-                extracted = self._extract(entry, child_path, child)
-                if extracted:
-                    results.append(extracted)
+            elif meta_type == pytsk3.TSK_FS_META_TYPE_REG:
+                wanted = {stream for segments, stream in self.streams if _matches(child, segments)}
+                for stream in sorted(wanted, key=lambda x: x or ""):
+                    extracted = self._extract(entry, child_path, child) if stream is None \
+                        else self._extract_stream(entry, child_path, child, stream)
+                    if extracted:
+                        results.append(extracted)
 
     def _extract(self, entry, source: str, segments: tuple[str, ...]) -> Optional[ExtractedFile]:
         meta = entry.info.meta
@@ -343,12 +355,74 @@ class Extractor:
             if self.on_error:
                 self.on_error(source, exc)
             return None
+        return self._finish(entry, source, dest, size, sha256, md5)
+
+    def _finish(self, entry, source: str, dest: Path, size: int, sha256, md5) -> ExtractedFile:
+        meta = entry.info.meta
         times = {k: getattr(meta, k, 0) or None for k in ("mtime", "atime", "ctime", "crtime")}
         if times["mtime"]:
             os.utime(dest, (times["atime"] or times["mtime"], times["mtime"]))
         return ExtractedFile(source, dest, size, sha256.hexdigest(), md5.hexdigest(),
                              *(ts_to_iso(times[k]) if times[k] else None for k in ("mtime", "atime", "ctime", "crtime")),
                              int(meta.addr))
+
+    def _extract_stream(self, entry, source: str, segments: tuple[str, ...], stream: str) -> Optional[ExtractedFile]:
+        """Copy a named $DATA stream, skipping sparse runs (the $J journal is mostly sparse)."""
+        import pytsk3
+
+        attribute = None
+        for attr in entry:
+            name = attr.info.name.decode("utf-8", errors="replace") if attr.info.name else ""
+            if attr.info.type == pytsk3.TSK_FS_ATTR_TYPE_NTFS_DATA and name.lower() == stream.lower():
+                attribute = attr
+                break
+        if attribute is None:
+            return None
+        size = int(attribute.info.size)
+        block = self.fs.info.block_size
+        try:
+            runs = [(int(r.offset) * block, int(r.len) * block, int(r.flags)) for r in attribute]
+        except (OSError, TypeError):
+            runs = []
+        if not runs:  # resident stream
+            runs = [(0, size, 0)]
+        sparse = pytsk3.TSK_FS_ATTR_RUN_FLAG_SPARSE | pytsk3.TSK_FS_ATTR_RUN_FLAG_FILLER
+        data_runs = [(off, min(length, size - off)) for off, length, flags in runs if not flags & sparse and off < size]
+        if sum(length for _, length in data_runs) > self.max_file_size:
+            return None
+        safe = [re.sub(r'[<>:"|?*\x00-\x1f]', "_", s) for s in _stream_dest(segments, stream)]
+        dest = self.dest.joinpath(*safe)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        sha256, md5 = hashlib.sha256(), hashlib.md5()
+        if self.progress:
+            self.progress(f"{source}:{stream}")
+        written = 0
+        try:
+            with open(dest, "wb") as out:
+                for offset, length in data_runs:
+                    done = 0
+                    while done < length:
+                        data = entry.read_random(offset + done, min(CHUNK, length - done), attribute.info.type,
+                                                 attribute.info.id)
+                        if not data:
+                            break
+                        out.write(data)
+                        sha256.update(data)
+                        md5.update(data)
+                        done += len(data)
+                    written += done
+        except OSError as exc:
+            if self.on_error:
+                self.on_error(f"{source}:{stream}", exc)
+            return None
+        return self._finish(entry, f"{source}:{stream}", dest, written, sha256, md5)
+
+
+def _stream_dest(segments: tuple[str, ...], stream: str) -> tuple[str, ...]:
+    """Where an alternate data stream is written: $Extend/$UsnJrnl:$J -> $Extend/$J (KAPE layout)."""
+    if segments[-1].lower() == "$usnjrnl":
+        return segments[:-1] + (stream,)
+    return segments[:-1] + (f"{segments[-1]}_{stream}",)
 
 
 def verify_media(img, info: ImageInfo, progress: Optional[Callable[[int], None]] = None) -> dict:

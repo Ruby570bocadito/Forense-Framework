@@ -6,15 +6,21 @@ opened read-only, so SQLite never writes next to the evidence.
 
 from __future__ import annotations
 
-import shutil
 import sqlite3
-import tempfile
 from pathlib import Path, PureWindowsPath
 from typing import Iterator
 from urllib.parse import unquote, urlparse
 
 from forense.core.heuristics import EXECUTABLE_EXTENSIONS
-from forense.core.utils import dt_or_none_iso, find_files, relative_name, unix_us_to_dt, webkit_to_dt
+from forense.core.utils import (
+    ReadOnlySqlite,
+    dt_or_none_iso,
+    find_files,
+    relative_name,
+    unix_us_to_dt,
+    user_from_path,
+    webkit_to_dt,
+)
 from forense.modules.base import AnalysisContext, Module, register
 
 CHROMIUM_TRANSITIONS = {
@@ -40,38 +46,6 @@ def _browser_name(path: Path) -> str:
         if marker in text:
             return name
     return "Firefox" if path.name.lower() == "places.sqlite" else "Chromium"
-
-
-def _user_from_path(path: Path) -> str:
-    lowered = [p.lower() for p in path.parts]
-    if "users" in lowered:
-        idx = lowered.index("users")
-        if idx + 1 < len(path.parts):
-            return path.parts[idx + 1]
-    return ""
-
-
-class _ReadOnlyCopy:
-    """Temporary copy of an SQLite database (plus WAL) opened read-only."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self.tmp = Path(tempfile.mkdtemp(prefix="forense_sqlite_"))
-
-    def __enter__(self) -> sqlite3.Connection:
-        copy = self.tmp / "db.sqlite"
-        shutil.copyfile(self.path, copy)
-        for suffix in ("-wal", "-journal"):
-            journal = self.path.with_name(self.path.name + suffix)
-            if journal.exists():
-                shutil.copyfile(journal, self.tmp / f"db.sqlite{suffix}")
-        self.conn = sqlite3.connect(f"{copy.resolve().as_uri()}?mode=ro", uri=True)
-        self.conn.row_factory = sqlite3.Row
-        return self.conn
-
-    def __exit__(self, *exc: object) -> None:
-        self.conn.close()
-        shutil.rmtree(self.tmp, ignore_errors=True)
 
 
 def _tables(conn: sqlite3.Connection) -> set[str]:
@@ -112,10 +86,10 @@ class BrowsersModule(Module):
         stats: dict[str, dict[str, int]] = {}
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
-            browser, user = _browser_name(path), _user_from_path(path)
+            browser, user = _browser_name(path), user_from_path(path)
             ctx.progress(rel)
             try:
-                with _ReadOnlyCopy(path) as conn:
+                with ReadOnlySqlite(path) as conn:
                     tables = _tables(conn)
                     if {"urls", "visits"} <= tables:
                         visits = self._emit_visits(ctx, rel, browser, user, self._chromium_visits(conn))

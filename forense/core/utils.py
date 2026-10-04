@@ -11,6 +11,9 @@ import csv
 import json
 import os
 import re
+import shutil
+import sqlite3
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Iterator, Optional, Union
@@ -194,3 +197,50 @@ def _csv_value(value: object) -> object:
         # Evidence-controlled text (page titles, command lines...) must not run as a spreadsheet formula.
         return "'" + value
     return value
+
+
+def user_from_path(path: Path) -> str:
+    """Profile name in a path such as ``…/Users/<name>/…`` (``''`` when there is none)."""
+    parts = list(Path(path).parts)
+    lowered = [p.lower() for p in parts]
+    for marker in ("users", "documents and settings"):
+        if marker in lowered:
+            idx = lowered.index(marker)
+            if idx + 1 < len(parts) - 1:
+                return parts[idx + 1]
+    return ""
+
+
+class ReadOnlySqlite:
+    """Temporary copy of an SQLite database (plus WAL/journal) opened read-only.
+
+    SQLite may write next to a database it opens (WAL checkpoints, -shm files),
+    so evidence databases are never opened in place.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self.tmp = Path(tempfile.mkdtemp(prefix="forense_sqlite_"))
+
+    def __enter__(self) -> sqlite3.Connection:
+        copy = self.tmp / "db.sqlite"
+        shutil.copyfile(self.path, copy)
+        for suffix in ("-wal", "-journal"):
+            journal = self.path.with_name(self.path.name + suffix)
+            if journal.exists():
+                shutil.copyfile(journal, self.tmp / f"db.sqlite{suffix}")
+        self.conn = sqlite3.connect(f"{copy.resolve().as_uri()}?mode=ro", uri=True)
+        self.conn.row_factory = sqlite3.Row
+        return self.conn
+
+    def __exit__(self, *exc: object) -> None:
+        self.conn.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def is_sqlite(path: Path) -> bool:
+    try:
+        with open(path, "rb") as fh:
+            return fh.read(16) == b"SQLite format 3\x00"
+    except OSError:
+        return False

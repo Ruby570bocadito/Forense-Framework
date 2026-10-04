@@ -15,7 +15,8 @@ from forense.core.heuristics import (
     is_suspicious_location,
     suspicious_command_rules,
 )
-from forense.core.utils import dt_or_none_iso, filetime_to_dt, find_files, iso, relative_name
+from forense.core.timezone import WindowsTimeZone
+from forense.core.utils import dt_or_none_iso, filetime_to_dt, find_files, iso, relative_name, user_from_path
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.regf import RegistryError, RegistryHive, decode_utf16_string, identify
 from forense.parsers.shimcache import ShimCacheError, parse_appcompatcache
@@ -63,14 +64,20 @@ def _filetime_bytes(raw: object) -> Optional[datetime]:
     return None
 
 
-def _systemtime(raw: object) -> str:
-    """SYSTEMTIME structure (local time of the system) as text."""
+def _systemtime_dt(raw: object) -> Optional[datetime]:
+    """SYSTEMTIME structure (local time of the system) as a naive datetime."""
     if not isinstance(raw, (bytes, bytearray)) or len(raw) < 16:
-        return ""
+        return None
     year, month, _dow, day, hour, minute, second, _ms = struct.unpack_from("<8H", raw)
-    if not year:
-        return ""
-    return f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}"
+    try:
+        return datetime(year, month, day, hour, minute, second) if year else None
+    except ValueError:
+        return None
+
+
+def _systemtime(raw: object) -> str:
+    value = _systemtime_dt(raw)
+    return value.strftime("%Y-%m-%d %H:%M:%S") if value else ""
 
 
 def _text(value: object) -> str:
@@ -84,14 +91,7 @@ def _text(value: object) -> str:
 
 
 def _user_from_path(path: Path) -> str:
-    parts = [p for p in path.parts]
-    lowered = [p.lower() for p in parts]
-    for marker in ("users", "documents and settings"):
-        if marker in lowered:
-            idx = lowered.index(marker)
-            if idx + 1 < len(parts) - 1:
-                return parts[idx + 1]
-    return path.parent.name
+    return user_from_path(path) or path.parent.name
 
 
 @register
@@ -361,13 +361,21 @@ class RegistryModule(Module):
                 ctx.event(key.last_written, "program_installed", name, rel)
 
         profiles = hive.open("Microsoft\\Windows NT\\CurrentVersion\\NetworkList\\Profiles")
+        zone = WindowsTimeZone.from_evidence(ctx.target) if profiles else None
         for key in profiles.subkeys() if profiles else []:
+            created, connected = _systemtime_dt(key.get("DateCreated")), _systemtime_dt(key.get("DateLastConnected"))
+            created_utc = zone.to_utc(created) if zone and created else None
+            connected_utc = zone.to_utc(connected) if zone and connected else None
+            name = _text(key.get("ProfileName"))
             ctx.record("network_profile", {
-                "file": rel, "name": _text(key.get("ProfileName")), "description": _text(key.get("Description")),
+                "file": rel, "name": name, "description": _text(key.get("Description")),
                 "type": NETWORK_NAME_TYPES.get(key.get("NameType"), _text(key.get("NameType"))),
                 "created_local": _systemtime(key.get("DateCreated")),
                 "last_connected_local": _systemtime(key.get("DateLastConnected")),
+                "created": dt_or_none_iso(created_utc), "last_connected": dt_or_none_iso(connected_utc),
             })
+            ctx.event(created_utc, "network_first_connected", name, rel)
+            ctx.event(connected_utc, "network_last_connected", name, rel)
 
     # -- SAM ----------------------------------------------------------------
     @staticmethod

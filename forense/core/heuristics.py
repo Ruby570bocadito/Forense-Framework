@@ -33,6 +33,8 @@ COMMAND_RULES: tuple[tuple[str, re.Pattern], ...] = tuple(
         ("user_creation", r"\bnet1?(\.exe)?\s+user\s+\S+\s+\S+\s+/add"),
         ("admin_group_add", r"\bnet1?(\.exe)?\s+localgroup\s+administra\w*\s+\S+\s+/add"),
         ("remote_execution", r"psexec|paexec|wmic(\.exe)?\s+/node:|winrs(\.exe)?\s"),
+        ("history_clearing", r"clear-history|remove-item.*(consolehost_history|psreadline)"
+                             r"|set-psreadlineoption.*historysavestyle\s+savenothing"),
     )
 )
 

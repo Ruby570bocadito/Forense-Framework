@@ -194,6 +194,7 @@ def test_evtx_brute_force_followed_by_success(tmp_path):
 def test_every_module_is_described():
     names = [m.name for m in available_modules()]
     windows = {"evtx", "registry", "lnk", "recyclebin", "browsers", "mft", "prefetch", "srum", "shellbags",
-               "jumplists", "memory"}
+               "jumplists", "memory", "tasks", "psreadline", "wintimeline", "setupapi",
+               "wmi", "usnjrnl"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first

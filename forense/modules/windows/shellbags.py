@@ -7,7 +7,7 @@ import struct
 from pathlib import Path
 from typing import Optional
 
-from forense.core.utils import dt_or_none_iso, find_files, relative_name
+from forense.core.utils import dt_or_none_iso, find_files, relative_name, user_from_path
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.regf import RegistryError, RegistryHive, RegistryKey
 from forense.parsers.shellitems import join_path, parse_shell_item
@@ -28,13 +28,6 @@ def _mru_order(key: RegistryKey) -> list[int]:
     return [i for (i,) in struct.iter_unpack("<I", raw[:len(raw) // 4 * 4]) if i != 0xFFFFFFFF]
 
 
-def _user_from_path(path: Path) -> str:
-    parts = [p.lower() for p in path.parts]
-    if "users" in parts and parts.index("users") + 1 < len(parts) - 1:
-        return path.parts[parts.index("users") + 1]
-    return ""
-
-
 @register
 class ShellBagsModule(Module):
     name = "shellbags"
@@ -48,7 +41,7 @@ class ShellBagsModule(Module):
         total = 0
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
-            user = _user_from_path(path)
+            user = user_from_path(path)
             try:
                 with RegistryHive(path) as hive:
                     for root_path in BAG_ROOTS:
