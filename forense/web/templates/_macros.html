@@ -1,0 +1,19 @@
+{% macro sevbadge(s) %}<span class="sev" style="background: {{ colors.get(s, '#5f6b7a') }}">{{ s | sev }}</span>{% endmacro %}
+
+{% macro render(value) %}
+  {%- if value is mapping -%}
+    <table class="kv">{% for k, v in value.items() %}<tr><th>{{ k | label }}</th><td class="wrap">{{ render(v) }}</td></tr>{% endfor %}</table>
+  {%- elif value is iterable and value is not string -%}
+    {{ value | join(", ") }}
+  {%- else -%}{{ value | val }}{%- endif -%}
+{% endmacro %}
+
+{% macro pager(page, pages, args, endpoint) %}
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="button secondary" href="{{ url_for(endpoint, **dict(args, page=page - 1)) }}">← {{ _('common.previous') }}</a>{% endif %}
+  <span class="muted">{{ _('common.page', page=page, pages=pages) }}</span>
+  {% if page < pages %}<a class="button secondary" href="{{ url_for(endpoint, **dict(args, page=page + 1)) }}">{{ _('common.next') }} →</a>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}

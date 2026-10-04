@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ _("report.title") }} – {{ case.name }}</title>
+<style>
+  :root { --ink:#1d2430; --muted:#5f6b7a; --line:#d9dee5; --soft:#f4f6f9; --accent:#1f4e79; --ok:#1e7b45; --bad:#b42318; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+  header.cover { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 28px; }
+  header.cover .kicker { color: var(--accent); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+  h1 { margin: 6px 0 4px; font-size: 28px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--accent); }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; margin-top: 14px; }
+  .meta div span { display: block; color: var(--muted); font-size: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+  .kpi { background: var(--soft); border-radius: 8px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 22px; }
+  .kpi span { color: var(--muted); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  th { background: var(--soft); font-weight: 600; }
+  table.kv th { width: 30%; background: none; color: var(--muted); font-weight: 500; }
+  .sev { display: inline-block; padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .muted { color: var(--muted); }
+  .callout { border-left: 4px solid var(--accent); background: var(--soft); padding: 10px 14px; border-radius: 4px; }
+  .callout.bad { border-color: var(--bad); }
+  .analysis { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 10px; margin: 14px 0; page-break-inside: avoid; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  @media print { main { padding: 0; } h2 { page-break-after: avoid; } tr { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+{% macro sevbadge(s) %}<span class="sev" style="background: {{ colors.get(s, '#5f6b7a') }}">{{ s | sev }}</span>{% endmacro %}
+{% macro render(value) %}
+  {%- if value is mapping -%}
+    <table class="kv">{% for k, v in value.items() %}<tr><th>{{ k | label }}</th><td>{{ render(v) }}</td></tr>{% endfor %}</table>
+  {%- elif value is iterable and value is not string -%}
+    {{ value | join(", ") }}
+  {%- else -%}{{ value | val }}{%- endif -%}
+{% endmacro %}
+
+<header class="cover">
+  <div class="kicker">{{ _("report.kicker") }}</div>
+  <h1>{{ case.name }}</h1>
+  <div class="muted">{{ case.description }}</div>
+  <div class="meta">
+    <div><span>{{ _("case.id") }}</span>{{ case.id }}</div>
+    {% if case.reference %}<div><span>{{ _("case.reference") }}</span>{{ case.reference }}</div>{% endif %}
+    {% if case.organization %}<div><span>{{ _("case.organization") }}</span>{{ case.organization }}</div>{% endif %}
+    <div><span>{{ _("case.investigator") }}</span>{{ case.investigator }}</div>
+    <div><span>{{ _("case.created") }}</span>{{ case.created | ts }} UTC</div>
+    <div><span>{{ _("report.generated") }}</span>{{ generated | ts }} UTC · {{ analyst }}</div>
+  </div>
+</header>
+
+<h2>1. {{ _("report.summary") }}</h2>
+<div class="kpis">
+  <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _("nav.evidence") }}</span></div>
+  <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _("nav.analyses") }}</span></div>
+  <div class="kpi"><b>{{ stats.events }}</b><span>{{ _("report.timeline_events") }}</span></div>
+  {% for s in ["critical", "high", "medium", "low"] %}
+  <div class="kpi"><b style="color: {{ colors[s] }}">{{ stats.findings_by_severity.get(s, 0) }}</b><span>{{ _("report.findings_of", severity=_("severity.plural." + s)) }}</span></div>
+  {% endfor %}
+</div>
+{% set top = findings | selectattr("severity", "in", ["critical", "high"]) | list %}
+{% if top %}
+<h3>{{ _("report.key_findings") }}</h3>
+<ol>
+  {% for f in top[:15] %}<li>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b> — {{ finding_description(f) }} <span class="muted">({{ f.timestamp | ts or "—" }})</span></li>{% endfor %}
+</ol>
+{% else %}
+<p class="muted">{{ _("report.no_key_findings") }}</p>
+{% endif %}
+{% if stats.first_event %}<p class="muted">{{ _("report.activity_span", first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
+
+<h2>2. {{ _("nav.evidence") }}</h2>
+<table>
+  <tr><th>ID</th><th>{{ _("field.description") }}</th><th>{{ _("field.kind") }}</th><th>{{ _("field.size") }}</th><th>{{ _("report.hashes") }}</th><th>{{ _("report.integrity") }}</th></tr>
+  {% for ev in evidence %}
+  {% set v = verifications.get(ev.id) %}
+  <tr>
+    <td><b>{{ ev.id }}</b></td>
+    <td>{{ ev.description }}<div class="muted mono">{{ ev.source }}</div>{% if ev.copied %}<div class="muted">{{ _("evidence.working_copy") }}: <span class="mono">{{ ev.path }}</span></div>{% endif %}</td>
+    <td>{{ _("evidence.kind." + ev.kind) }}<div class="muted">{{ ev.file_count }} {{ _("field.files") | lower }}</div></td>
+    <td>{{ ev.size }} B</td>
+    <td class="mono">{% for algo, value in ev.hashes.items() %}{{ algo | upper }}: {{ value }}<br>{% endfor %}</td>
+    <td>{% if v %}<span class="{{ 'ok' if v.result == 'ok' else 'bad' }}">{{ _("verify.result." + v.result) }}</span><div class="muted">{{ v.timestamp | ts }}</div>{% else %}<span class="muted">{{ _("verify.never") }}</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>3. {{ _("nav.findings") }} ({{ findings | length }})</h2>
+{% if findings %}
+<table>
+  <tr><th>{{ _("field.severity") }}</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("report.finding") }}</th><th>{{ _("report.source") }}</th></tr>
+  {% for f in findings %}
+  <tr><td>{{ sevbadge(f.severity) }}</td><td class="mono">{{ f.timestamp | ts }}</td><td><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}</td><td>{{ f.evidence_id }} · #{{ f.analysis_id }}</td></tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">{{ _("findings.none") }}</p>{% endif %}
+
+<h2>4. {{ _("report.chronology") }}</h2>
+<p class="muted">{{ _("report.chronology_note", shown=(events | length), total=events_total) }}</p>
+<table>
+  <tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.severity") }}</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr>
+  {% for e in events %}
+  <tr><td class="mono">{{ e.timestamp | ts }}</td><td>{{ sevbadge(e.severity) }}</td><td>{{ e.type | etype }}</td><td>{{ e.details }}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>5. {{ _("report.analyses") }}</h2>
+{% for a in analyses %}
+<section class="analysis">
+  <h3>#{{ a.id }} · {{ module_title(a.module) }} <span class="muted">— {{ a.evidence_id }}</span></h3>
+  <table class="kv">
+    <tr><th>{{ _("field.status") }}</th><td>{{ a.status | status }}</td></tr>
+    <tr><th>{{ _("report.period") }}</th><td>{{ a.started | ts }} → {{ a.finished | ts }} UTC · {{ a.actor }}</td></tr>
+    {% if a.options %}<tr><th>{{ _("report.options") }}</th><td class="mono">{% for k, v in a.options.items() %}{{ k }}={{ v }} {% endfor %}</td></tr>{% endif %}
+    <tr><th>{{ _("report.output") }}</th><td>{{ a.record_count }} {{ _("report.records") }} · {{ a.event_count }} {{ _("report.events") }} · {{ a.finding_count }} {{ _("report.findings") }}</td></tr>
+    {% if records_by_analysis[a.id] %}<tr><th>{{ _("report.artifacts") }}</th><td>{% for art, n in records_by_analysis[a.id] %}{{ art | artifact }} ({{ n }}){% if not loop.last %}, {% endif %}{% endfor %}</td></tr>{% endif %}
+    {% if a.results_sha256 %}<tr><th>{{ _("report.results_hash") }}</th><td class="mono">{{ a.results_sha256 }} {% if results_ok.get(a.id) %}<span class="ok">✓ {{ _("verify.result.ok") }}</span>{% else %}<span class="bad">✗ {{ _("verify.result.mismatch") }}</span>{% endif %}</td></tr>{% endif %}
+  </table>
+  {% if a.summary %}{{ render(a.summary) }}{% endif %}
+  {% if a.errors %}<div class="callout bad"><b>{{ _("report.errors") }} ({{ a.errors | length }})</b>{% for e in a.errors[:20] %}<div class="mono">{{ e.path }}: {{ e.error }}</div>{% endfor %}</div>{% endif %}
+</section>
+{% endfor %}
+
+<h2>6. {{ _("nav.custody") }}</h2>
+{% if custody_problems %}
+<div class="callout bad"><b>{{ _("custody.broken") }}</b>{% for p in custody_problems %}<div>#{{ p.seq }}: {{ _(p.code) }}</div>{% endfor %}</div>
+{% else %}
+<div class="callout"><span class="ok">✓ {{ _("custody.intact", count=(custody | length)) }}</span><br>{{ _("custody.head") }}: <span class="mono">{{ custody_head }}</span></div>
+{% endif %}
+<table>
+  <tr><th>#</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.action") }}</th><th>{{ _("field.actor") }}</th><th>{{ _("field.details") }}</th><th>{{ _("field.hash") }}</th></tr>
+  {% for c in custody %}
+  <tr><td>{{ c.seq }}</td><td class="mono">{{ c.timestamp | ts }}</td><td>{{ c.action | action }}</td><td>{{ c.actor }}</td><td class="mono">{% for k, v in c.details.items() %}{{ k }}={{ v | val(120) }}<br>{% endfor %}</td><td class="mono">{{ c.hash[:16] }}…</td></tr>
+  {% endfor %}
+</table>
+
+<h2>7. {{ _("report.methodology") }}</h2>
+<ul>
+  <li>{{ _("report.method.readonly") }}</li>
+  <li>{{ _("report.method.hashes") }}</li>
+  <li>{{ _("report.method.utc") }}</li>
+  <li>{{ _("report.method.custody") }}</li>
+  <li>{{ _("report.method.findings") }}</li>
+</ul>
+
+<footer>{{ _("report.footer", version=version) }}</footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Forense-Framework{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{ url_for('index') }}">Forense<span>-Framework</span></a>
+  {% if slug is defined %}<span class="case-name">/ {{ case.name }} <span class="mono">({{ case.id }})</span></span>{% endif %}
+  <span class="spacer"></span>
+  <form method="post" action="{{ url_for('set_analyst') }}" title="{{ _('web.analyst_help') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="analyst" value="{{ analyst }}" placeholder="{{ _('web.analyst') }}" aria-label="{{ _('web.analyst') }}">
+    <button class="secondary small" type="submit">{{ _('common.save') }}</button>
+  </form>
+  <span class="lang">{% for code in languages %}<a href="?lang={{ code }}" class="{{ 'active' if code == lang }}">{{ code | upper }}</a>{% endfor %}</span>
+</header>
+<div class="shell {{ '' if slug is defined else 'no-nav' }}">
+  {% if slug is defined %}
+  <nav class="side">
+    {% set here = request.endpoint %}
+    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}">{{ _('nav.dashboard') }}</a>
+    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}">{{ _('nav.evidence') }}</a>
+    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}">{{ _('nav.analyses') }}</a>
+    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}">{{ _('nav.findings') }}</a>
+    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}">{{ _('nav.timeline') }}</a>
+    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}">{{ _('nav.custody') }}</a>
+    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}">{{ _('nav.reports') }}</a>
+  </nav>
+  {% endif %}
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    {% if slug is defined %}
+    <div id="jobs" class="panel jobs" hidden data-url="{{ url_for('api_jobs', case=slug) }}" data-reload="1"
+         data-open="{{ _('common.open') }}" data-status-queued="{{ _('job.queued') }}" data-status-running="{{ _('job.running') }}"
+         data-status-done="{{ _('job.done') }}" data-status-failed="{{ _('job.failed') }}">
+      <b>{{ _('web.jobs') }}</b><ul></ul>
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

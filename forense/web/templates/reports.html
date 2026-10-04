@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.reports') }}</h1>
+<form class="panel" method="post" action="{{ url_for('generate', slug=slug) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="row">
+    <div><label>{{ _('web.report_language') }}</label>
+      <select name="language">{% for code in languages %}<option value="{{ code }}" {{ 'selected' if code == lang }}>{{ _('language.' + code) }}</option>{% endfor %}</select></div>
+    <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="verify" style="width:auto"> {{ _('cli.opt.report_verify') }}</label></div>
+    <div style="flex:0"><button type="submit">{{ _('web.generate_report') }}</button></div>
+  </div>
+  <p class="muted">{{ _('web.report_help') }}</p>
+</form>
+{% if files %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('field.file') }}</th><th>{{ _('field.size') }}</th></tr>
+  {% for f in files %}<tr><td><a href="{{ url_for('report_file', slug=slug, name=f.name) }}" target="_blank" rel="noopener">{{ f.name }}</a></td><td>{{ f.stat().st_size }} B</td></tr>{% endfor %}
+</table></div>
+{% else %}<div class="panel empty">{{ _('web.no_reports') }}</div>{% endif %}
+{% endblock %}

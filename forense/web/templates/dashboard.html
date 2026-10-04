@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block title %}{{ case.name }} · Forense-Framework{% endblock %}
+{% block content %}
+<h1>{{ case.name }}</h1>
+<div class="subtitle">{{ case.description }}{% if case.reference %} · {{ _('case.reference') }}: {{ case.reference }}{% endif %} · {{ _('case.investigator') }}: {{ case.investigator }}</div>
+
+<div class="kpis">
+  <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _('nav.evidence') }}</span></div>
+  <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _('nav.analyses') }}</span></div>
+  <div class="kpi"><b>{{ stats.events }}</b><span>{{ _('report.timeline_events') }}</span></div>
+  {% for s in ['critical', 'high', 'medium', 'low'] %}
+  <div class="kpi"><b style="color: {{ colors[s] }}">{{ stats.findings_by_severity.get(s, 0) }}</b><span>{{ _('report.findings_of', severity=_('severity.plural.' + s)) }}</span></div>
+  {% endfor %}
+</div>
+{% if stats.first_event %}<p class="muted">{{ _('report.activity_span', first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
+
+<div class="grid">
+  <section class="panel">
+    <h2 style="margin-top:0">{{ _('web.top_findings') }}</h2>
+    {% for f in findings %}
+      <p>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b><br><span class="muted">{{ f.timestamp | ts }}</span> {{ finding_description(f) }}</p>
+    {% else %}<p class="muted">{{ _('findings.none') }}</p>{% endfor %}
+    <a href="{{ url_for('findings', slug=slug) }}">{{ _('web.all_findings') }} →</a>
+  </section>
+  <section class="panel">
+    <h2 style="margin-top:0">{{ _('nav.evidence') }}</h2>
+    {% for ev in evidence %}
+      <form class="row" method="post" action="{{ url_for('triage', slug=slug) }}" style="margin-bottom:10px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="evidence" value="{{ ev.id }}">
+        <div><b>{{ ev.id }}</b> {{ ev.description }}<div class="muted mono">{{ ev.hashes.sha256[:24] }}…</div></div>
+        <button class="secondary small" type="submit">{{ _('web.run_triage') }}</button>
+      </form>
+    {% else %}<p class="muted">{{ _('web.no_evidence') }} <a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }}</a></p>{% endfor %}
+    <h2>{{ _('web.recent_analyses') }}</h2>
+    {% for a in analyses %}
+      <div><a href="{{ url_for('analysis', slug=slug, analysis_id=a.id) }}">#{{ a.id }} {{ a.module }}</a> · {{ a.evidence_id }} · {{ a.status | status }} · {{ a.finding_count }} {{ _('report.findings') }}</div>
+    {% else %}<p class="muted">{{ _('web.no_analyses') }}</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.timeline') }}</h1>
+<div class="subtitle">{{ _('web.timeline_help') }}</div>
+<form class="panel" method="get">
+  <div class="row">
+    <div><label>{{ _('web.from') }}</label><input name="from" value="{{ args.get('from', '') }}" placeholder="2026-09-14 02:00"></div>
+    <div><label>{{ _('web.to') }}</label><input name="to" value="{{ args.get('to', '') }}" placeholder="2026-09-15"></div>
+    <div><label>{{ _('common.search') }}</label><input type="search" name="q" value="{{ args.get('q', '') }}"></div>
+    <div><label>{{ _('field.source') }}</label><select name="source"><option value="">{{ _('common.all') }}</option>{% for s in sources %}<option {{ 'selected' if args.get('source') == s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div><label>{{ _('field.severity') }}</label><select name="severity"><option value="">{{ _('common.all') }}</option>{% for s in ['low', 'medium', 'high', 'critical'] %}<option value="{{ s }}" {{ 'selected' if args.get('severity') == s }}>≥ {{ s | sev }}</option>{% endfor %}</select></div>
+    <div style="flex:0"><button type="submit">{{ _('common.filter') }}</button></div>
+  </div>
+</form>
+<form method="post" action="{{ url_for('export', slug=slug, what='timeline', **filter_args) }}" style="margin-bottom:8px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
+  <span class="muted">{{ _('cli.showing', shown=(events.rows | length), total=events.total) }}</span>
+</form>
+{% if events.rows %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.severity') }}</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
+  {% for e in events.rows %}
+  <tr><td class="mono" style="white-space:nowrap">{{ e.timestamp | ts }}</td><td>{{ sevbadge(e.severity) if e.severity != 'info' else '' }}</td>
+      <td>{{ e.type | etype }}</td><td class="wrap">{{ e.details }}<div class="muted mono">{{ e.path }}</div></td>
+      <td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
+  {% endfor %}
+</table></div>
+{{ pager(page, pages, dict(filter_args, slug=slug), 'timeline') }}
+{% else %}<div class="panel empty">{{ _('common.no_rows') }}</div>{% endif %}
+{% endblock %}

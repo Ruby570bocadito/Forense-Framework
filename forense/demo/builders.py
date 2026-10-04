@@ -1,0 +1,445 @@
+"""Builders of synthetic Windows artifacts, used by the demo case and the test-suite.
+
+They write structurally valid files (registry hives, shell links, Recycle Bin
+``$I`` files, $MFT records, browser databases, images...) so every parser can
+be exercised without shipping real, potentially personal, evidence.
+"""
+
+from __future__ import annotations
+
+import io
+import sqlite3
+import struct
+import uuid
+import zipfile
+import zlib
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Optional, Union
+
+FILETIME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
+
+
+def to_filetime(dt: Optional[datetime]) -> int:
+    if dt is None:
+        return 0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    delta = dt - FILETIME_EPOCH
+    return (delta.days * 86400 + delta.seconds) * 10_000_000 + delta.microseconds * 10
+
+
+def to_webkit(dt: datetime) -> int:
+    return to_filetime(dt) // 10
+
+
+def to_unix_us(dt: datetime) -> int:
+    return int(dt.timestamp() * 1_000_000)
+
+
+# --------------------------------------------------------------------------
+# Registry hives
+# --------------------------------------------------------------------------
+REG_SZ, REG_EXPAND_SZ, REG_BINARY, REG_DWORD, REG_MULTI_SZ, REG_QWORD = 1, 2, 3, 4, 7, 11
+
+
+@dataclass
+class _Value:
+    name: str
+    type: int
+    data: bytes
+
+
+@dataclass
+class _Key:
+    name: str
+    last_written: Optional[datetime] = None
+    subkeys: dict = field(default_factory=dict)
+    values: list = field(default_factory=list)
+
+
+def encode_value(type_: int, data: Union[str, int, bytes, list]) -> bytes:
+    if isinstance(data, bytes):
+        return data
+    if type_ in (REG_SZ, REG_EXPAND_SZ):
+        return (str(data) + "\x00").encode("utf-16-le")
+    if type_ == REG_MULTI_SZ:
+        return ("\x00".join(data) + "\x00\x00").encode("utf-16-le")
+    if type_ == REG_DWORD:
+        return struct.pack("<I", data)
+    if type_ == REG_QWORD:
+        return struct.pack("<Q", data)
+    raise ValueError(f"cannot encode {data!r} as type {type_}")
+
+
+class HiveBuilder:
+    """Build a registry hive (regf 1.5) in memory."""
+
+    def __init__(self, root_name: str = "ROOT", default_time: Optional[datetime] = None,
+                 embedded_name: str = "") -> None:
+        self.default_time = default_time or datetime(2024, 1, 1, tzinfo=timezone.utc)
+        self.root = _Key(root_name, self.default_time)
+        self.embedded_name = embedded_name
+        self.dirty = False
+
+    def key(self, path: str, last_written: Optional[datetime] = None) -> _Key:
+        node = self.root
+        for part in [p for p in path.split("\\") if p]:
+            child = node.subkeys.get(part.lower())
+            if child is None:
+                child = _Key(part, self.default_time)
+                node.subkeys[part.lower()] = child
+            node = child
+        if last_written is not None:
+            node.last_written = last_written
+        return node
+
+    def value(self, path: str, name: str, type_: int, data: Union[str, int, bytes, list]) -> "HiveBuilder":
+        self.key(path).values.append(_Value(name, type_, encode_value(type_, data)))
+        return self
+
+    # -- serialisation --------------------------------------------------------
+    def build(self) -> bytes:
+        self._bins = bytearray(b"\x00" * 32)  # hbin header, filled at the end
+        root_offset = self._emit_key(self.root, 0xFFFFFFFF, is_root=True)
+        free = (-(len(self._bins) + 8) % 4096) + 8
+        self._bins += struct.pack("<i", free) + b"\x00" * (free - 4)
+        bins = self._bins
+        bins[0:32] = struct.pack("<4sIIQQI", b"hbin", 0, len(bins), 0, 0, 0)[:32].ljust(32, b"\x00")
+        base = bytearray(4096)
+        seq2 = 2 if self.dirty else 1
+        struct.pack_into("<4sIIQIIIIII", base, 0, b"regf", 1, seq2, to_filetime(self.default_time), 1, 5, 0, 1,
+                         root_offset, len(bins))
+        struct.pack_into("<I", base, 44, 1)
+        name = self.embedded_name.encode("utf-16-le")[:64]
+        base[48:48 + len(name)] = name
+        checksum = 0
+        for (dword,) in struct.iter_unpack("<I", bytes(base[:508])):
+            checksum ^= dword
+        struct.pack_into("<I", base, 508, checksum)
+        return bytes(base) + bytes(bins)
+
+    def save(self, path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.build())
+        return path
+
+    def _alloc(self, data: bytes) -> int:
+        size = len(data) + 4
+        size += -size % 8
+        offset = len(self._bins)
+        self._bins += struct.pack("<i", -size) + data + b"\x00" * (size - 4 - len(data))
+        return offset
+
+    def _patch(self, offset: int, data: bytes) -> None:
+        self._bins[offset + 4:offset + 4 + len(data)] = data
+
+    @staticmethod
+    def _name(name: str) -> tuple[bytes, bool]:
+        try:
+            return name.encode("ascii"), True
+        except UnicodeEncodeError:
+            return name.encode("utf-16-le"), False
+
+    def _emit_key(self, key: _Key, parent: int, is_root: bool = False) -> int:
+        name, compressed = self._name(key.name)
+        nk_offset = self._alloc(b"\x00" * (76 + len(name)))
+
+        value_offsets = []
+        for value in key.values:
+            vname, vcompressed = self._name(value.name)
+            size = len(value.data)
+            if size <= 4:
+                data_field = struct.unpack("<I", value.data.ljust(4, b"\x00"))[0]
+                size_field = size | 0x80000000
+            elif size > 16344:
+                segments = [self._alloc(value.data[i:i + 16344]) for i in range(0, size, 16344)]
+                seg_list = self._alloc(b"".join(struct.pack("<I", s) for s in segments))
+                data_field = self._alloc(struct.pack("<2sHI", b"db", len(segments), seg_list))
+                size_field = size
+            else:
+                data_field = self._alloc(value.data)
+                size_field = size
+            flags = 1 if vcompressed and vname else 0
+            vk = struct.pack("<2sHIIIHH", b"vk", len(vname), size_field, data_field, value.type, flags, 0) + vname
+            value_offsets.append(self._alloc(vk))
+        values_list = self._alloc(b"".join(struct.pack("<I", o) for o in value_offsets)) if value_offsets \
+            else 0xFFFFFFFF
+
+        children = sorted(key.subkeys.values(), key=lambda k: k.name.upper())
+        child_offsets = [self._emit_key(child, nk_offset) for child in children]
+        if child_offsets:
+            entries = b"".join(struct.pack("<I4s", off, child.name.encode("latin-1", "replace")[:4].ljust(4, b"\x00"))
+                               for off, child in zip(child_offsets, children, strict=True))
+            subkey_list = self._alloc(struct.pack("<2sH", b"lf", len(child_offsets)) + entries)
+        else:
+            subkey_list = 0xFFFFFFFF
+
+        flags = (0x2C if is_root else 0) | (0x20 if compressed else 0)
+        nk = struct.pack("<2sHQIIIIIIIIIIIIIIIHH", b"nk", flags, to_filetime(key.last_written), 0, parent,
+                         len(child_offsets), 0, subkey_list, 0xFFFFFFFF, len(value_offsets), values_list,
+                         0xFFFFFFFF, 0xFFFFFFFF, 0, 0, 0, 0, 0, len(name), 0) + name
+        self._patch(nk_offset, nk)
+        return nk_offset
+
+
+def userassist_data(runs: int, last_run: datetime, focus_count: int = 1, focus_ms: int = 60000) -> bytes:
+    data = bytearray(72)
+    struct.pack_into("<III", data, 4, runs, focus_count, focus_ms)
+    struct.pack_into("<Q", data, 60, to_filetime(last_run))
+    return bytes(data)
+
+
+def sam_f_value(rid: int, last_logon: Optional[datetime] = None, password_set: Optional[datetime] = None,
+                last_failed: Optional[datetime] = None, logons: int = 0, failed: int = 0,
+                disabled: bool = False, password_not_required: bool = False) -> bytes:
+    data = bytearray(80)
+    struct.pack_into("<QQQQ", data, 8, to_filetime(last_logon), to_filetime(password_set), 0x7FFFFFFFFFFFFFFF,
+                     to_filetime(last_failed))
+    acb = 0x0010 | (0x0001 if disabled else 0) | (0x0004 if password_not_required else 0)
+    struct.pack_into("<I", data, 48, rid)
+    struct.pack_into("<H", data, 56, acb)
+    struct.pack_into("<HH", data, 64, failed, logons)
+    return bytes(data)
+
+
+def build_shimcache_win10(entries: list[tuple[str, datetime]]) -> bytes:
+    out = bytearray(struct.pack("<I", 0x34).ljust(0x34, b"\x00"))
+    for path, modified in entries:
+        raw = path.encode("utf-16-le")
+        body = struct.pack("<H", len(raw)) + raw + struct.pack("<QI", to_filetime(modified), 0)
+        out += b"10ts" + struct.pack("<II", 0, len(body)) + body
+    return bytes(out)
+
+
+# --------------------------------------------------------------------------
+# Shell links, Recycle Bin, $MFT
+# --------------------------------------------------------------------------
+def build_lnk(target: str, created: datetime, modified: datetime, accessed: datetime, size: int = 0,
+              arguments: str = "", working_dir: str = "", drive_type: int = 3, serial: int = 0x1234ABCD,
+              volume_label: str = "", machine_id: str = "", mac: Optional[str] = None,
+              network_share: str = "") -> bytes:
+    """Build a shell link with LinkInfo, StringData and a TrackerDataBlock."""
+    flags = 0x2 | 0x80  # HasLinkInfo | IsUnicode
+    if working_dir:
+        flags |= 0x10
+    if arguments:
+        flags |= 0x20
+    header = struct.pack("<I16sIIQQQIIIH10s", 0x4C, uuid.UUID("00021401-0000-0000-c000-000000000046").bytes_le,
+                         flags, 0x20, to_filetime(created), to_filetime(accessed), to_filetime(modified), size, 0, 1,
+                         0, b"\x00" * 10)
+
+    if network_share:
+        net_name = network_share.encode("cp1252") + b"\x00"
+        net = struct.pack("<IIIII", 20 + len(net_name), 0x2, 20, 0, 0x20000) + net_name
+        suffix = target.encode("cp1252") + b"\x00"
+        info_header = 28
+        net_off = info_header
+        suffix_off = net_off + len(net)
+        body = net + suffix
+        info = struct.pack("<IIIIIII", info_header + len(body), info_header, 0x2, 0, 0, net_off, suffix_off) + body
+    else:
+        label = volume_label.encode("cp1252") + b"\x00"
+        volume = struct.pack("<IIII", 16 + len(label), drive_type, serial, 16) + label
+        base_path = target.encode("cp1252", errors="replace") + b"\x00"
+        info_header = 28
+        volume_off = info_header
+        base_off = volume_off + len(volume)
+        suffix_off = base_off + len(base_path)
+        body = volume + base_path + b"\x00"
+        info = struct.pack("<IIIIIII", info_header + len(body), info_header, 0x1, volume_off, base_off, 0,
+                           suffix_off) + body
+
+    strings = b""
+    for flag, text in ((0x10, working_dir), (0x20, arguments)):
+        if flags & flag:
+            strings += struct.pack("<H", len(text)) + text.encode("utf-16-le")
+
+    extra = b""
+    if machine_id or mac:
+        node = int(mac.replace(":", ""), 16) if mac else 0x001122334455
+        object_id = uuid.uuid1(node=node, clock_seq=0x1234)
+        volume_id = uuid.uuid4()
+        machine = machine_id.encode("cp1252")[:15].ljust(16, b"\x00")
+        droid = volume_id.bytes_le + object_id.bytes_le
+        extra = struct.pack("<IIII", 0x60, 0xA0000003, 0x58, 0) + machine + droid + droid
+    return header + info + strings + extra + b"\x00\x00\x00\x00"
+
+
+def build_i_file(original_path: str, size: int, deleted: datetime, version: int = 2) -> bytes:
+    if version == 1:
+        path = original_path.encode("utf-16-le")[:518].ljust(520, b"\x00")
+        return struct.pack("<QqQ", 1, size, to_filetime(deleted)) + path
+    path = (original_path + "\x00").encode("utf-16-le")
+    return struct.pack("<QqQI", 2, size, to_filetime(deleted), len(original_path) + 1) + path
+
+
+def build_mft_record(record: int, name: str, parent: int, *, si: tuple, fn: tuple, sequence: int = 1,
+                     parent_sequence: int = 1, in_use: bool = True, directory: bool = False, size: int = 0,
+                     zone_identifier: str = "", record_size: int = 1024) -> bytes:
+    """One FILE record with $STANDARD_INFORMATION, $FILE_NAME, $DATA and an optional Zone.Identifier.
+
+    ``si`` and ``fn`` are (created, modified, mft_modified, accessed) FILETIME integers.
+    """
+    def resident(attr_type: int, content: bytes, attr_name: str = "") -> bytes:
+        name_raw = attr_name.encode("utf-16-le")
+        name_off = 24
+        content_off = (name_off + len(name_raw) + 7) & ~7
+        length = (content_off + len(content) + 7) & ~7
+        attr = struct.pack("<IIBBHHHIHBB", attr_type, length, 0, len(attr_name), name_off, 0, 0, len(content),
+                           content_off, 0, 0)
+        attr = attr.ljust(name_off, b"\x00") + name_raw
+        attr = attr.ljust(content_off, b"\x00") + content
+        return attr.ljust(length, b"\x00")
+
+    si_content = struct.pack("<QQQQ", *si) + b"\x00" * 16
+    raw_name = name.encode("utf-16-le")
+    fn_content = struct.pack("<QQQQQQQIIBB", (parent_sequence << 48) | parent, *fn, size, size,
+                             0x10000000 if directory else 0x20, 0, len(name), 1) + raw_name
+    attrs = resident(0x10, si_content) + resident(0x30, fn_content)
+    if not directory:
+        attrs += resident(0x80, b"\x00" * min(size, 64))
+        if zone_identifier:
+            attrs += resident(0x80, zone_identifier.encode("utf-8"), "Zone.Identifier")
+    attrs += struct.pack("<I", 0xFFFFFFFF) + b"\x00" * 4
+
+    first_attr = 56
+    usa_offset, usa_count = 48, record_size // 512 + 1
+    flags = (0x1 if in_use else 0) | (0x2 if directory else 0)
+    header = struct.pack("<4sHHQHHHHIIQHHI", b"FILE", usa_offset, usa_count, 0, sequence, 1, first_attr, flags,
+                         first_attr + len(attrs), record_size, 0, 0, 0, record)
+    buf = bytearray(header.ljust(first_attr, b"\x00") + attrs)
+    buf = buf.ljust(record_size, b"\x00")
+    # Update sequence array: store the real sector tails and stamp the USN.
+    usn = b"\x01\x00"
+    buf[usa_offset:usa_offset + 2] = usn
+    for i in range(1, usa_count):
+        end = i * 512 - 2
+        buf[usa_offset + i * 2:usa_offset + i * 2 + 2] = buf[end:end + 2]
+        buf[end:end + 2] = usn
+    return bytes(buf)
+
+
+# --------------------------------------------------------------------------
+# Browsers
+# --------------------------------------------------------------------------
+def build_chrome_history(path: Path, visits: list[tuple[str, str, datetime, int]],
+                         downloads: list[tuple[str, str, datetime, int]]) -> Path:
+    """``visits``: (url, title, time, transition); ``downloads``: (url, target_path, start, size)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE urls (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, typed_count INTEGER,
+                           last_visit_time INTEGER, hidden INTEGER DEFAULT 0);
+        CREATE TABLE visits (id INTEGER PRIMARY KEY, url INTEGER, visit_time INTEGER, from_visit INTEGER,
+                             transition INTEGER);
+        CREATE TABLE downloads (id INTEGER PRIMARY KEY, guid TEXT, current_path TEXT, target_path TEXT,
+                                start_time INTEGER, received_bytes INTEGER, total_bytes INTEGER, state INTEGER,
+                                danger_type INTEGER, end_time INTEGER, tab_url TEXT, referrer TEXT, mime_type TEXT);
+        CREATE TABLE downloads_url_chains (id INTEGER, chain_index INTEGER, url TEXT);
+    """)
+    for i, (url, title, when, transition) in enumerate(visits, 1):
+        conn.execute("INSERT INTO urls VALUES (?,?,?,?,?,?,0)",
+                     (i, url, title, 1, 1 if transition == 1 else 0, to_webkit(when)))
+        conn.execute("INSERT INTO visits VALUES (?,?,?,0,?)", (i, i, to_webkit(when), transition))
+    for i, (url, target, start, size) in enumerate(downloads, 1):
+        conn.execute("INSERT INTO downloads VALUES (?,?,?,?,?,?,?,1,0,?,?,?,?)",
+                     (i, str(uuid.uuid4()), target, target, to_webkit(start), size, size, to_webkit(start) + 2_000_000,
+                      url, "", "application/octet-stream"))
+        conn.execute("INSERT INTO downloads_url_chains VALUES (?,0,?)", (i, url))
+    conn.commit()
+    conn.close()
+    return path
+
+
+def build_firefox_places(path: Path, visits: list[tuple[str, str, datetime, int]],
+                         downloads: list[tuple[str, str, datetime]]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE moz_places (id INTEGER PRIMARY KEY, url TEXT, title TEXT, visit_count INTEGER, typed INTEGER,
+                                 last_visit_date INTEGER);
+        CREATE TABLE moz_historyvisits (id INTEGER PRIMARY KEY, from_visit INTEGER, place_id INTEGER,
+                                        visit_date INTEGER, visit_type INTEGER);
+        CREATE TABLE moz_anno_attributes (id INTEGER PRIMARY KEY, name TEXT);
+        CREATE TABLE moz_annos (id INTEGER PRIMARY KEY, place_id INTEGER, anno_attribute_id INTEGER, content TEXT,
+                                dateAdded INTEGER);
+        INSERT INTO moz_anno_attributes VALUES (1, 'downloads/destinationFileURI');
+    """)
+    place = 0
+    for url, title, when, visit_type in visits:
+        place += 1
+        conn.execute("INSERT INTO moz_places VALUES (?,?,?,1,?,?)",
+                     (place, url, title, 1 if visit_type == 2 else 0, to_unix_us(when)))
+        conn.execute("INSERT INTO moz_historyvisits VALUES (?,0,?,?,?)", (place, place, to_unix_us(when), visit_type))
+    for url, target, when in downloads:
+        place += 1
+        conn.execute("INSERT INTO moz_places VALUES (?,?,?,1,0,?)", (place, url, "", to_unix_us(when)))
+        conn.execute("INSERT INTO moz_annos VALUES (?,?,1,?,?)",
+                     (place, place, "file:///" + target.replace("\\", "/"), to_unix_us(when)))
+    conn.commit()
+    conn.close()
+    return path
+
+
+# --------------------------------------------------------------------------
+# Generic files (for carving and signature tests)
+# --------------------------------------------------------------------------
+def build_png(width: int = 4, height: int = 4, color: tuple = (200, 30, 30)) -> bytes:
+    raw = b"".join(b"\x00" + bytes(color) * width for _ in range(height))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+
+
+def build_jpeg(payload: bytes = bytes(range(0, 250)) * 4, thumbnail: Optional[bytes] = None) -> bytes:
+    """Structurally valid JPEG (markers and segment lengths) with an optional EXIF-like thumbnail."""
+    out = b"\xff\xd8"
+    app0 = b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00"
+    out += b"\xff\xe0" + struct.pack(">H", len(app0) + 2) + app0
+    if thumbnail:
+        app1 = b"Exif\x00\x00" + thumbnail
+        out += b"\xff\xe1" + struct.pack(">H", len(app1) + 2) + app1
+    sos = b"\x01\x01\x00\x00\x3f\x00"
+    out += b"\xff\xda" + struct.pack(">H", len(sos) + 2) + sos
+    out += payload.replace(b"\xff", b"\xff\x00")
+    return out + b"\xff\xd9"
+
+
+GIF_1X1 = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff"
+           b",\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+
+
+def build_pdf(text: str = "Forense-Framework") -> bytes:
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        None,
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    stream = f"BT /F1 18 Tf 20 70 Td ({text}) Tj ET".encode("latin-1")
+    objects[3] = b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream"
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for i, obj in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + obj + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    out += b"".join(b"%010d 00000 n \n" % off for off in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objects) + 1, xref)
+    return bytes(out)
+
+
+def build_zip(files: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in files.items():
+            zf.writestr(name, data)
+    return buffer.getvalue()

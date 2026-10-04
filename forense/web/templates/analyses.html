@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.analyses') }}</h1>
+
+{% if evidence %}
+<div class="grid">
+  <form class="panel" method="post" action="{{ url_for('run_analysis', slug=slug) }}">
+    <h2 style="margin-top:0">{{ _('web.run_module') }}</h2>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="row">
+      <div><label>{{ _('field.module') }}</label>
+        <select name="module" id="module-select">
+          {% for m in modules %}<option value="{{ m.name }}" data-description="{{ m.description(lang) }}">{{ m.title(lang) }} ({{ m.name }})</option>{% endfor %}
+        </select></div>
+      <div><label>{{ _('field.evidence') }}</label>
+        <select name="evidence">{% for ev in evidence %}<option value="{{ ev.id }}">{{ ev.id }} — {{ ev.description }}</option>{% endfor %}</select></div>
+    </div>
+    <p class="muted" id="module-help"></p>
+    {% for m in modules %}
+    <div class="module-options" data-module="{{ m.name }}">
+      {% for o in m.options %}
+      <label>{{ o.name }}{% if o.required %} *{% endif %} — {{ m.option_help(o, lang) }}</label>
+      {% if o.kind == 'choice' %}
+        <select name="opt_{{ m.name }}_{{ o.name }}">{% for c in o.choices %}<option {{ 'selected' if c == o.default }}>{{ c }}</option>{% endfor %}</select>
+      {% elif o.kind == 'bool' %}
+        <select name="opt_{{ m.name }}_{{ o.name }}"><option value="">{{ _('cli.default') }} ({{ o.default | val }})</option><option value="true">{{ _('common.yes') }}</option><option value="false">{{ _('common.no') }}</option></select>
+      {% else %}
+        <input name="opt_{{ m.name }}_{{ o.name }}" placeholder="{{ (o.default | join(',')) if o.default is iterable and o.default is not string else (o.default if o.default is not none else '') }}">
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <p><button type="submit">{{ _('web.run') }}</button></p>
+  </form>
+  <form class="panel" method="post" action="{{ url_for('triage', slug=slug) }}">
+    <h2 style="margin-top:0">{{ _('web.triage') }}</h2>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <p class="muted">{{ _('web.triage_help') }}</p>
+    <label>{{ _('field.evidence') }}</label>
+    <select name="evidence">{% for ev in evidence %}<option value="{{ ev.id }}">{{ ev.id }} — {{ ev.description }}</option>{% endfor %}</select>
+    <p><button type="submit">{{ _('web.run_triage') }}</button></p>
+  </form>
+</div>
+{% else %}
+<div class="panel empty">{{ _('web.no_evidence') }} <a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }}</a></div>
+{% endif %}
+
+<h2>{{ _('web.analyses_done') }}</h2>
+{% if analyses %}
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>{{ _('field.module') }}</th><th>{{ _('field.evidence') }}</th><th>{{ _('field.status') }}</th><th>{{ _('field.started') }}</th><th>{{ _('report.records') }}</th><th>{{ _('report.events') }}</th><th>{{ _('report.findings') }}</th><th>{{ _('field.actor') }}</th><th></th></tr>
+  {% for a in analyses %}
+  <tr>
+    <td><a href="{{ url_for('analysis', slug=slug, analysis_id=a.id) }}">#{{ a.id }}</a></td>
+    <td><a href="{{ url_for('analysis', slug=slug, analysis_id=a.id) }}">{{ a.module }}</a></td>
+    <td>{{ a.evidence_id }}</td>
+    <td class="{{ 'bad' if a.status in ('failed', 'interrupted') }}">{{ a.status | status }}</td>
+    <td>{{ a.started | ts }}</td><td>{{ a.record_count }}</td><td>{{ a.event_count }}</td><td>{{ a.finding_count }}</td><td>{{ a.actor }}</td>
+    <td><form method="post" action="{{ url_for('delete_analysis', slug=slug, analysis_id=a.id) }}" data-confirm="{{ _('web.confirm_delete', id=a.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger small" type="submit">{{ _('common.delete') }}</button></form></td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="panel empty">{{ _('web.no_analyses') }}</div>{% endif %}
+{% endblock %}

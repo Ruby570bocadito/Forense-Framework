@@ -1,43 +1,112 @@
-"""Utilidades comunes: fechas en UTC, recorrido de archivos y formatos."""
+"""Common helpers: UTC timestamps, Windows time formats, file walking and exports.
+
+All timestamps handled by the framework are normalised to UTC and stored as
+fixed-width ISO 8601 strings (``YYYY-MM-DDTHH:MM:SS.ffffffZ``) so they sort
+lexicographically.
+"""
 
 from __future__ import annotations
 
 import csv
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Iterable, Iterator, Optional
+from typing import Callable, Iterable, Iterator, Optional, Union
 
 ErrorHandler = Callable[[Path, BaseException], None]
+TimeLike = Union[datetime, float, int, str, None]
+
+_FILETIME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
+_UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def iso(dt: datetime) -> str:
+    """Fixed-width UTC ISO 8601 representation with microseconds."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc)
+    return (
+        f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T"
+        f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}.{dt.microsecond:06d}Z"
+    )
 
 
 def utc_now() -> str:
-    """Fecha y hora actual en UTC, en formato ISO 8601."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def ts_to_iso(ts: float) -> str:
-    """Convierte una marca de tiempo POSIX a ISO 8601 en UTC."""
-    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")
+    return iso(datetime.now(timezone.utc))
 
 
 def parse_datetime(value: str) -> datetime:
-    """Interpreta ``AAAA-MM-DD`` o una fecha ISO 8601. Sin zona horaria se asume UTC."""
-    value = value.strip()
+    """Parse ``YYYY-MM-DD`` or ISO 8601 (also ``Z`` and 7-digit fractions). Naive means UTC."""
+    value = value.strip().replace(" ", "T", 1) if "T" not in value else value.strip()
     if value.endswith(("Z", "z")):
         value = value[:-1] + "+00:00"
+    # Windows emits 7 fractional digits (100 ns); Python accepts at most 6.
+    if "." in value:
+        head, _, tail = value.partition(".")
+        digits = "".join(ch for ch in tail if ch.isdigit())
+        rest = tail[len(digits):]
+        value = f"{head}.{digits[:6].ljust(6, '0')}{rest}"
     dt = datetime.fromisoformat(value)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt
+    return dt.astimezone(timezone.utc)
+
+
+def normalize_ts(value: TimeLike) -> Optional[str]:
+    """Normalise a datetime, POSIX timestamp or ISO string to the storage format."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return iso(value)
+    if isinstance(value, (int, float)):
+        return iso(datetime.fromtimestamp(value, tz=timezone.utc))
+    return iso(parse_datetime(str(value)))
+
+
+def ts_to_iso(ts: float) -> str:
+    return iso(datetime.fromtimestamp(ts, tz=timezone.utc))
+
+
+def filetime_to_dt(value: int) -> Optional[datetime]:
+    """Windows FILETIME (100 ns intervals since 1601-01-01) to datetime. 0/invalid -> None."""
+    if not value or value <= 0 or value >= 0x7FFFFFFFFFFFFFFF:
+        return None
+    try:
+        return _FILETIME_EPOCH + timedelta(microseconds=value // 10)
+    except OverflowError:
+        return None
+
+
+def webkit_to_dt(value: int) -> Optional[datetime]:
+    """Chromium/WebKit time (microseconds since 1601-01-01) to datetime."""
+    if not value or value <= 0:
+        return None
+    try:
+        return _FILETIME_EPOCH + timedelta(microseconds=value)
+    except OverflowError:
+        return None
+
+
+def unix_us_to_dt(value: int) -> Optional[datetime]:
+    """Microseconds since the Unix epoch (Firefox PRTime) to datetime."""
+    if not value or value <= 0:
+        return None
+    try:
+        return _UNIX_EPOCH + timedelta(microseconds=value)
+    except OverflowError:
+        return None
+
+
+def dt_or_none_iso(dt: Optional[datetime]) -> Optional[str]:
+    return iso(dt) if dt else None
 
 
 def iter_files(target: Path, on_error: Optional[ErrorHandler] = None) -> Iterator[Path]:
-    """Recorre los archivos regulares de ``target`` en orden estable.
+    """Yield regular files under ``target`` in a stable order.
 
-    Si ``target`` es un archivo se devuelve solo él. Los enlaces simbólicos no
-    se siguen, para no salir nunca del ámbito de la evidencia.
+    A file target yields itself. Symbolic links are never followed so the walk
+    cannot escape the evidence.
     """
     target = Path(target)
     if target.is_file():
@@ -57,16 +126,27 @@ def iter_files(target: Path, on_error: Optional[ErrorHandler] = None) -> Iterato
             yield path
 
 
+def find_files(target: Path, predicate: Callable[[Path], bool],
+               on_error: Optional[ErrorHandler] = None) -> list[Path]:
+    """Files under ``target`` accepted by ``predicate``. A file target is always accepted."""
+    target = Path(target)
+    if target.is_file():
+        return [target]
+    return [path for path in iter_files(target, on_error) if predicate(path)]
+
+
 def relative_name(path: Path, target: Path) -> str:
-    """Ruta de ``path`` relativa a la evidencia ``target`` (con ``/`` como separador)."""
+    """Path of ``path`` relative to the evidence root ``target`` using ``/`` separators."""
     path, target = Path(path), Path(target)
     if path == target:
         return path.name
-    return path.relative_to(target).as_posix()
+    try:
+        return path.relative_to(target).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def human_size(num: float) -> str:
-    """Tamaño legible por humanos (1536 -> '1.5 KiB')."""
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
         if abs(num) < 1024 or unit == "TiB":
             return f"{num:.0f} {unit}" if unit == "B" else f"{num:.1f} {unit}"
@@ -76,17 +156,15 @@ def human_size(num: float) -> str:
 
 def write_json(path: Path, data: object) -> None:
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=False)
+        json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
 
 
-def read_json(path: Path) -> dict:
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+def write_csv(path: Path, records: Iterable[dict], headers: Optional[dict] = None) -> int:
+    """Write dict records as CSV readable by Excel (UTF-8 with BOM). Returns the row count.
 
-
-def write_csv(path: Path, records: Iterable[dict]) -> None:
-    """Escribe registros (diccionarios) en CSV compatible con Excel (UTF-8 con BOM)."""
+    ``headers`` optionally maps field names to display labels.
+    """
     records = list(records)
     columns: list[str] = []
     for record in records:
@@ -94,10 +172,23 @@ def write_csv(path: Path, records: Iterable[dict]) -> None:
             if key not in columns:
                 columns.append(key)
     with open(path, "w", encoding="utf-8-sig", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=columns)
-        writer.writeheader()
+        writer = csv.writer(fh)
+        writer.writerow([(headers or {}).get(col, col) for col in columns])
         for record in records:
-            writer.writerow({
-                key: json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else value
-                for key, value in record.items()
-            })
+            writer.writerow([_csv_value(record.get(col)) for col in columns])
+    return len(records)
+
+
+_FORMULA_PREFIXES = ("=", "+", "@", "\t", "\r")
+
+
+def _csv_value(value: object) -> object:
+    if isinstance(value, (dict, list)):
+        value = json.dumps(value, ensure_ascii=False)
+    if value is None:
+        return ""
+    if isinstance(value, str) and value and (
+            value.startswith(_FORMULA_PREFIXES) or (value[0] == "-" and len(value) > 1 and value[1].isalpha())):
+        # Evidence-controlled text (page titles, command lines...) must not run as a spreadsheet formula.
+        return "'" + value
+    return value

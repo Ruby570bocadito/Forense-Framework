@@ -6,11 +6,15 @@ dist/
 .venv/
 venv/
 .pytest_cache/
+.ruff_cache/
 
-# Casos y evidencias de trabajo: nunca se suben al repositorio
-casos/
-demo/
+# Case folders and evidence never belong in the repository
+/cases/
+/casos/
+/demo/
+/workspace/
 *.img
 *.dd
 *.raw
 *.E01
+*.vmdk

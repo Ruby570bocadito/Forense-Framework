@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.findings') }} ({{ findings | length }})</h1>
+<div class="subtitle">{{ _('web.findings_help') }}</div>
+<div class="row" style="margin-bottom:12px">
+  <div class="tabs">
+    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if not severity }}">{{ _('common.all') }}</a>
+    {% for s in ['critical', 'high', 'medium', 'low'] %}<a href="{{ url_for('findings', slug=slug, severity=s) }}" class="{{ 'active' if severity == s }}">≥ {{ s | sev }}</a>{% endfor %}
+  </div>
+  <form method="post" action="{{ url_for('export', slug=slug, what='findings') }}" style="flex:0">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
+  </form>
+</div>
+{% if findings %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('field.severity') }}</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('report.finding') }}</th><th>{{ _('report.source') }}</th></tr>
+  {% for f in findings %}
+  <tr><td>{{ sevbadge(f.severity) }}</td><td class="mono">{{ f.timestamp | ts }}</td>
+      <td class="wrap"><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}</td>
+      <td>{{ f.evidence_id }} · <a href="{{ url_for('analysis', slug=slug, analysis_id=f.analysis_id) }}">#{{ f.analysis_id }}</a></td></tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="panel empty">{{ _('findings.none') }}</div>{% endif %}
+{% endblock %}

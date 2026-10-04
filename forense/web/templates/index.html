@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('web.cases') }}</h1>
+<div class="subtitle">{{ _('web.workspace') }}: <span class="mono">{{ workspace }}</span></div>
+
+{% if cases %}
+<div class="table-wrap"><table>
+  <tr><th>{{ _('case.name') }}</th><th>{{ _('case.id') }}</th><th>{{ _('case.investigator') }}</th><th>{{ _('case.created') }}</th><th>{{ _('nav.evidence') }}</th><th>{{ _('nav.findings') }}</th></tr>
+  {% for c in cases %}
+  <tr>
+    <td><a href="{{ url_for('dashboard', slug=c.slug) }}"><b>{{ c.info.name }}</b></a><div class="muted mono">{{ c.slug }}</div></td>
+    <td class="mono">{{ c.info.id }}</td>
+    <td>{{ c.info.investigator }}</td>
+    <td>{{ c.info.created | ts }}</td>
+    <td>{{ c.stats.evidence if c.stats else '—' }}</td>
+    <td>{% if c.stats %}{% for s in ['critical', 'high', 'medium'] %}{% if c.stats.findings_by_severity.get(s) %}{{ sevbadge(s) }} {{ c.stats.findings_by_severity[s] }} {% endif %}{% endfor %}{% if not c.stats.findings %}0{% endif %}{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}
+<div class="panel empty">{{ _('web.no_cases') }}</div>
+{% endif %}
+
+<h2>{{ _('web.new_case') }}</h2>
+<form class="panel" method="post" action="{{ url_for('create_case') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="row">
+    <div><label>{{ _('web.case_folder') }}</label><input name="slug" required pattern="[A-Za-z0-9][A-Za-z0-9._ -]*" placeholder="2026-001_intrusion"></div>
+    <div><label>{{ _('case.name') }}</label><input name="name" required></div>
+    <div><label>{{ _('case.investigator') }}</label><input name="investigator" required value="{{ analyst }}"></div>
+  </div>
+  <div class="row">
+    <div><label>{{ _('case.reference') }}</label><input name="reference"></div>
+    <div><label>{{ _('case.organization') }}</label><input name="organization"></div>
+  </div>
+  <label>{{ _('case.description') }}</label><textarea name="description" rows="2"></textarea>
+  <p><button type="submit">{{ _('web.create_case') }}</button></p>
+</form>
+{% endblock %}

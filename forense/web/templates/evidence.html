@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.evidence') }}</h1>
+<div class="subtitle">{{ _('web.evidence_help') }}</div>
+
+{% if evidence %}
+<div class="table-wrap"><table>
+  <tr><th>ID</th><th>{{ _('field.description') }}</th><th>{{ _('field.kind') }}</th><th>{{ _('field.size') }}</th><th>{{ _('report.hashes') }}</th><th>{{ _('report.integrity') }}</th><th></th></tr>
+  {% for ev in evidence %}
+  {% set v = verifications.get(ev.id) %}
+  <tr>
+    <td><b>{{ ev.id }}</b><div class="muted">{{ ev.added_at | ts }}<br>{{ ev.added_by }}</div></td>
+    <td class="wrap">{{ ev.description }}<div class="muted mono">{{ ev.source }}</div>{% if ev.copied %}<div class="muted">{{ _('evidence.working_copy') }}</div>{% endif %}</td>
+    <td>{{ _('evidence.kind.' + ev.kind) }}<div class="muted">{{ ev.file_count }} {{ _('field.files') | lower }}</div></td>
+    <td>{{ ev.size }} B</td>
+    <td class="mono wrap">{% for algo, value in ev.hashes.items() %}{{ algo | upper }}: {{ value }}<br>{% endfor %}</td>
+    <td>{% if v %}<span class="{{ 'ok' if v.result == 'ok' else 'bad' }}">{{ _('verify.result.' + v.result) }}</span><div class="muted">{{ v.timestamp | ts }}</div>{% else %}<span class="muted">{{ _('verify.never') }}</span>{% endif %}</td>
+    <td>
+      <form method="post" action="{{ url_for('verify_evidence', slug=slug, evidence_id=ev.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.verify') }}</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}<div class="panel empty">{{ _('web.no_evidence') }}</div>{% endif %}
+
+<h2>{{ _('web.add_evidence') }}</h2>
+<form class="panel" method="post" action="{{ url_for('add_evidence', slug=slug) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>{{ _('web.evidence_path') }}</label><input name="path" required placeholder="D:\triage\HOST01  /  /mnt/evidence/HOST01">
+  <label>{{ _('field.description') }}</label><input name="description">
+  <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="copy" style="width:auto"> {{ _('cli.opt.copy') }}</label>
+  <p><button type="submit">{{ _('web.register_evidence') }}</button> <span class="muted">{{ _('web.evidence_hash_note') }}</span></p>
+</form>
+{% endblock %}

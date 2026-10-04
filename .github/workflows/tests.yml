@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check forense tests
+      - name: Test
+        run: python -m pytest -q
+      - name: Demo smoke test
+        run: |
+          forense demo demo-run -a CI
+          forense -c demo-run/case_demo verify
+          forense -c demo-run/case_demo report --lang es

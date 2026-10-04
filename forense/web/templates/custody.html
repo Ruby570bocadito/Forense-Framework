@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>{{ _('nav.custody') }}</h1>
+<div class="subtitle">{{ _('web.custody_help') }}</div>
+{% if problems %}
+<div class="flash error"><b>{{ _('custody.broken') }}</b>{% for p in problems %}<div>#{{ p.seq }}: {{ _(p.code) }}</div>{% endfor %}</div>
+{% else %}
+<div class="panel"><span class="ok">✓ {{ _('custody.intact', count=(entries | length)) }}</span><br>{{ _('custody.head') }}: <span class="mono">{{ head }}</span></div>
+{% endif %}
+<form method="post" action="{{ url_for('export', slug=slug, what='custody') }}" style="margin-bottom:8px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_json') }}</button>
+</form>
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.action') }}</th><th>{{ _('field.actor') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.hash') }}</th></tr>
+  {% for c in entries | reverse %}
+  <tr><td>{{ c.seq }}</td><td class="mono" style="white-space:nowrap">{{ c.timestamp | ts }}</td><td>{{ c.action | action }}</td><td>{{ c.actor }}</td>
+      <td class="mono wrap">{% for k, v in c.details.items() %}{{ k }}={{ v | val(160) }}<br>{% endfor %}</td>
+      <td class="mono" title="{{ c.hash }}">{{ c.hash[:12] }}…</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

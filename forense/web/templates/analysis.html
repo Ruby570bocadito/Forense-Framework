@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager with context %}
+{% block content %}
+<h1>#{{ analysis.id }} · {{ module.title(lang) if module else analysis.module }}</h1>
+<div class="subtitle">{{ analysis.evidence_id }} · {{ analysis.status | status }} · {{ analysis.started | ts }} → {{ analysis.finished | ts }} UTC · {{ analysis.actor }}</div>
+
+<div class="grid">
+  <section class="panel">
+    <h2 style="margin-top:0">{{ _('report.summary') }}</h2>
+    {{ render(analysis.summary) if analysis.summary else '' }}
+    {% if analysis.options %}<p class="muted mono">{% for k, v in analysis.options.items() %}{{ k }}={{ v }} {% endfor %}</p>{% endif %}
+    {% if analysis.results_sha256 %}<p class="mono">{{ _('report.results_hash') }}: {{ analysis.results_sha256 }}
+      {% if results_ok %}<span class="ok">✓ {{ _('verify.result.ok') }}</span>{% elif results_ok is not none %}<span class="bad">✗ {{ _('verify.result.mismatch') }}</span>{% endif %}</p>{% endif %}
+  </section>
+  <section class="panel">
+    <h2 style="margin-top:0">{{ _('nav.findings') }} ({{ findings | length }})</h2>
+    {% for f in findings[:30] %}<p>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}</p>{% else %}<p class="muted">{{ _('findings.none') }}</p>{% endfor %}
+    {% if analysis.errors %}
+    <details><summary>{{ _('report.errors') }} ({{ analysis.errors | length }})</summary>
+      {% for e in analysis.errors[:100] %}<div class="mono bad">{{ e.path }}: {{ e.error }}</div>{% endfor %}</details>
+    {% endif %}
+  </section>
+</div>
+
+<h2>{{ _('report.records') }}</h2>
+{% if artifacts %}
+<div class="tabs">{% for art, n in artifacts %}<a href="{{ url_for('analysis', slug=slug, analysis_id=analysis.id, artifact=art) }}" class="{{ 'active' if art == artifact }}">{{ art | artifact }} ({{ n }})</a>{% endfor %}</div>
+<form class="row" method="get">
+  <input type="hidden" name="artifact" value="{{ artifact }}">
+  <div><input type="search" name="q" value="{{ search }}" placeholder="{{ _('common.search') }}"></div>
+  <button class="secondary" type="submit">{{ _('common.search') }}</button>
+</form>
+<form method="post" action="{{ url_for('export', slug=slug, what=analysis.id) }}" style="margin:8px 0">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="artifact" value="{{ artifact }}">
+  <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button> <span class="muted">{{ _('cli.showing', shown=(records.rows | length), total=records.total) }}</span>
+</form>
+<div class="table-wrap"><table>
+  <tr>{% for c in columns %}<th>{{ c | label }}</th>{% endfor %}</tr>
+  {% for art, row in records.rows %}<tr>{% for c in columns %}<td class="wrap">{{ row.get(c) | val(300) }}</td>{% endfor %}</tr>{% endfor %}
+</table></div>
+{{ pager(page, pages, dict(request.args, slug=slug, analysis_id=analysis.id), 'analysis') }}
+{% else %}<div class="panel empty">{{ _('common.no_rows') }}</div>{% endif %}
+{% endblock %}
