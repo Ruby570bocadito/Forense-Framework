@@ -109,6 +109,7 @@ class RegistryModule(Module):
             "amcache": self._amcache,
         }
         hives: dict[str, list[str]] = {}
+        recovered: list[str] = []
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             ctx.progress(rel)
@@ -118,10 +119,14 @@ class RegistryModule(Module):
                     hives.setdefault(kind, []).append(rel)
                     ctx.record("hive", {
                         "file": rel, "hive_type": kind, "last_written": dt_or_none_iso(hive.last_written),
-                        "dirty": hive.dirty, "checksum_ok": hive.checksum_ok, "embedded_name": hive.embedded_name,
+                        "dirty": hive.was_dirty, "checksum_ok": hive.checksum_ok, "embedded_name": hive.embedded_name,
+                        "recovered_from": ", ".join(hive.recovery.logs) if hive.recovery else "",
+                        "log_entries_applied": hive.recovery.entries if hive.recovery else 0,
                         "version": f"{hive.major}.{hive.minor}",
                     })
-                    if hive.dirty:
+                    if hive.recovery:
+                        recovered.append(rel)
+                    elif hive.dirty:
                         ctx.finding("registry.dirty_hive", "low", hive.last_written, file=rel)
                     handler = handlers.get(kind)
                     if handler:
@@ -129,6 +134,8 @@ class RegistryModule(Module):
             except (RegistryError, OSError, struct.error) as exc:
                 ctx.error(rel, exc)
         ctx.summary["hives"] = hives
+        if recovered:
+            ctx.summary["recovered_hives"] = recovered
 
     # -- helpers ------------------------------------------------------------
     @staticmethod

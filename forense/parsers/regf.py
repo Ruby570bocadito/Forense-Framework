@@ -2,9 +2,9 @@
 
 Supports hive format 1.3 - 1.6 (Windows XP to 11): keys (``nk``), values
 (``vk``), every subkey list type (``lf``, ``lh``, ``li``, ``ri``) and big data
-values (``db``). Transaction logs (``.LOG1``/``.LOG2``) are not replayed: a
-hive whose sequence numbers differ is reported as *dirty* so the analyst knows
-recent changes may only exist in the logs.
+values (``db``). A *dirty* hive (sequence numbers differ: recent changes only
+exist in the transaction logs) is recovered in memory with the ``.LOG``,
+``.LOG1`` and ``.LOG2`` files found next to it (see :mod:`forense.parsers.regf_log`).
 
 Reference: https://github.com/msuhanov/regf/blob/master/Windows%20registry%20file%20format%20specification.md
 """
@@ -57,9 +57,10 @@ def decode_utf16_string(raw: bytes) -> str:
 class RegistryHive:
     """An open hive. Use as a context manager or call :meth:`close`."""
 
-    def __init__(self, source: Union[str, Path, bytes]) -> None:
+    def __init__(self, source: Union[str, Path, bytes], recover_logs: bool = True) -> None:
         self._fh = None
         self._mm = None
+        self.recovery = None  # forense.parsers.regf_log.Recovery when transaction logs were applied
         if isinstance(source, (bytes, bytearray)):
             self.data = bytes(source)
         else:
@@ -70,6 +71,28 @@ class RegistryHive:
                 raise RegistryError("file too small to be a registry hive")
             self._mm = mmap.mmap(self._fh.fileno(), 0, access=mmap.ACCESS_READ)
             self.data = self._mm
+        self._parse_base_block()
+        self.was_dirty = self.dirty
+        if self.dirty and recover_logs and not isinstance(source, (bytes, bytearray)):
+            self._recover(Path(source))
+
+    def _recover(self, path: Path) -> None:
+        from forense.parsers.regf_log import log_files, parse_log, recover
+
+        logs = []
+        for log_path in log_files(path):
+            try:
+                log = parse_log(log_path.read_bytes(), log_path.name)
+            except (OSError, struct.error):
+                log = None
+            if log is not None:
+                logs.append(log)
+        recovery = recover(bytes(self.data), logs) if logs else None
+        if recovery is None:
+            return
+        self.close()
+        self.data = bytes(recovery.data)
+        self.recovery = recovery
         self._parse_base_block()
 
     def close(self) -> None:
