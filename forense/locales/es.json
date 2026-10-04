@@ -803,7 +803,7 @@
  "module.jumplists.description": "Archivos y conexiones abiertos recientemente con cada aplicación (automaticDestinations y customDestinations).",
  "module.jumplists.title": "Jump Lists",
  "module.lnk.description": "Archivos abiertos, rutas de red y unidades extraíbles, equipo y MAC de origen, persistencia en Inicio.",
- "module.lnk.title": "Accesos directos (LNK) y jump lists",
+ "module.lnk.title": "Accesos directos (LNK)",
  "module.memory.description": "Analiza un volcado de memoria de Windows con Volatility 3 (o importa sus salidas JSON): procesos activos, terminados y ocultos, árbol de procesos, líneas de comandos, conexiones de red, código inyectado (malfind) y servicios. Detecta padres anómalos, suplantación de procesos del sistema, herramientas ofensivas y conexiones sospechosas.",
  "module.memory.opt.offline": "No descargar símbolos (--offline)",
  "module.memory.opt.plugins": "Plugins a ejecutar: info, pslist, psscan, pstree, cmdline, netscan, malfind, svcscan",

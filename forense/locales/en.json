@@ -803,7 +803,7 @@
  "module.jumplists.description": "Files and connections recently opened with each application (automaticDestinations and customDestinations).",
  "module.jumplists.title": "Jump lists",
  "module.lnk.description": "Opened files, network paths and removable drives, source machine and MAC, Startup persistence.",
- "module.lnk.title": "Shell links (LNK) and jump lists",
+ "module.lnk.title": "Shell links (LNK)",
  "module.memory.description": "Analyses a Windows memory dump with Volatility 3 (or imports its JSON outputs): active, terminated and hidden processes, process tree, command lines, network connections, injected code (malfind) and services. Detects anomalous parents, impersonation of system processes, offensive tools and suspicious connections.",
  "module.memory.opt.offline": "Do not download symbols (--offline)",
  "module.memory.opt.plugins": "Plugins to run: info, pslist, psscan, pstree, cmdline, netscan, malfind, svcscan",

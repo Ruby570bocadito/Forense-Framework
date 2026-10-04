@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,10 @@ name = "forense-framework"
 dynamic = ["version"]
 description = "Windows digital forensics framework: cases, chain of custody, artifact analysis, timeline, web UI and reports (ES/EN)."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+authors = [{ name = "Forense-Framework contributors" }]
 dependencies = [
     "evtx>=0.8",                      # Windows event logs (Rust parser, prebuilt wheels)
     "Flask>=2.3",                     # web interface (brings Jinja2, also used for reports)
