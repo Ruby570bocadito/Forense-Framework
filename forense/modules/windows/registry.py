@@ -13,12 +13,15 @@ from forense.core.heuristics import (
     EXECUTABLE_EXTENSIONS,
     autostart_suspicion,
     is_suspicious_location,
+    launches_interpreter,
     suspicious_command_rules,
+    tool_category,
 )
 from forense.core.timezone import WindowsTimeZone
 from forense.core.utils import dt_or_none_iso, filetime_to_dt, find_files, iso, relative_name, user_from_path
-from forense.modules.base import AnalysisContext, Module, register
+from forense.modules.base import AnalysisContext, Module, Option, register
 from forense.parsers.regf import RegistryError, RegistryHive, decode_utf16_string, identify
+from forense.parsers.regf_deleted import recover_deleted
 from forense.parsers.shimcache import ShimCacheError, parse_appcompatcache
 
 HIVE_FILENAMES = {"system", "software", "sam", "security", "ntuser.dat", "usrclass.dat", "amcache.hve"}
@@ -54,6 +57,12 @@ RUN_KEYS_USER = (
     "Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
 )
 NETWORK_NAME_TYPES = {6: "wired", 23: "vpn", 71: "wireless", 243: "mobile_broadband"}
+
+# deleted keys whose removal can be the clean-up of persistence
+_DELETED_SERVICE = re.compile(r"(^|\\)controlset\d{3}\\services\\([^\\]+)$", re.IGNORECASE)
+_DELETED_TASK = re.compile(r"\\schedule\\taskcache\\tree\\(.+)$", re.IGNORECASE)
+_DELETED_IFEO = re.compile(r"\\image file execution options\\([^\\]+)$", re.IGNORECASE)
+_DELETED_RUN = re.compile(r"\\currentversion\\(run|runonce)$", re.IGNORECASE)
 
 
 def _filetime_bytes(raw: object) -> Optional[datetime]:
@@ -99,6 +108,7 @@ class RegistryModule(Module):
     name = "registry"
     category = "windows"
     triage = True
+    options = [Option("deleted", True, "bool")]
 
     def discover(self, target: Path) -> list[Path]:
         return find_files(target, lambda p: p.name.lower() in HIVE_FILENAMES)
@@ -131,11 +141,59 @@ class RegistryModule(Module):
                     handler = handlers.get(kind)
                     if handler:
                         handler(ctx, hive, rel, _user_from_path(path))
+                    if ctx.options.get("deleted", True):
+                        self._deleted(ctx, hive, rel)
             except (RegistryError, OSError, struct.error) as exc:
                 ctx.error(rel, exc)
         ctx.summary["hives"] = hives
         if recovered:
             ctx.summary["recovered_hives"] = recovered
+
+    # -- deleted keys and values ---------------------------------------------
+    @staticmethod
+    def _deleted(ctx: AnalysisContext, hive: RegistryHive, rel: str) -> None:
+        try:
+            keys, values = recover_deleted(hive)
+        except (RegistryError, struct.error, ValueError, IndexError) as exc:
+            ctx.error(rel, exc)
+            return
+        for key in keys:
+            ctx.record("registry_deleted_key", {
+                "hive": rel, "path": key.path, "partial_path": key.partial,
+                "last_written": dt_or_none_iso(key.last_written), "values": len(key.values),
+                "value_names": ", ".join(v.name or "(default)" for v in key.values[:20]),
+                "still_present": key.still_present, "offset": f"{key.offset:#x}",
+            })
+            if key.still_present:
+                continue  # an older copy of a key that still exists
+            ctx.event(key.last_written, "registry_key_deleted", key.path, path=rel)
+            data = {(v.name or "").lower(): _text(v.data) for v in key.values}
+            service, task, ifeo = (_DELETED_SERVICE.search(key.path), _DELETED_TASK.search(key.path),
+                                   _DELETED_IFEO.search(key.path))
+            if service:
+                image = data.get("imagepath", "")
+                severity = "high" if image and (autostart_suspicion(image) or tool_category(image)) else "low"
+                ctx.finding("registry.deleted_service", severity, key.last_written, service=service.group(2),
+                            image=image or "-", hive=rel)
+            elif task:
+                ctx.finding("registry.deleted_task", "low", key.last_written, task="\\" + task.group(1), hive=rel)
+            elif ifeo and data.get("debugger"):
+                ctx.finding("registry.deleted_ifeo", "high", key.last_written, program=ifeo.group(1),
+                            debugger=data["debugger"], hive=rel)
+        for value in values:
+            text = _text(value.data) if value.type in (1, 2, 6, 7) or not isinstance(value.data, bytes) \
+                else value.data[:512].hex()
+            ctx.record("registry_deleted_value", {
+                "hive": rel, "key": value.key_path, "name": value.name, "type": value.type_name,
+                "data": text[:4096], "offset": f"{value.offset:#x}",
+            })
+            command = text if value.type in (1, 2) else ""  # REG_SZ / REG_EXPAND_SZ
+            owner_run = bool(value.key_path and _DELETED_RUN.search(value.key_path))
+            if command and (owner_run or suspicious_command_rules(command) or launches_interpreter(command)):
+                ctx.finding("registry.deleted_suspicious_value", "high" if owner_run else "medium", None,
+                            name=value.name or "(default)", data=command[:300], key=value.key_path or "?", hive=rel)
+        ctx.summary["deleted_keys"] = ctx.summary.get("deleted_keys", 0) + len(keys)
+        ctx.summary["deleted_values"] = ctx.summary.get("deleted_values", 0) + len(values)
 
     # -- helpers ------------------------------------------------------------
     @staticmethod

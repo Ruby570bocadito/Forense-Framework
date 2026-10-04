@@ -39,7 +39,7 @@ def template_environment(lang: str) -> Environment:
     env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html"]),
                       trim_blocks=True, lstrip_blocks=True)
     env.globals.update(
-        _=lambda key, **params: t(key, lang, **params), lang=lang, version=__version__, colors=SEVERITY_COLORS,
+        _=lambda key, /, **params: t(key, lang, **params), lang=lang, version=__version__, colors=SEVERITY_COLORS,
         finding_title=lambda f: finding_title(f, lang), finding_description=lambda f: finding_description(f, lang),
         module_title=lambda name: _module_title(name, lang), techniques_for=techniques_for,
     )

@@ -156,7 +156,8 @@ case `lab/case_demo`, registers the three evidence items, runs triage and the in
 than 50 findings: an IFEO debugger on `sethc.exe`, timestomping, persistence in a `Run` key, a hidden task and a WMI
 subscription, a service in `C:\Windows\Temp`, mimikatz and rclone execution (and their deletion according to the
 USN journal), a fake `svchost.exe` talking to the Internet, a hidden process, code injected into `explorer.exe`, an
-encoded command in the clipboard, a USB drive and deleted files.
+encoded command in the clipboard, a USB drive, deleted files and, recovered from the free space of the registry,
+the PsExec service and a `Run` value the attacker removed.
 
 ```bash
 forense -c lab/case_demo findings
@@ -405,7 +406,7 @@ password for container health checks.
 | Module | Artifacts | Detects |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Brute force and **logon after brute force**, log clearing (1102/104), new users and privileged group changes, services (7045/4697) and tasks created, suspicious commands (4688/Sysmon 1), malicious PowerShell (4104), Defender detections and tampering, WMI persistence, RDP from public IPs and **Sigma rules** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, installed programs, network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1 |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, installed programs, network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
 | `prefetch` | `*.pf` (XP to Windows 11, compressed format included) | Program execution: run count, last 8 run times, volume and loaded files; offensive tools and execution from suspicious locations |
 | `srum` | `SRUDB.dat` | Bytes sent and received per application and user, connectivity, CPU/disk usage; **possible exfiltration** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Folders browsed, including USB, network and already deleted folders |
@@ -542,7 +543,9 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 - **Hives with pending changes** are recovered in memory by replaying their transaction logs (`.LOG`, `.LOG1`,
   `.LOG2`, old and new formats, Marvin32 hashes validated); when the logs were not collected a finding warns that
-  recent data may be missing. Deleted keys and values are not recovered yet.
+  recent data may be missing. **Deleted keys and values** are recovered from the free space of the hive (and from
+  cells left unlinked), with their full or partial path; their data are leads, since the data cell may have been
+  reused after the deletion.
 - **Images**: volumes encrypted with other systems (VeraCrypt, LUKS) and file systems The Sleuth Kit does not support
   (ReFS, APFS) are not read.
 - **Live collection**: the volume is read while the system runs, so a file that changes during the copy may be
@@ -559,7 +562,6 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 ## Roadmap
 
-- Recovering deleted registry keys and values
 - More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache, Microsoft Defender (MPLog)
 - Digital signature of reports
 - Cross-case correlation and intelligence import from MISP/OpenCTI

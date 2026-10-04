@@ -157,7 +157,8 @@ Después crea el caso `laboratorio/case_demo`, registra las tres evidencias, lan
 inteligencia, y genera más de 50 hallazgos. Entre ellos, un depurador IFEO en `sethc.exe`, timestomping, persistencia
 en `Run`, en una tarea oculta y en una suscripción WMI, un servicio en `C:\Windows\Temp`, ejecución de mimikatz y
 rclone (y su borrado según el diario USN), un `svchost.exe` falso con conexión al exterior, un proceso oculto, código
-inyectado en `explorer.exe`, un comando codificado en el portapapeles, un USB y archivos borrados.
+inyectado en `explorer.exe`, un comando codificado en el portapapeles, un USB, archivos borrados y, recuperados
+del espacio libre del registro, el servicio de PsExec y un valor `Run` que el atacante eliminó.
 
 ```bash
 forense -c laboratorio/case_demo hallazgos
@@ -411,7 +412,7 @@ las comprobaciones de estado de contenedores.
 | Módulo | Artefactos | Qué detecta |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Fuerza bruta y **acceso tras fuerza bruta**, borrado de logs (1102/104), altas de usuario y en grupos privilegiados, servicios (7045/4697) y tareas creadas, comandos sospechosos (4688/Sysmon 1), PowerShell malicioso (4104), detecciones y desactivación de Defender, persistencia WMI, RDP desde IP pública y **reglas Sigma** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, programas instalados, perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1 |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, programas instalados, perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1, **claves y valores borrados** (servicios, tareas, IFEO y comandos eliminados) |
 | `prefetch` | `*.pf` (XP a Windows 11, incluido el formato comprimido) | Ejecución de programas: nº de ejecuciones, últimas 8 fechas, volumen y archivos cargados; herramientas ofensivas y ejecución desde ubicaciones sospechosas |
 | `srum` | `SRUDB.dat` | Bytes enviados y recibidos por aplicación y usuario, conexiones, uso de CPU/disco; **posible exfiltración** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Carpetas exploradas, también en USB, red y carpetas ya borradas |
@@ -548,7 +549,9 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 - **Colmenas con cambios pendientes**: se recuperan en memoria aplicando sus logs de transacciones (`.LOG`, `.LOG1`,
   `.LOG2`, formatos antiguo y nuevo, validando los hashes Marvin32); si no se recogieron los logs, un hallazgo avisa
-  de que pueden faltar datos recientes. Las claves y valores borrados aún no se recuperan.
+  de que pueden faltar datos recientes. Las **claves y valores borrados** se recuperan del espacio libre de la colmena
+  (y de celdas que quedaron sin enlazar), con su ruta completa o parcial; sus datos son indicios, porque la celda de
+  datos pudo reutilizarse después del borrado.
 - **Imágenes**: no se leen volúmenes cifrados con otros sistemas (VeraCrypt, LUKS), ni sistemas de archivos que The
   Sleuth Kit no admite (ReFS, APFS).
 - **Recolección en vivo**: el volumen se lee mientras el sistema funciona, por lo que un archivo que cambie durante la
@@ -566,7 +569,6 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 ## Hoja de ruta
 
-- Recuperación de claves y valores borrados del registro
 - Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache, Microsoft Defender (MPLog)
 - Firma digital de informes
 - Correlación entre casos e importación de inteligencia desde MISP/OpenCTI

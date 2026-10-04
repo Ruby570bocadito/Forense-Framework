@@ -57,6 +57,8 @@ class _Key:
     last_written: Optional[datetime] = None
     subkeys: dict = field(default_factory=dict)
     values: list = field(default_factory=list)
+    deleted: bool = False  # written in free cells and not linked from its parent
+    deleted_values: list = field(default_factory=list)
 
 
 def encode_value(type_: int, data: Union[str, int, bytes, list]) -> bytes:
@@ -83,7 +85,7 @@ class HiveBuilder:
         self.embedded_name = embedded_name
         self.dirty = False
 
-    def key(self, path: str, last_written: Optional[datetime] = None) -> _Key:
+    def key(self, path: str, last_written: Optional[datetime] = None, deleted: bool = False) -> _Key:
         node = self.root
         for part in [p for p in path.split("\\") if p]:
             child = node.subkeys.get(part.lower())
@@ -93,10 +95,17 @@ class HiveBuilder:
             node = child
         if last_written is not None:
             node.last_written = last_written
+        if deleted:
+            node.deleted = True
         return node
 
     def value(self, path: str, name: str, type_: int, data: Union[str, int, bytes, list]) -> "HiveBuilder":
         self.key(path).values.append(_Value(name, type_, encode_value(type_, data)))
+        return self
+
+    def deleted_value(self, path: str, name: str, type_: int, data: Union[str, int, bytes, list]) -> "HiveBuilder":
+        """A value removed from ``path``: its record stays in a free cell, no longer in the key's value list."""
+        self.key(path).deleted_values.append(_Value(name, type_, encode_value(type_, data)))
         return self
 
     # -- serialisation --------------------------------------------------------
@@ -125,11 +134,11 @@ class HiveBuilder:
         path.write_bytes(self.build())
         return path
 
-    def _alloc(self, data: bytes) -> int:
+    def _alloc(self, data: bytes, free: bool = False) -> int:
         size = len(data) + 4
         size += -size % 8
         offset = len(self._bins)
-        self._bins += struct.pack("<i", -size) + data + b"\x00" * (size - 4 - len(data))
+        self._bins += struct.pack("<i", size if free else -size) + data + b"\x00" * (size - 4 - len(data))
         return offset
 
     def _patch(self, offset: int, data: bytes) -> None:
@@ -142,37 +151,43 @@ class HiveBuilder:
         except UnicodeEncodeError:
             return name.encode("utf-16-le"), False
 
-    def _emit_key(self, key: _Key, parent: int, is_root: bool = False) -> int:
-        name, compressed = self._name(key.name)
-        nk_offset = self._alloc(b"\x00" * (76 + len(name)))
+    def _emit_value(self, value: _Value, free: bool) -> int:
+        vname, vcompressed = self._name(value.name)
+        size = len(value.data)
+        if size <= 4:
+            data_field = struct.unpack("<I", value.data.ljust(4, b"\x00"))[0]
+            size_field = size | 0x80000000
+        elif size > 16344:
+            segments = [self._alloc(value.data[i:i + 16344], free) for i in range(0, size, 16344)]
+            seg_list = self._alloc(b"".join(struct.pack("<I", s) for s in segments), free)
+            data_field = self._alloc(struct.pack("<2sHI", b"db", len(segments), seg_list), free)
+            size_field = size
+        else:
+            data_field = self._alloc(value.data, free)
+            size_field = size
+        flags = 1 if vcompressed and vname else 0
+        vk = struct.pack("<2sHIIIHH", b"vk", len(vname), size_field, data_field, value.type, flags, 0) + vname
+        return self._alloc(vk, free)
 
-        value_offsets = []
-        for value in key.values:
-            vname, vcompressed = self._name(value.name)
-            size = len(value.data)
-            if size <= 4:
-                data_field = struct.unpack("<I", value.data.ljust(4, b"\x00"))[0]
-                size_field = size | 0x80000000
-            elif size > 16344:
-                segments = [self._alloc(value.data[i:i + 16344]) for i in range(0, size, 16344)]
-                seg_list = self._alloc(b"".join(struct.pack("<I", s) for s in segments))
-                data_field = self._alloc(struct.pack("<2sHI", b"db", len(segments), seg_list))
-                size_field = size
-            else:
-                data_field = self._alloc(value.data)
-                size_field = size
-            flags = 1 if vcompressed and vname else 0
-            vk = struct.pack("<2sHIIIHH", b"vk", len(vname), size_field, data_field, value.type, flags, 0) + vname
-            value_offsets.append(self._alloc(vk))
-        values_list = self._alloc(b"".join(struct.pack("<I", o) for o in value_offsets)) if value_offsets \
+    def _emit_key(self, key: _Key, parent: int, is_root: bool = False, free: bool = False) -> int:
+        free = free or key.deleted  # a deleted key takes its whole subtree with it
+        name, compressed = self._name(key.name)
+        nk_offset = self._alloc(b"\x00" * (76 + len(name)), free)
+
+        value_offsets = [self._emit_value(value, free) for value in key.values]
+        for value in key.deleted_values:
+            self._emit_value(value, True)
+        values_list = self._alloc(b"".join(struct.pack("<I", o) for o in value_offsets), free) if value_offsets \
             else 0xFFFFFFFF
 
         children = sorted(key.subkeys.values(), key=lambda k: k.name.upper())
-        child_offsets = [self._emit_key(child, nk_offset) for child in children]
+        emitted = [(self._emit_key(child, nk_offset, free=free), child) for child in children]
+        linked = [(offset, child) for offset, child in emitted if free or not child.deleted]
+        child_offsets = [offset for offset, _ in linked]
         if child_offsets:
             entries = b"".join(struct.pack("<I4s", off, child.name.encode("latin-1", "replace")[:4].ljust(4, b"\x00"))
-                               for off, child in zip(child_offsets, children, strict=True))
-            subkey_list = self._alloc(struct.pack("<2sH", b"lf", len(child_offsets)) + entries)
+                               for off, child in linked)
+            subkey_list = self._alloc(struct.pack("<2sH", b"lf", len(child_offsets)) + entries, free)
         else:
             subkey_list = 0xFFFFFFFF
 

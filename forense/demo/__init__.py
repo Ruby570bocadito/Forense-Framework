@@ -120,6 +120,10 @@ def _system_hive(path: Path) -> None:
             "C:\\Windows\\Temp\\wupd.exe -k netsvcs")
     h.value(f"{cs}\\Services\\WinUpdateSvc", "Start", b.REG_DWORD, 2)
     h.value(f"{cs}\\Services\\WinUpdateSvc", "DisplayName", b.REG_SZ, "Windows Update Helper")
+    # PsExec service left by a remote execution and deleted afterwards (recovered from free space).
+    h.key(f"{cs}\\Services\\PSEXESVC", _t(62), deleted=True)
+    h.value(f"{cs}\\Services\\PSEXESVC", "ImagePath", b.REG_EXPAND_SZ, "%SystemRoot%\\PSEXESVC.exe")
+    h.value(f"{cs}\\Services\\PSEXESVC", "Start", b.REG_DWORD, 3)
     shim = b.build_shimcache_win10([
         ("C:\\Users\\Public\\svchost.exe", _t(25)),
         ("C:\\Windows\\Temp\\wupd.exe", _t(41)),
@@ -213,6 +217,9 @@ def _ntuser_hive(path: Path) -> None:
     h.key("Software\\Microsoft\\Windows\\CurrentVersion\\Run", _t(27))
     h.value("Software\\Microsoft\\Windows\\CurrentVersion\\Run", "Updater", b.REG_SZ,
             "C:\\Users\\Public\\svchost.exe --silent")
+    # a first persistence attempt, removed by the attacker (only its record in free space remains)
+    h.deleted_value("Software\\Microsoft\\Windows\\CurrentVersion\\Run", "OneDriveSync", b.REG_SZ,
+                    "powershell.exe -nop -w hidden -ep bypass -file C:\\Users\\Public\\sync.ps1")
     h.key("Software\\Microsoft\\Terminal Server Client\\Servers\\192.0.2.20", _t(65))
     h.value("Software\\Microsoft\\Terminal Server Client\\Servers\\192.0.2.20", "UsernameHint", b.REG_SZ,
             "CONTOSO\\administrador")

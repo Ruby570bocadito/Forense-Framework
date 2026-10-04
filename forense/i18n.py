@@ -82,7 +82,7 @@ class _Missing(dict):
         return "{" + key + "}"
 
 
-def t(key: str, lang: Optional[str] = None, **params: object) -> str:
+def t(key: str, lang: Optional[str] = None, /, **params: object) -> str:
     """Translate ``key``; unknown keys fall back to English and then to the key itself."""
     lang = normalize(lang) or get_language()
     text = catalog(lang).get(key)
