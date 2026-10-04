@@ -285,11 +285,53 @@ def cmd_show(args: argparse.Namespace) -> int:
 
 
 def cmd_findings(args: argparse.Namespace) -> int:
+    from forense.core.review import normalize_status
+
     with _open_case(args) as case:
-        findings = case.findings(min_severity=args.min_severity)
-        _table([label("severity"), label("timestamp"), label("evidence"), t("report.finding"), label("description")],
-               [(severity_label(f["severity"]), display_ts(f["timestamp"]), f["evidence_id"], finding_title(f),
-                 finding_description(f)) for f in findings])
+        status = normalize_status(args.status) if args.status else None
+        findings = case.findings(min_severity=args.min_severity, review_status=status)
+        _table(["#", label("severity"), label("timestamp"), label("evidence"), t("report.finding"),
+                label("description"), t("report.review_status")],
+               [(f["id"], severity_label(f["severity"]), display_ts(f["timestamp"]), f["evidence_id"], finding_title(f),
+                 finding_description(f), t("review." + f["review"]["status"])
+                 + (f" — {f['review']['note']}" if f["review"]["note"] else "")) for f in findings])
+        progress = case.review_progress()
+        if progress["total"]:
+            _out(t("review.progress", **progress))
+    return EXIT_OK
+
+
+def cmd_review(args: argparse.Namespace) -> int:
+    with _open_case(args) as case:
+        review = case.review_finding(args.finding, args.status, args.note or "", args.analyst)
+        _out(t("cli.review_saved", id=args.finding, status=t("review." + review["status"])))
+    return EXIT_OK
+
+
+def cmd_bookmark(args: argparse.Namespace) -> int:
+    with _open_case(args) as case:
+        review = case.bookmark_event(args.event, args.note or "", args.analyst, remove=args.remove)
+        _out(t("cli.bookmark_saved", id=args.event, status=t("review." + review["status"])))
+    return EXIT_OK
+
+
+def cmd_conclusions(args: argparse.Namespace) -> int:
+    with _open_case(args) as case:
+        text = Path(args.file).read_text(encoding="utf-8") if args.file else args.text
+        if text is not None:
+            if not text.strip():
+                raise ForenseError("error.conclusions_empty")
+            saved = case.set_conclusions(text, args.analyst)
+            _out(t("cli.conclusions_saved", version=saved["version"], sha256=saved["sha256"]))
+            return EXIT_OK
+        current = case.conclusions()
+        if current is None:
+            _out(t("cli.no_conclusions"))
+            return EXIT_OK
+        _out(t("report.conclusions_meta", version=current["version"], actor=current["actor"],
+               timestamp=display_ts(current["timestamp"]), sha256=current["sha256"]))
+        _out()
+        _out(current["text"])
     return EXIT_OK
 
 
@@ -299,11 +341,14 @@ def cmd_timeline(args: argparse.Namespace) -> int:
     with _open_case(args) as case:
         filters = {"start": normalize_ts(args.start) if args.start else None,
                    "end": normalize_ts(args.end) if args.end else None,
-                   "search": args.search or "", "source": args.source, "min_severity": args.min_severity}
+                   "search": args.search or "", "source": args.source, "min_severity": args.min_severity,
+                   "bookmarked": args.bookmarked}
         page = case.events(limit=args.limit, **filters)
-        _table([label("timestamp") + " (UTC)", label("severity"), label("source"), label("type"), label("details")],
-               [(display_ts(e["timestamp"]), severity_label(e["severity"]), e["source"],
-                 event_type_label(e["type"]), e["details"]) for e in page.rows])
+        _table(["#", label("timestamp") + " (UTC)", label("severity"), label("source"), label("type"), label("details")],
+               [(("★ " if e["bookmark"] else "") + str(e["id"]), display_ts(e["timestamp"]),
+                 severity_label(e["severity"]), e["source"], event_type_label(e["type"]),
+                 e["details"] + (f" — {e['bookmark']['note']}" if e["bookmark"] and e["bookmark"]["note"] else ""))
+                for e in page.rows])
         _out(t("cli.showing", shown=len(page.rows), total=page.total))
     return EXIT_OK
 
@@ -482,6 +527,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = _add(sub, "findings", "hallazgos", "cli.cmd.findings", cmd_findings, [common])
     p.add_argument("--min-severity", "--severidad", choices=("info", "low", "medium", "high", "critical"))
+    p.add_argument("--status", "--estado", help="confirmed | false_positive | needs_review")
+
+    p = _add(sub, "review", "revisar", "cli.cmd.review", cmd_review, [common])
+    p.add_argument("finding", type=int)
+    p.add_argument("status", help="confirmed/confirmado | false_positive/falso_positivo | needs_review/pendiente")
+    p.add_argument("-n", "--note", "--nota", help=t("cli.opt.note"))
+
+    p = _add(sub, "bookmark", "destacar", "cli.cmd.bookmark", cmd_bookmark, [common])
+    p.add_argument("event", type=int)
+    p.add_argument("-n", "--note", "--nota", help=t("cli.opt.note"))
+    p.add_argument("--remove", "--quitar", action="store_true")
+
+    p = _add(sub, "conclusions", "conclusiones", "cli.cmd.conclusions", cmd_conclusions, [common])
+    group = p.add_mutually_exclusive_group()
+    group.add_argument("--text", "--texto")
+    group.add_argument("--file", "--archivo")
 
     p = _add(sub, "timeline", "cronologia", "cli.cmd.timeline", cmd_timeline, [common])
     p.add_argument("--from", "--desde", dest="start")
@@ -489,6 +550,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--search", "--buscar")
     p.add_argument("--source", "--fuente")
     p.add_argument("--min-severity", "--severidad", choices=("info", "low", "medium", "high", "critical"))
+    p.add_argument("--bookmarked", "--destacados", action="store_true")
     p.add_argument("--limit", "--limite", type=int, default=100)
 
     p = _add(sub, "export", "exportar", "cli.cmd.export", cmd_export, [common])

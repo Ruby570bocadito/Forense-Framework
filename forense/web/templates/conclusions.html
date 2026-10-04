@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sevbadge, render, pager, reviewbadge with context %}
+{% block content %}
+<h1>{{ _('nav.conclusions') }}</h1>
+<div class="subtitle">{{ _('web.conclusions_help') }}</div>
+{% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }} · <a href="{{ url_for('findings', slug=slug, status='needs_review') }}">{{ _('review.needs_review') }} →</a></p>{% endif %}
+<form class="panel" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <textarea name="text" rows="18" required>{{ current.text if current else '' }}</textarea>
+  <p><button type="submit">{{ _('common.save') }}</button>
+  {% if current %}<span class="muted">{{ _('report.conclusions_meta', version=current.version, actor=current.actor, timestamp=(current.timestamp | ts), sha256=current.sha256[:16] ~ '…') }}</span>{% endif %}</p>
+</form>
+{% if history | length > 1 %}
+<h2>{{ _('web.history') }}</h2>
+<div class="table-wrap"><table>
+  <tr><th>#</th><th>{{ _('field.actor') }}</th><th>{{ _('field.timestamp') }} (UTC)</th><th>SHA-256</th><th>{{ _('field.size') }}</th></tr>
+  {% for h in history %}<tr><td>{{ h.version }}</td><td>{{ h.actor }}</td><td class="mono">{{ h.timestamp | ts }}</td><td class="mono">{{ h.sha256 }}</td><td>{{ h.length }}</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

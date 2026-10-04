@@ -14,6 +14,9 @@
   {% endfor %}
 </div>
 {% if stats.first_event %}<p class="muted">{{ _('report.activity_span', first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
+{% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }}
+  · <a href="{{ url_for('findings', slug=slug, status='needs_review') }}">{{ _('review.needs_review') }} →</a>
+  · <a href="{{ url_for('conclusions', slug=slug) }}">{{ _('nav.conclusions') }}{% if current_conclusions %} (v{{ current_conclusions.version }}){% endif %} →</a></p>{% endif %}
 
 <div class="grid">
   <section class="panel">

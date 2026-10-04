@@ -66,7 +66,7 @@ input[type=text], input[type=search], input[type=datetime-local], input:not([typ
   width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .row > div { flex: 1 1 160px; }
-button, .button { display: inline-block; padding: 7px 14px; border: 1px solid var(--accent); border-radius: 6px;
+button, .button { white-space: nowrap; display: inline-block; padding: 7px 14px; border: 1px solid var(--accent); border-radius: 6px;
   background: var(--accent); color: var(--accent-ink); font: inherit; font-weight: 600; cursor: pointer; }
 button.secondary, .button.secondary { background: transparent; color: var(--accent); }
 button.danger { background: transparent; border-color: var(--bad); color: var(--bad); }
@@ -88,3 +88,19 @@ details summary { cursor: pointer; color: var(--accent); }
   main { padding: 16px; }
   .topbar input { width: 110px; }
 }
+
+/* analyst review */
+.review { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; border: 1px solid var(--line); }
+.review-confirmed { background: var(--bad); border-color: var(--bad); color: #fff; }
+.review-false_positive { color: var(--muted); text-decoration: line-through; }
+.review-needs_review { color: var(--warn); border-color: var(--warn); }
+.note { margin-top: 4px; padding: 4px 8px; border-left: 3px solid var(--accent); background: var(--soft); border-radius: 3px; font-size: 12.5px; }
+.small { font-size: 11.5px; }
+tr.dimmed td { opacity: .55; }
+tr.bookmarked td { background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.review-form { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+.review-form select, .review-form input { width: auto; flex: 1 1 110px; padding: 3px 6px; font-size: 12px; }
+.bookmark-form { margin: 0; }
+button.star { background: none; border: none; color: var(--muted); font-size: 18px; padding: 0 4px; cursor: pointer; }
+button.star.on { color: var(--warn); }
+details.inline-note summary { font-size: 12px; margin-top: 4px; }

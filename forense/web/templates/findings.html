@@ -1,24 +1,46 @@
 {% extends "base.html" %}
-{% from "_macros.html" import sevbadge, render, pager with context %}
+{% from "_macros.html" import sevbadge, render, pager, reviewbadge with context %}
 {% block content %}
 <h1>{{ _('nav.findings') }} ({{ findings | length }})</h1>
 <div class="subtitle">{{ _('web.findings_help') }}</div>
+{% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }}</p>{% endif %}
 <div class="row" style="margin-bottom:12px">
   <div class="tabs">
-    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if not severity }}">{{ _('common.all') }}</a>
-    {% for s in ['critical', 'high', 'medium', 'low'] %}<a href="{{ url_for('findings', slug=slug, severity=s) }}" class="{{ 'active' if severity == s }}">≥ {{ s | sev }}</a>{% endfor %}
+    <a href="{{ url_for('findings', slug=slug, status=status) }}" class="{{ 'active' if not severity }}">{{ _('common.all') }}</a>
+    {% for s in ['critical', 'high', 'medium', 'low'] %}<a href="{{ url_for('findings', slug=slug, severity=s, status=status) }}" class="{{ 'active' if severity == s }}">≥ {{ s | sev }}</a>{% endfor %}
   </div>
-  <form method="post" action="{{ url_for('export', slug=slug, what='findings') }}" style="flex:0">
+  <div class="tabs">
+    <a href="{{ url_for('findings', slug=slug, severity=severity) }}" class="{{ 'active' if not status }}">{{ _('web.filter_review') }}: {{ _('common.all') }}</a>
+    {% for st in ['needs_review', 'confirmed', 'false_positive'] %}<a href="{{ url_for('findings', slug=slug, severity=severity, status=st) }}" class="{{ 'active' if status == st }}">{{ _('review.' + st) }}</a>{% endfor %}
+  </div>
+  <form method="post" action="{{ url_for('export', slug=slug, what='findings') }}" style="flex:0 0 auto">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
   </form>
 </div>
 {% if findings %}
 <div class="table-wrap"><table>
-  <tr><th>{{ _('field.severity') }}</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('report.finding') }}</th><th>{{ _('report.source') }}</th></tr>
+  <tr><th>#</th><th>{{ _('field.severity') }}</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('report.finding') }}</th><th>{{ _('report.review_status') }}</th></tr>
   {% for f in findings %}
-  <tr><td>{{ sevbadge(f.severity) }}</td><td class="mono">{{ f.timestamp | ts }}</td>
-      <td class="wrap"><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}</td>
-      <td>{{ f.evidence_id }} · <a href="{{ url_for('analysis', slug=slug, analysis_id=f.analysis_id) }}">#{{ f.analysis_id }}</a></td></tr>
+  <tr id="f{{ f.id }}" class="{{ 'dimmed' if f.review.status == 'false_positive' }}">
+    <td class="mono">{{ f.id }}</td>
+    <td>{{ sevbadge(f.severity) }}</td>
+    <td class="mono">{{ f.timestamp | ts }}</td>
+    <td class="wrap"><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}
+      <div class="muted">{{ f.evidence_id }} · <a href="{{ url_for('analysis', slug=slug, analysis_id=f.analysis_id) }}">#{{ f.analysis_id }}</a></div></td>
+    <td style="min-width: 240px">
+      {{ reviewbadge(f.review.status) }}
+      {% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}
+      {% if f.review.actor %}<div class="muted small">{{ _('review.by', actor=f.review.actor, timestamp=(f.review.timestamp | ts)) }}</div>{% endif %}
+      <form class="review-form" method="post" action="{{ url_for('review_finding', slug=slug, finding_id=f.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <select name="status" aria-label="{{ _('report.review_status') }}">
+          {% for st in ['confirmed', 'false_positive', 'needs_review'] %}<option value="{{ st }}" {{ 'selected' if st == f.review.status }}>{{ _('review.' + st) }}</option>{% endfor %}
+        </select>
+        <input name="note" value="{{ f.review.note }}" placeholder="{{ _('review.note') }}">
+        <button class="secondary small" type="submit">{{ _('web.review_save') }}</button>
+      </form>
+    </td>
+  </tr>
   {% endfor %}
 </table></div>
 {% else %}<div class="panel empty">{{ _('findings.none') }}</div>{% endif %}

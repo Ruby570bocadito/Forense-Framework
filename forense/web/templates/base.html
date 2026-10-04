@@ -27,6 +27,7 @@
     <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}">{{ _('nav.analyses') }}</a>
     <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}">{{ _('nav.findings') }}</a>
     <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}">{{ _('nav.timeline') }}</a>
+    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}">{{ _('nav.conclusions') }}</a>
     <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}">{{ _('nav.custody') }}</a>
     <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}">{{ _('nav.reports') }}</a>
   </nav>

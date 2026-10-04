@@ -9,7 +9,7 @@ from typing import Iterable, Optional
 from forense.core.case import Case
 from forense.core.hashing import hash_file
 from forense.core.utils import write_csv
-from forense.i18n import label
+from forense.i18n import label, t
 from forense.presentation import (
     artifact_label,
     custody_action_label,
@@ -52,9 +52,10 @@ def export_analysis(case: Case, analysis_id: int, path: Path, fmt: str = "csv", 
 def export_timeline(case: Case, path: Path, fmt: str = "csv", lang: Optional[str] = None,
                     actor: Optional[str] = None, **filters: object) -> Path:
     rows = [{
-        "timestamp": e["timestamp"], "evidence": e["evidence_id"], "source": e["source"],
+        "id": e["id"], "timestamp": e["timestamp"], "evidence": e["evidence_id"], "source": e["source"],
         "type": event_type_label(e["type"], lang), "details": e["details"], "path": e["path"],
-        "severity": severity_label(e["severity"], lang),
+        "severity": severity_label(e["severity"], lang), "bookmarked": bool(e["bookmark"]),
+        "note": e["bookmark"]["note"] if e["bookmark"] else "",
     } for e in case.iter_events(**filters)]
     _write(path, rows, fmt, lang)
     return _log(case, path, "timeline", len(rows), actor,
@@ -64,9 +65,11 @@ def export_timeline(case: Case, path: Path, fmt: str = "csv", lang: Optional[str
 def export_findings(case: Case, path: Path, fmt: str = "csv", lang: Optional[str] = None,
                     actor: Optional[str] = None, min_severity: Optional[str] = None) -> Path:
     rows = [{
-        "severity": severity_label(f["severity"], lang), "timestamp": f["timestamp"], "evidence": f["evidence_id"],
-        "analysis": f["analysis_id"], "title": finding_title(f, lang), "description": finding_description(f, lang),
-        "code": f["code"],
+        "id": f["id"], "severity": severity_label(f["severity"], lang), "timestamp": f["timestamp"],
+        "evidence": f["evidence_id"], "analysis": f["analysis_id"], "title": finding_title(f, lang),
+        "description": finding_description(f, lang), "code": f["code"],
+        "review_status": t(f"review.{f['review']['status']}", lang), "note": f["review"]["note"],
+        "reviewer": f["review"]["actor"] or "",
     } for f in case.findings(min_severity=min_severity)]
     _write(path, rows, fmt, lang)
     return _log(case, path, "findings", len(rows), actor)

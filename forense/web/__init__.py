@@ -120,7 +120,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     @app.errorhandler(ForenseError)
     def _forense_error(exc: ForenseError):
         flash(exc.message(g.get("lang")), "error")
-        return redirect(request.referrer or url_for("index"))
+        return redirect(_back(url_for("index")))
 
     # -- helpers --------------------------------------------------------------------
     def case_dir(slug: str) -> Path:
@@ -169,7 +169,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
     @app.post("/analyst")
     def set_analyst():
-        response = redirect(request.referrer or url_for("index"))
+        response = redirect(_back(url_for("index")))
         response.set_cookie("analyst", request.form.get("analyst", "").strip()[:80], max_age=31536000,
                             samesite="Strict", httponly=True)
         return response
@@ -180,7 +180,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         with open_case(slug) as case:
             return render_template(
                 "dashboard.html", slug=slug, case=case.info, stats=case.stats(), evidence=case.evidence_list(),
-                analyses=case.analyses()[-8:][::-1], findings=case.findings(min_severity="medium")[:12])
+                analyses=case.analyses()[-8:][::-1], findings=case.findings(min_severity="medium")[:12],
+                progress=case.review_progress(), current_conclusions=case.conclusions())
 
     @app.route("/c/<slug>/evidence")
     def evidence(slug: str):
@@ -280,9 +281,38 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     @app.route("/c/<slug>/findings")
     def findings(slug: str):
         severity = request.args.get("severity") or None
+        status = request.args.get("status") or None
         with open_case(slug) as case:
-            return render_template("findings.html", slug=slug, case=case.info,
-                                   findings=case.findings(min_severity=severity), severity=severity)
+            return render_template("findings.html", slug=slug, case=case.info, severity=severity, status=status,
+                                   findings=case.findings(min_severity=severity, review_status=status),
+                                   progress=case.review_progress())
+
+    @app.post("/c/<slug>/findings/<int:finding_id>/review")
+    def review_finding(slug: str, finding_id: int):
+        with open_case(slug) as case:
+            case.review_finding(finding_id, request.form.get("status", ""), request.form.get("note", ""), actor())
+        flash(t("web.review_saved"), "info")
+        return redirect(_back(url_for("findings", slug=slug)) + f"#f{finding_id}")
+
+    @app.post("/c/<slug>/events/<int:event_id>/bookmark")
+    def bookmark_event(slug: str, event_id: int):
+        with open_case(slug) as case:
+            case.bookmark_event(event_id, request.form.get("note", ""), actor(),
+                                remove=request.form.get("remove") == "1")
+        return redirect(_back(url_for("timeline", slug=slug)) + f"#e{event_id}")
+
+    @app.route("/c/<slug>/conclusions", methods=["GET", "POST"])
+    def conclusions(slug: str):
+        with open_case(slug) as case:
+            if request.method == "POST":
+                text = request.form.get("text", "")
+                if not text.strip():
+                    raise ForenseError("error.conclusions_empty")
+                saved = case.set_conclusions(text, actor())
+                flash(t("web.conclusions_saved", version=saved["version"]), "info")
+                return redirect(url_for("conclusions", slug=slug))
+            return render_template("conclusions.html", slug=slug, case=case.info, current=case.conclusions(),
+                                   history=case.conclusions_history(), progress=case.review_progress())
 
     @app.route("/c/<slug>/timeline")
     def timeline(slug: str):
@@ -290,8 +320,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         page = max(1, request.args.get("page", 1, type=int))
         with open_case(slug) as case:
             events = case.events(offset=(page - 1) * PAGE_SIZE, limit=PAGE_SIZE, **filters)
-            filter_args = {k: request.args[k] for k in ("from", "to", "q", "source", "severity", "evidence")
-                           if request.args.get(k)}
+            filter_args = {k: request.args[k] for k in ("from", "to", "q", "source", "severity", "evidence",
+                                                        "bookmarked") if request.args.get(k)}
             return render_template("timeline.html", slug=slug, case=case.info, events=events, page=page,
                                    pages=max(1, math.ceil(events.total / PAGE_SIZE)), sources=case.event_sources(),
                                    args=request.args, filter_args=filter_args)
@@ -369,6 +399,12 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     return app
 
 
+def _back(default: str) -> str:
+    """Return to the referring page of this same site (never to an external URL)."""
+    ref = (request.referrer or "").split("#")[0]
+    return ref if ref.startswith(request.host_url) else default
+
+
 def _timeline_filters() -> dict:
     def ts(name: str) -> Optional[str]:
         value = request.args.get(name, "").strip()
@@ -384,7 +420,7 @@ def _timeline_filters() -> dict:
         end = end[:11] + "23:59:59.999999Z"
     return {"start": ts("from"), "end": end, "search": request.args.get("q", "").strip(),
             "source": request.args.get("source") or None, "min_severity": request.args.get("severity") or None,
-            "evidence_id": request.args.get("evidence") or None}
+            "evidence_id": request.args.get("evidence") or None, "bookmarked": request.args.get("bookmarked") == "1"}
 
 
 def _safe_module(name: str):

@@ -10,7 +10,8 @@
     <div><label>{{ _('common.search') }}</label><input type="search" name="q" value="{{ args.get('q', '') }}"></div>
     <div><label>{{ _('field.source') }}</label><select name="source"><option value="">{{ _('common.all') }}</option>{% for s in sources %}<option {{ 'selected' if args.get('source') == s }}>{{ s }}</option>{% endfor %}</select></div>
     <div><label>{{ _('field.severity') }}</label><select name="severity"><option value="">{{ _('common.all') }}</option>{% for s in ['low', 'medium', 'high', 'critical'] %}<option value="{{ s }}" {{ 'selected' if args.get('severity') == s }}>≥ {{ s | sev }}</option>{% endfor %}</select></div>
-    <div style="flex:0"><button type="submit">{{ _('common.filter') }}</button></div>
+    <div style="flex:0 0 auto"><label style="display:flex; gap:6px; align-items:center; white-space:nowrap"><input type="checkbox" name="bookmarked" value="1" style="width:auto" {{ 'checked' if args.get('bookmarked') == '1' }}> ★ {{ _('web.only_bookmarked') }}</label></div>
+    <div style="flex:0 0 auto"><button type="submit">{{ _('common.filter') }}</button></div>
   </div>
 </form>
 <form method="post" action="{{ url_for('export', slug=slug, what='timeline', **filter_args) }}" style="margin-bottom:8px">
@@ -20,10 +21,25 @@
 </form>
 {% if events.rows %}
 <div class="table-wrap"><table>
-  <tr><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.severity') }}</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
+  <tr><th>★</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.severity') }}</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
   {% for e in events.rows %}
-  <tr><td class="mono" style="white-space:nowrap">{{ e.timestamp | ts }}</td><td>{{ sevbadge(e.severity) if e.severity != 'info' else '' }}</td>
-      <td>{{ e.type | etype }}</td><td class="wrap">{{ e.details }}<div class="muted mono">{{ e.path }}</div></td>
+  <tr id="e{{ e.id }}" class="{{ 'bookmarked' if e.bookmark }}">
+      <td>
+        <form method="post" action="{{ url_for('bookmark_event', slug=slug, event_id=e.id) }}" class="bookmark-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          {% if e.bookmark %}<input type="hidden" name="remove" value="1"><button class="star on" type="submit" title="{{ _('web.unbookmark') }}">★</button>
+          {% else %}<button class="star" type="submit" title="{{ _('web.bookmark') }}">☆</button>{% endif %}
+        </form>
+      </td>
+      <td class="mono" style="white-space:nowrap">{{ e.timestamp | ts }}<div class="muted">#{{ e.id }}</div></td><td>{{ sevbadge(e.severity) if e.severity != 'info' else '' }}</td>
+      <td>{{ e.type | etype }}</td>
+      <td class="wrap">{{ e.details }}<div class="muted mono">{{ e.path }}</div>
+        {% if e.bookmark %}{% if e.bookmark.note %}<div class="note">{{ e.bookmark.note }}</div>{% endif %}
+        {% else %}<details class="inline-note"><summary>{{ _('web.bookmark') }} + {{ _('review.note') | lower }}</summary>
+          <form method="post" action="{{ url_for('bookmark_event', slug=slug, event_id=e.id) }}" class="row">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div><input name="note" placeholder="{{ _('review.note') }}"></div>
+            <button class="secondary small" type="submit">★ {{ _('web.bookmark') }}</button></form></details>{% endif %}
+      </td>
       <td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
   {% endfor %}
 </table></div>

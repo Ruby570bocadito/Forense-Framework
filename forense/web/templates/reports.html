@@ -8,7 +8,7 @@
     <div><label>{{ _('web.report_language') }}</label>
       <select name="language">{% for code in languages %}<option value="{{ code }}" {{ 'selected' if code == lang }}>{{ _('language.' + code) }}</option>{% endfor %}</select></div>
     <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="verify" style="width:auto"> {{ _('cli.opt.report_verify') }}</label></div>
-    <div style="flex:0"><button type="submit">{{ _('web.generate_report') }}</button></div>
+    <div style="flex:0 0 auto"><button type="submit">{{ _('web.generate_report') }}</button></div>
   </div>
   <p class="muted">{{ _('web.report_help') }}</p>
 </form>

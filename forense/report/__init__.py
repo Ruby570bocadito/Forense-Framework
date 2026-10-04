@@ -75,6 +75,8 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         max_events=max_events, custody=entries, custody_problems=custody_problems,
         custody_head=case.custody.head(), generated=utc_now(), analyst=actor,
         records_by_analysis={a.id: case.record_artifacts(a.id) for a in analyses},
+        conclusions=case.conclusions(), progress=case.review_progress(),
+        bookmarks=case.events(bookmarked=True, limit=None).rows,
     )
     if output is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

@@ -33,6 +33,7 @@ from forense import __version__
 from forense.core.custody import ChainOfCustody
 from forense.core.errors import CaseError, ForenseError
 from forense.core.hashing import DEFAULT_ALGORITHMS, ProgressCallback, hash_file, hash_tree
+from forense.core.review import REVIEW_SCHEMA, ReviewMixin, latest_review_sql
 from forense.core.utils import utc_now
 
 DB_NAME = "forense.db"
@@ -74,7 +75,7 @@ CREATE TABLE IF NOT EXISTS findings (
     severity TEXT NOT NULL, code TEXT NOT NULL, timestamp TEXT, params TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_findings_analysis ON findings(analysis_id);
-"""
+""" + REVIEW_SCHEMA
 
 SEVERITY_ORDER_SQL = ("CASE severity WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 "
                       "WHEN 'low' THEN 1 ELSE 0 END")
@@ -198,7 +199,7 @@ class _CaseSink:
             )
 
 
-class Case:
+class Case(ReviewMixin):
     def __init__(self, root: Path, conn: sqlite3.Connection) -> None:
         self.root = Path(root)
         self.conn = conn
@@ -546,34 +547,48 @@ class Case:
 
     def events(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
                source: Optional[str] = None, evidence_id: Optional[str] = None, min_severity: Optional[str] = None,
-               offset: int = 0, limit: Optional[int] = 200) -> Page:
+               bookmarked: bool = False, offset: int = 0, limit: Optional[int] = 200) -> Page:
+        """Timeline events; each row carries ``bookmark`` (the analyst's latest mark) or None."""
         where, params = ["1=1"], []
         if start:
-            where.append("timestamp >= ?")
+            where.append("e.timestamp >= ?")
             params.append(start)
         if end:
-            where.append("timestamp <= ?")
+            where.append("e.timestamp <= ?")
             params.append(end)
         if search:
-            where.append("(details LIKE ? OR path LIKE ? OR type LIKE ?)")
-            params += [f"%{search}%"] * 3
+            where.append("(e.details LIKE ? OR e.path LIKE ? OR e.type LIKE ? OR rv.note LIKE ?)")
+            params += [f"%{search}%"] * 4
         if source:
-            where.append("source = ?")
+            where.append("e.source = ?")
             params.append(source)
         if evidence_id:
-            where.append("evidence_id = ?")
+            where.append("e.evidence_id = ?")
             params.append(evidence_id)
         if min_severity:
             from forense.modules.base import SEVERITY_RANK
 
-            where.append(f"{SEVERITY_ORDER_SQL} >= ?")
+            where.append(f"{SEVERITY_ORDER_SQL.replace('severity', 'e.severity')} >= ?")
             params.append(SEVERITY_RANK.get(min_severity, 0))
+        if bookmarked:
+            where.append("rv.status = 'bookmarked'")
         clause = " AND ".join(where)
-        total = self.conn.execute(f"SELECT COUNT(*) FROM events WHERE {clause}", params).fetchone()[0]
+        source_sql = f"events e LEFT JOIN {latest_review_sql('event')} rv ON rv.target_id = e.id"
+        total = self.conn.execute(f"SELECT COUNT(*) FROM {source_sql} WHERE {clause}", params).fetchone()[0]
         rows = self.conn.execute(
-            f"SELECT * FROM events WHERE {clause} ORDER BY timestamp, id" + _limit(limit, offset), params
+            f"SELECT e.*, rv.status AS review_status, rv.note AS review_note, rv.actor AS review_actor, "
+            f"rv.timestamp AS review_timestamp FROM {source_sql} WHERE {clause} ORDER BY e.timestamp, e.id"
+            + _limit(limit, offset), params
         ).fetchall()
-        return Page(total, [dict(r) for r in rows])
+        result = []
+        for row in rows:
+            item = dict(row)
+            status = item.pop("review_status")
+            review = {"status": status, "note": item.pop("review_note"), "actor": item.pop("review_actor"),
+                      "timestamp": item.pop("review_timestamp")}
+            item["bookmark"] = review if status == "bookmarked" else None
+            result.append(item)
+        return Page(total, result)
 
     def iter_events(self, **filters: object) -> Iterator[dict]:
         offset = 0
@@ -585,27 +600,39 @@ class Case:
             offset += 5000
 
     def findings(self, min_severity: Optional[str] = None, analysis_id: Optional[int] = None,
-                 evidence_id: Optional[str] = None) -> list[dict]:
+                 evidence_id: Optional[str] = None, review_status: Optional[str] = None) -> list[dict]:
+        """Findings by severity. Each one carries ``review`` with the analyst's latest verdict.
+
+        ``review_status``: confirmed, false_positive or needs_review (not yet reviewed).
+        """
+        severity_sql = SEVERITY_ORDER_SQL.replace("severity", "f.severity")
         where, params = ["1=1"], []
         if min_severity:
             from forense.modules.base import SEVERITY_RANK
 
-            where.append(f"{SEVERITY_ORDER_SQL} >= ?")
+            where.append(f"{severity_sql} >= ?")
             params.append(SEVERITY_RANK.get(min_severity, 0))
         if analysis_id is not None:
-            where.append("analysis_id = ?")
+            where.append("f.analysis_id = ?")
             params.append(int(analysis_id))
         if evidence_id:
-            where.append("evidence_id = ?")
+            where.append("f.evidence_id = ?")
             params.append(evidence_id)
+        if review_status:
+            where.append("COALESCE(rv.status, 'needs_review') = ?")
+            params.append(review_status)
         rows = self.conn.execute(
-            f"SELECT * FROM findings WHERE {' AND '.join(where)} "
-            f"ORDER BY {SEVERITY_ORDER_SQL} DESC, COALESCE(timestamp, '9999'), id", params
+            f"SELECT f.*, COALESCE(rv.status, 'needs_review') AS review_status, rv.note AS review_note, "
+            f"rv.actor AS review_actor, rv.timestamp AS review_timestamp FROM findings f "
+            f"LEFT JOIN {latest_review_sql('finding')} rv ON rv.target_id = f.id WHERE {' AND '.join(where)} "
+            f"ORDER BY {severity_sql} DESC, COALESCE(f.timestamp, '9999'), f.id", params
         ).fetchall()
         result = []
         for row in rows:
             item = dict(row)
             item["params"] = json.loads(item["params"])
+            item["review"] = {"status": item.pop("review_status"), "note": item.pop("review_note") or "",
+                              "actor": item.pop("review_actor"), "timestamp": item.pop("review_timestamp")}
             result.append(item)
         return result
 

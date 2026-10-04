@@ -1,5 +1,7 @@
 {% macro sevbadge(s) %}<span class="sev" style="background: {{ colors.get(s, '#5f6b7a') }}">{{ s | sev }}</span>{% endmacro %}
 
+{% macro reviewbadge(status) %}<span class="review review-{{ status }}">{{ _('review.' + status) }}</span>{% endmacro %}
+
 {% macro render(value) %}
   {%- if value is mapping -%}
     <table class="kv">{% for k, v in value.items() %}<tr><th>{{ k | label }}</th><td class="wrap">{{ render(v) }}</td></tr>{% endfor %}</table>
