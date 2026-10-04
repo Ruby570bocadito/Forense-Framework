@@ -109,6 +109,9 @@ Every dependency ships prebuilt binaries for Windows, Linux and macOS: `evtx` (E
 (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) and `yara-x` (YARA). PDFs use Microsoft Edge
 (present on every Windows 10/11), Chrome or Chromium; another browser can be set with `FORENSE_BROWSER`.
 
+To update: `forense update` checks the published version and, if there is a newer one, installs it in the same
+environment (`--check` only checks). The Windows executable tells you where to download the new version.
+
 `forense doctor` lists every component with its version and purpose, warns about what is missing (Volatility, a
 browser for PDF, intelligence lists that do not exist, a cases folder that cannot be written…) and exits with an
 error if something essential is missing; `--json` gives the result to scripts.
@@ -137,6 +140,7 @@ image: {vss: true}               # also extract from volume shadow copies
 memory: {symbols: 'D:\symbols', offline: false}
 report: {languages: [en, es], pdf: true}
 automation: {playbook: full}
+notify: {webhook: 'https://hooks.slack.com/services/…', min_severity: high}
 web: {host: 127.0.0.1, port: 8765}
 ```
 
@@ -199,6 +203,8 @@ Every command has an English name and a Spanish alias.
 | `forense config [show\|init\|path]` | `configuracion` | Configuration |
 | `forense correlate [-w WORKSPACE] [--type T] [--json]` | `correlacionar` | Items shared between cases |
 | `forense doctor` | `diagnostico` | Check the installation |
+| `forense update [--check]` | `actualizar` | Check for and install a new version |
+| `forense -c CASE notify` | `notificar` | Send the summary to the configured webhook |
 | `forense sigma check PATH` / `sigma download DIR` | `sigma` | Validate Sigma rules or download SigmaHQ's |
 | `forense web [-w WORKSPACE] [--port 8765] [--password X] [--open]` | `web` | Web interface |
 
@@ -255,6 +261,12 @@ polls), ignores `.part`/`.tmp`, remembers what was processed in `D:\Cases\.foren
 does not stop the others. `--once` processes what is there and exits (handy in a scheduled task).
 
 In the web interface, the **Automatic** button of each evidence item runs the playbook in the background.
+
+**Notifications**: with `notify.webhook` in the configuration, every automated analysis (`auto`, `watch` or the web
+button) ends by sending a summary —case, failed steps, most severe findings and report— to Microsoft Teams, Slack,
+Mattermost, Discord or any service that accepts JSON (the format is inferred from the URL or set with
+`notify.format`). Each message is logged in the chain of custody with its destination host (not the URL, which
+usually carries a token). `forense -c CASE notify` sends a test one; a failing webhook never affects the analysis.
 
 ## Disk images and live collection
 

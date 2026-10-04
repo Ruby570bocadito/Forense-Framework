@@ -33,6 +33,7 @@ DEFAULTS: dict[str, Any] = {
     "memory": {"symbols": "", "offline": False},
     "report": {"languages": [], "pdf": False},
     "automation": {"playbook": "full"},
+    "notify": {"webhook": "", "format": "auto", "min_severity": "high"},
     "web": {"host": "127.0.0.1", "port": 8765},
 }
 
@@ -65,6 +66,11 @@ report:
 
 automation:
   playbook: full       # triage | full | quick | ruta a un .yaml / path to a .yaml
+
+notify:                # aviso al terminar el análisis automático / message when automation finishes
+  webhook: ""          # URL de webhook entrante: Teams, Slack, Mattermost, Discord o JSON genérico
+  format: auto         # auto | teams | slack | discord | json
+  min_severity: high   # hallazgos que se citan en el mensaje / findings listed in the message
 
 web:
   host: 127.0.0.1

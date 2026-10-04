@@ -579,6 +579,38 @@ def cmd_correlate(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_update(args: argparse.Namespace) -> int:
+    from forense.update import REFS, check, upgrade
+
+    info = check((args.ref,) if args.ref else REFS)
+    if info.latest is None:
+        raise ForenseError("error.update_unreachable", repo="GitHub")
+    _out(t("cli.update_status", current=info.current, latest=info.latest, ref=info.ref))
+    if not info.available and not args.force:
+        _out(t("cli.update_none"))
+        return EXIT_OK
+    if args.check:
+        _out(t("cli.update_available", latest=info.latest))
+        return EXIT_OK
+    upgrade(info)
+    _out(t("cli.update_done", latest=info.latest))
+    return EXIT_OK
+
+
+def cmd_notify(args: argparse.Namespace) -> int:
+    from forense.automation import AutomationResult
+    from forense.core.config import get_config
+    from forense.notify import notify
+
+    config = get_config()
+    if not config.value("notify.webhook"):
+        raise ForenseError("error.notify_not_configured")
+    with _open_case(args) as case:
+        host = notify(case, AutomationResult(case.root, [e.id for e in case.evidence_list()]), config, args.analyst)
+    _out(t("cli.notify_sent", host=host))
+    return EXIT_OK
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     import json
 
@@ -882,6 +914,13 @@ def build_parser() -> argparse.ArgumentParser:
                                                                   "host", "account"), help=t("cli.opt.correlation_type"))
     p.add_argument("--json", action="store_true", help=t("cli.opt.doctor_json"))
     p.add_argument("--no-cache", "--sin-cache", action="store_true", help=t("cli.opt.no_cache"))
+
+    p = _add(sub, "update", "actualizar", "cli.cmd.update", cmd_update)
+    p.add_argument("--check", "--comprobar", action="store_true", help=t("cli.opt.update_check"))
+    p.add_argument("--ref", "--rama", help=t("cli.opt.update_ref"))
+    p.add_argument("--force", "--forzar", action="store_true", help=t("cli.opt.update_force"))
+
+    _add(sub, "notify", "notificar", "cli.cmd.notify", cmd_notify, [common])
 
     p = _add(sub, "doctor", "diagnostico", "cli.cmd.doctor", cmd_doctor)
     p.add_argument("--json", action="store_true", help=t("cli.opt.doctor_json"))

@@ -15,6 +15,7 @@ import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from forense import __version__
 
@@ -95,6 +96,10 @@ def run_checks(config=None) -> list[Check]:
     except ForenseError as exc:
         checks.append(Check(t("doctor.config"), "error", exc.message(), t("doctor.purpose.config")))
         config = get_config()
+    webhook = str(config.value("notify.webhook") or "")
+    checks.append(Check(t("doctor.notify"), "ok" if webhook else "missing",
+                        (urlparse(webhook).hostname or webhook[:40]) if webhook else t("doctor.notify_hint"),
+                        t("doctor.purpose.notify")))
     workspace = Path(os.path.expandvars(str(config.value("workspace") or os.environ.get("FORENSE_WORKSPACE") or
                                             "."))).expanduser()
     checks.append(_writable(workspace, t("doctor.workspace"), t("doctor.purpose.workspace")))

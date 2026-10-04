@@ -10,7 +10,7 @@ from forense.i18n import t
 class ForenseError(Exception):
     """Base error. ``code`` is an i18n key; ``params`` fill its placeholders."""
 
-    def __init__(self, code: str, **params: object) -> None:
+    def __init__(self, code: str, /, **params: object) -> None:
         self.code = code
         self.params = params
         super().__init__(t(code, "en", **params))

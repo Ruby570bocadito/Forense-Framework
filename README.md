@@ -110,6 +110,9 @@ informes), `PyYAML` (Sigma, configuración), `olefile` (Jump Lists), `libscca-py
 usan Microsoft Edge (presente en todo Windows 10/11), Chrome o Chromium; otro navegador se indica con
 `FORENSE_BROWSER`.
 
+Para actualizar: `forense update` (`actualizar`) comprueba la versión publicada y, si hay una nueva, la instala en el
+mismo entorno (`--check` solo comprueba). En el ejecutable de Windows indica dónde descargar la nueva versión.
+
 `forense doctor` (`diagnostico`) lista cada componente con su versión y para qué sirve, avisa de lo que falta
 (Volatility, navegador para PDF, listas de inteligencia que no existen, carpeta de casos sin permiso de escritura…) y
 termina con error si falta algo imprescindible; `--json` da el resultado para scripts.
@@ -138,6 +141,7 @@ image: {vss: true}               # extraer también de las instantáneas de volu
 memory: {symbols: 'D:\symbols', offline: false}
 report: {languages: [es, en], pdf: true}
 automation: {playbook: full}
+notify: {webhook: 'https://contoso.webhook.office.com/…', min_severity: high}
 web: {host: 127.0.0.1, port: 8765}
 ```
 
@@ -200,6 +204,8 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense config [show\|init\|path]` | `config` | Configuración |
 | `forense correlacionar [-w ESPACIO] [--tipo T] [--json]` | `correlate` | Elementos compartidos entre casos |
 | `forense doctor` | `diagnostico` | Comprobar la instalación |
+| `forense update [--check]` | `actualizar` | Buscar e instalar una versión nueva |
+| `forense -c CASO notificar` | `notify` | Enviar el resumen al webhook configurado |
 | `forense sigma check RUTA` / `sigma download DIR` | `sigma` | Validar reglas Sigma o descargar las de SigmaHQ |
 | `forense web [-w ESPACIO] [--puerto 8765] [--clave X] [--abrir]` | `web` | Interfaz web |
 
@@ -257,6 +263,12 @@ comprobaciones), ignora `.part`/`.tmp`, recuerda lo procesado en `D:\Casos\.fore
 falle no detiene a los demás. `--una-vez` procesa lo que haya y termina (útil en una tarea programada).
 
 En la web, el botón **Automático** de cada evidencia ejecuta el playbook en segundo plano.
+
+**Notificaciones**: con `notify.webhook` en la configuración, al terminar cada análisis automático (`auto`,
+`vigilar` o el botón de la web) se envía un resumen —caso, pasos fallidos, hallazgos más graves e informe— a Microsoft
+Teams, Slack, Mattermost, Discord o cualquier servicio que acepte JSON (el formato se deduce de la URL o se fija con
+`notify.format`). Cada envío queda en la cadena de custodia con el servidor de destino (no la URL, que suele llevar un
+token). `forense -c CASO notificar` envía uno de prueba; si el webhook falla, el análisis no se ve afectado.
 
 ## Imágenes de disco y recolección en vivo
 

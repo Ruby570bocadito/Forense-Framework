@@ -138,6 +138,14 @@ def run_playbook(case: Case, evidence_ids: list[str], steps: list, config: Optio
                 raise ForenseError("error.playbook_invalid", name="?", error=f"unknown step: {name}")
         except ForenseError as exc:
             result.steps.append(StepResult(name, "failed", exc.message()))
+    if config.value("notify.webhook"):
+        from forense.notify import notify
+
+        say(t("auto.step", step="notify"))
+        try:
+            result.steps.append(StepResult("notify", "ok", notify(case, result, config, actor) or ""))
+        except ForenseError as exc:  # a notification problem never invalidates the analysis
+            result.steps.append(StepResult("notify", "failed", exc.message()))
     return result
 
 
