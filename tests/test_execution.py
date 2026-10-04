@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 
 import pytest
 
@@ -97,4 +98,5 @@ def test_execution_in_web_and_report(demo_case):
     assert "rclone.exe" in page and "offensive tool" in page and "EXCEL.EXE" not in page
     with Case.open(demo_case) as case:
         html = generate_report(case, "es").read_text(encoding="utf-8")
-    assert "Ejecución (" in html and "mimikatz.exe" in html and "<h2>5. Ejecución (" in html
+    assert re.search(r'<h2 id="execution"><span class="num">\d+\.</span> Ejecución <span class="muted">\(\d+\)', html)
+    assert "mimikatz.exe" in html

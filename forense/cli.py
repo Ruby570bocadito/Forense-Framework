@@ -522,9 +522,16 @@ def cmd_report(args: argparse.Namespace) -> int:
     from forense.report import generate_report
 
     with _open_case(args) as case:
-        path = generate_report(case, args.lang, Path(args.output) if args.output else None, args.verify,
-                               args.analyst)
+        output = Path(args.output) if args.output else None
+        pdf = args.pdf or (output is not None and output.suffix.lower() == ".pdf")
+        if pdf and output is not None and output.suffix.lower() == ".pdf":
+            output = output.with_suffix(".html")
+        path = generate_report(case, args.lang, output, args.verify, args.analyst)
         _out(t("cli.report_written", path=str(path)))
+        if pdf:
+            from forense.report.pdf import html_to_pdf
+
+            _out(t("cli.report_written", path=str(html_to_pdf(path, case=case, actor=args.analyst))))
     return EXIT_OK
 
 
@@ -792,6 +799,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = _add(sub, "report", "informe", "cli.cmd.report", cmd_report, [common])
     p.add_argument("-o", "--output", "--salida")
     p.add_argument("--verify", "--verificar", action="store_true", help=t("cli.opt.report_verify"))
+    p.add_argument("--pdf", action="store_true", help=t("cli.opt.report_pdf"))
 
     p = _add(sub, "sigma", "", "cli.cmd.sigma", cmd_sigma)
     p.add_argument("action", choices=("check", "download"), metavar="check|download")

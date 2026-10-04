@@ -3,43 +3,139 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Forense-Framework {{ version }}">
 <title>{{ _("report.title") }} – {{ case.name }}</title>
 <style>
-  .flag { display: inline-block; padding: 0 6px; border-radius: 8px; background: #c2410c; color: #fff; font-size: 11px; }
-  :root { --ink:#1d2430; --muted:#5f6b7a; --line:#d9dee5; --soft:#f4f6f9; --accent:#1f4e79; --ok:#1e7b45; --bad:#b42318; }
+  :root {
+    --ink: #142033; --muted: #5b677a; --line: #dde3ea; --soft: #f1f4f8; --paper: #ffffff;
+    --accent: #1f5f99; --accent-dark: #0f2f52; --accent-soft: #e3eefa; --ok: #1e7b45; --bad: #b42318;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+    --viz-grid: #e6e9ee; --viz-axis: #c3c8d1; --viz-text: #5b677a; --viz-bar: #2a78d6; --viz-bar-flagged: #1c5cab;
+    --viz-track: #eef2f7;
+    --sev-info: #e8946a; --sev-low: #d9703f; --sev-medium: #c2501f; --sev-high: #9c3612; --sev-critical: #6e220a;
+    --sev-ink-info: #0b0b0b; --sev-ink-low: #0b0b0b; --sev-ink-medium: #fff; --sev-ink-high: #fff; --sev-ink-critical: #fff;
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #fff; color: var(--ink); font: 14px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
-  main { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
-  header.cover { border-bottom: 3px solid var(--accent); padding-bottom: 20px; margin-bottom: 28px; }
-  header.cover .kicker { color: var(--accent); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
-  h1 { margin: 6px 0 4px; font-size: 28px; }
-  h2 { font-size: 19px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--accent); }
-  h3 { font-size: 15px; margin: 22px 0 8px; }
-  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 24px; margin-top: 14px; }
-  .meta div span { display: block; color: var(--muted); font-size: 12px; }
-  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-  .kpi { background: var(--soft); border-radius: 8px; padding: 12px 14px; }
-  .kpi b { display: block; font-size: 22px; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; background: #e9edf2; color: var(--ink); font: 14px/1.55 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  .sheet { max-width: 1120px; margin: 24px auto; background: var(--paper); box-shadow: 0 2px 12px rgba(15, 30, 50, .08); border-radius: 6px; overflow: hidden; }
+  main { padding: 8px 48px 56px; }
+  h2 { font-size: 20px; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); color: var(--accent-dark);
+       display: flex; align-items: baseline; gap: 12px; break-after: avoid; }
+  h2 .num { color: var(--accent); font-variant-numeric: tabular-nums; }
+  h3 { font-size: 15px; margin: 24px 0 8px; color: var(--accent-dark); break-after: avoid; }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; }
+
+  /* cover */
+  .cover { position: relative; color: #fff; background: linear-gradient(150deg, var(--accent-dark) 0%, var(--accent) 100%); padding: 44px 48px 36px; }
+  .cover .brand { display: flex; align-items: center; gap: 12px; font-weight: 600; letter-spacing: .02em; }
+  .cover .brand svg { width: 40px; height: 40px; }
+  .cover .kicker { margin-top: 56px; text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: #bcd5ef; }
+  .cover h1 { margin: 8px 0 6px; font-size: 34px; line-height: 1.2; }
+  .cover .description { color: #dce8f5; max-width: 760px; }
+  .cover .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px 28px; margin-top: 40px;
+                 padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .25); }
+  .cover .meta span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #a9c6e6; }
+  .cover .meta b { font-weight: 600; overflow-wrap: anywhere; }
+  .cover .classification { margin-top: 30px; display: inline-block; border: 1px solid rgba(255, 255, 255, .5); border-radius: 4px; padding: 3px 10px;
+                           font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+
+  /* table of contents */
+  .toc { margin: 28px 48px 0; padding: 18px 22px; background: var(--soft); border-radius: 8px; }
+  .toc h2 { margin: 0 0 8px; border: 0; padding: 0; font-size: 16px; }
+  .toc ol { margin: 0; padding: 0; list-style: none; columns: 2; column-gap: 40px; }
+  .toc li { padding: 3px 0; break-inside: avoid; display: flex; gap: 10px; }
+  .toc li .num { color: var(--accent); font-weight: 600; min-width: 22px; font-variant-numeric: tabular-nums; }
+
+  /* executive summary */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 8px 0 18px; }
+  .kpi { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; break-inside: avoid; }
+  .kpi b { display: block; font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
   .kpi span { color: var(--muted); font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
-  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-  th { background: var(--soft); font-weight: 600; }
-  table.kv th { width: 30%; background: none; color: var(--muted); font-weight: 500; }
-  .sev { display: inline-block; padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }
-  .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11.5px; }
-  .ok { color: var(--ok); font-weight: 600; } .bad { color: var(--bad); font-weight: 600; } .muted { color: var(--muted); }
-  .callout { border-left: 4px solid var(--accent); background: var(--soft); padding: 10px 14px; border-radius: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .figure { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 12px 0; break-inside: avoid; }
+  .figure .caption { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .figure .caption b { color: var(--ink); font-size: 13px; display: block; }
+  .callout { border-left: 4px solid var(--accent); background: var(--soft); padding: 10px 14px; border-radius: 4px; margin: 10px 0; }
   .callout.bad { border-color: var(--bad); }
+  .key-findings { margin: 6px 0; padding-left: 0; list-style: none; counter-reset: kf; }
+  .key-findings li { counter-increment: kf; position: relative; padding: 8px 0 8px 34px; border-bottom: 1px solid var(--line); break-inside: avoid; }
+  .key-findings li::before { content: counter(kf); position: absolute; left: 0; top: 9px; width: 22px; height: 22px; border-radius: 50%;
+                             background: var(--accent-soft); color: var(--accent-dark); font-size: 12px; font-weight: 700; text-align: center; line-height: 22px; }
+  .phases { list-style: none; margin: 4px 0; padding: 0; }
+  .phases li { position: relative; padding: 0 0 12px 30px; break-inside: avoid; }
+  .phases li::before { content: ""; position: absolute; left: 6px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .phases li::after { content: ""; position: absolute; left: 10px; top: 18px; bottom: 0; width: 2px; background: var(--line); }
+  .phases li:last-child::after { display: none; }
+  .phases b { color: var(--accent-dark); }
+  .phases .tech { font-size: 12.5px; line-height: 1.5; }
+
+  /* tables */
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); overflow-wrap: break-word; }
+  td.mono, .mono { overflow-wrap: anywhere; }
+  .nowrap, td.nowrap { white-space: nowrap; overflow-wrap: normal; }
+  table.evidence tbody.item { break-inside: avoid; }
+  table.evidence tr:first-child td { border-bottom: 0; }
+  table.evidence tr.hashes td { padding-top: 0; color: var(--muted); }
+  table.evidence tr.hashes span { display: block; } table.evidence tr.hashes b { display: inline-block; min-width: 58px; color: var(--ink); }
+  thead th { background: var(--soft); font-weight: 600; color: var(--accent-dark); border-bottom: 1px solid #c9d3df; }
+  table.kv th { width: 30%; background: none; color: var(--muted); font-weight: 500; }
+  tr { break-inside: avoid; }
+  .sev { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .sev-info { background: var(--sev-info); color: var(--sev-ink-info); } .sev-low { background: var(--sev-low); color: var(--sev-ink-low); }
+  .sev-medium { background: var(--sev-medium); color: var(--sev-ink-medium); } .sev-high { background: var(--sev-high); color: var(--sev-ink-high); }
+  .sev-critical { background: var(--sev-critical); color: var(--sev-ink-critical); }
+  .flag { display: inline-block; padding: 0 6px; border-radius: 8px; background: var(--sev-medium); color: #fff; font-size: 11px; }
+  .tag { display: inline-block; padding: 0 6px; margin: 1px 2px 1px 0; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; white-space: nowrap; }
   .note { margin-top: 4px; padding: 4px 8px; border-left: 3px solid var(--accent); background: var(--soft); border-radius: 3px; }
-  .conclusions { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; background: #fbfcfd; }
-  .analysis { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 10px; margin: 14px 0; page-break-inside: avoid; }
-  footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
-  @media print { main { padding: 0; } h2 { page-break-after: avoid; } tr { page-break-inside: avoid; } }
+  .conclusions { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 16px 20px; background: #fbfcfd; }
+  .analysis { border: 1px solid var(--line); border-radius: 8px; padding: 4px 16px 10px; margin: 14px 0; break-inside: avoid; }
+  .analysis h3 { margin-top: 12px; }
+  footer { margin: 44px 48px 0; padding: 14px 0 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); }
+
+  /* charts (server-side SVG) */
+  .viz { width: 100%; height: auto; display: block; overflow: visible; }
+  .viz text { font: 11px "Segoe UI", system-ui, sans-serif; fill: var(--viz-text); }
+  .viz-grid { stroke: var(--viz-grid); stroke-width: 1; } .viz-axis { stroke: var(--viz-axis); stroke-width: 1; }
+  .viz-bar { fill: var(--viz-bar); } .viz-bar-flagged { fill: var(--viz-bar-flagged); }
+  .viz-sev-info { fill: var(--sev-info); background: var(--sev-info); } .viz-sev-low { fill: var(--sev-low); background: var(--sev-low); }
+  .viz-sev-medium { fill: var(--sev-medium); background: var(--sev-medium); } .viz-sev-high { fill: var(--sev-high); background: var(--sev-high); }
+  .viz-sev-critical { fill: var(--sev-critical); background: var(--sev-critical); }
+  .viz-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .viz-key { display: inline-flex; align-items: center; gap: 6px; } .viz-key b { color: var(--ink); }
+  .viz-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+  .viz-swatch.viz-bar { background: var(--viz-bar); } .viz-swatch.viz-bar-flagged { background: var(--viz-bar-flagged); }
+
+  @media (max-width: 760px) {
+    main { padding: 4px 18px 40px; } .cover { padding: 28px 20px; } footer { margin: 30px 18px 0; } .toc { margin: 20px 18px 0; }
+    .grid2 { grid-template-columns: 1fr; } .toc ol { columns: 1; } .sheet { margin: 0; border-radius: 0; }
+  }
+  @page { size: A4; margin: 15mm 13mm 17mm;
+    @bottom-left { content: "{{ page_label }}"; font: 8pt "Segoe UI", sans-serif; color: #5b677a; }
+    @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "Segoe UI", sans-serif; color: #5b677a; } }
+  @page cover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+  @media print {
+    body { background: #fff; font-size: 12.5px; }
+    .sheet { margin: 0; max-width: none; box-shadow: none; border-radius: 0; overflow: visible; }
+    main { padding: 0; } footer { margin: 30px 0 0; }
+    .front { page: cover; break-after: page; min-height: 297mm; display: flex; flex-direction: column; }
+    .cover { flex: 1; padding: 22mm 18mm 16mm; display: flex; flex-direction: column; }
+    .cover .meta { margin-top: auto; }
+    .toc { margin: 0 18mm 18mm; }
+    h2 { margin-top: 30px; }
+    section.major { break-before: page; }
+    section.major:first-of-type { break-before: auto; }
+    a { color: inherit; }
+  }
 </style>
 </head>
 <body>
-<main>
-{% macro sevbadge(s) %}<span class="sev" style="background: {{ colors.get(s, '#5f6b7a') }}">{{ s | sev }}</span>{% endmacro %}
+{% macro sevbadge(s) %}<span class="sev sev-{{ s }}">{{ s | sev }}</span>{% endmacro %}
 {% macro render(value) %}
   {%- if value is mapping -%}
     <table class="kv">{% for k, v in value.items() %}<tr><th>{{ k | label }}</th><td>{{ render(v) }}</td></tr>{% endfor %}</table>
@@ -47,118 +143,212 @@
     {{ value | join(", ") }}
   {%- else -%}{{ value | val }}{%- endif -%}
 {% endmacro %}
-
-<header class="cover">
-  <div class="kicker">{{ _("report.kicker") }}</div>
-  <h1>{{ case.name }}</h1>
-  <div class="muted">{{ case.description }}</div>
-  <div class="meta">
-    <div><span>{{ _("case.id") }}</span>{{ case.id }}</div>
-    {% if case.reference %}<div><span>{{ _("case.reference") }}</span>{{ case.reference }}</div>{% endif %}
-    {% if case.organization %}<div><span>{{ _("case.organization") }}</span>{{ case.organization }}</div>{% endif %}
-    <div><span>{{ _("case.investigator") }}</span>{{ case.investigator }}</div>
-    <div><span>{{ _("case.created") }}</span>{{ case.created | ts }} UTC</div>
-    <div><span>{{ _("report.generated") }}</span>{{ generated | ts }} UTC · {{ analyst }}</div>
-  </div>
-</header>
-
-{% set sections = namespace(n=0) %}
-{% macro section() %}{% set sections.n = sections.n + 1 %}{{ sections.n }}{% endmacro %}
-<h2>{{ section() }}. {{ _("report.summary") }}</h2>
-<div class="kpis">
-  <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _("nav.evidence") }}</span></div>
-  <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _("nav.analyses") }}</span></div>
-  <div class="kpi"><b>{{ stats.events }}</b><span>{{ _("report.timeline_events") }}</span></div>
-  {% for s in ["critical", "high", "medium", "low"] %}
-  <div class="kpi"><b style="color: {{ colors[s] }}">{{ stats.findings_by_severity.get(s, 0) }}</b><span>{{ _("report.findings_of", severity=_("severity.plural." + s)) }}</span></div>
-  {% endfor %}
-</div>
+{% set numbers = {} %}
+{% for anchor, title in sections %}{% set _ = numbers.update({anchor: loop.index}) %}{% endfor %}
+{% macro heading(anchor, title, count=None) %}<h2 id="{{ anchor }}"><span class="num">{{ numbers[anchor] }}.</span> {{ title }}{% if count is not none %} <span class="muted">({{ count }})</span>{% endif %}</h2>{% endmacro %}
 {% set confirmed = findings | selectattr("review.status", "equalto", "confirmed") | list %}
 {% set pending = findings | selectattr("review.status", "equalto", "needs_review") | list %}
 {% set discarded = findings | selectattr("review.status", "equalto", "false_positive") | list %}
-{% if progress.total %}<p>{{ _("review.progress", **progress) }}</p>{% endif %}
-{% set top = confirmed if confirmed else (pending | selectattr("severity", "in", ["critical", "high"]) | list) %}
-{% if top %}
-<h3>{{ _("report.confirmed_findings") if confirmed else _("report.key_findings") }}</h3>
-<ol>
-  {% for f in top[:15] %}<li>{{ sevbadge(f.severity) }} <b>{{ finding_title(f) }}</b> — {{ finding_description(f) }} <span class="muted">({{ f.timestamp | ts or "—" }})</span>{% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}</li>{% endfor %}
-</ol>
-{% else %}
-<p class="muted">{{ _("report.no_key_findings") }}</p>
-{% endif %}
-{% if stats.first_event %}<p class="muted">{{ _("report.activity_span", first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
 
-<h2>{{ section() }}. {{ _("report.conclusions") }}</h2>
+<div class="sheet">
+<div class="front">
+<header class="cover">
+  <div class="brand">{{ logo }}<span>Forense-Framework</span></div>
+  <div class="kicker">{{ _("report.kicker") }}</div>
+  <h1>{{ case.name }}</h1>
+  {% if case.description %}<div class="description">{{ case.description }}</div>{% endif %}
+  <div class="classification">{{ _("report.confidential") }}</div>
+  <div class="meta">
+    <div><span>{{ _("case.id") }}</span><b>{{ case.id }}</b></div>
+    {% if case.reference %}<div><span>{{ _("case.reference") }}</span><b>{{ case.reference }}</b></div>{% endif %}
+    {% if case.organization %}<div><span>{{ _("case.organization") }}</span><b>{{ case.organization }}</b></div>{% endif %}
+    <div><span>{{ _("case.investigator") }}</span><b>{{ case.investigator }}</b></div>
+    <div><span>{{ _("case.created") }}</span><b>{{ case.created | ts }} UTC</b></div>
+    <div><span>{{ _("report.generated") }}</span><b>{{ generated | ts }} UTC</b><div>{{ analyst }}</div></div>
+  </div>
+</header>
+<nav class="toc" aria-label="{{ _('report.toc') }}">
+  <h2>{{ _("report.toc") }}</h2>
+  <ol>{% for anchor, title in sections %}<li><span class="num">{{ loop.index }}</span><a href="#{{ anchor }}">{{ title }}</a></li>{% endfor %}</ol>
+</nav>
+</div>
+
+<main>
+<section id="s-summary">
+{{ heading("summary", _("report.executive_summary")) }}
+<div class="kpis">
+  <div class="kpi"><b>{{ stats.evidence }}</b><span>{{ _("nav.evidence") }}</span></div>
+  <div class="kpi"><b>{{ stats.analyses }}</b><span>{{ _("nav.analyses") }}</span></div>
+  <div class="kpi"><b>{{ "{:,}".format(stats.events) }}</b><span>{{ _("report.timeline_events") }}</span></div>
+  <div class="kpi"><b>{{ findings | length }}</b><span>{{ _("nav.findings") }}</span></div>
+  <div class="kpi"><b>{{ overview.techniques }}</b><span>{{ _("report.techniques_in", tactics=overview.tactics) }}</span></div>
+  {% if progress.total %}<div class="kpi"><b>{{ progress.reviewed }}/{{ progress.total }}</b><span>{{ _("report.reviewed") }}</span></div>{% endif %}
+</div>
+{% if overview.window %}<p>{{ _("report.incident_window", start=(overview.window[0].isoformat() | ts), end=(overview.window[1].isoformat() | ts)) }}</p>{% endif %}
+{% if charts.severity or charts.activity %}
+{% if charts.severity %}
+<div class="figure">
+  <div class="caption"><b>{{ _("report.severity") }}</b>{{ _("report.severity_note") }}</div>
+  {{ charts.severity }}
+</div>
+{% endif %}
+{% if charts.activity %}
+<div class="figure">
+  <div class="caption"><b>{{ _("report.activity") }}</b>{{ _("report.activity_note") }}</div>
+  {{ charts.activity }}
+</div>
+{% endif %}
+{% endif %}
+{% set top = confirmed if confirmed else (pending | selectattr("severity", "in", ["critical", "high"]) | list) %}
+<div class="grid2">
+  <div>
+    <h3>{{ _("report.confirmed_findings") if confirmed else _("report.key_findings") }}</h3>
+    {% if top %}
+    <ol class="key-findings">
+      {% for f in top[:10] %}<li>{{ sevbadge(f.severity) }} <b><a href="#f-{{ f.id }}">{{ finding_title(f) }}</a></b><div class="muted">{{ f.timestamp | ts or "—" }} · {{ f.evidence_id }}</div>{% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}</li>{% endfor %}
+    </ol>
+    {% if top | length > 10 %}<p class="muted">{{ _("report.more_findings", count=(top | length) - 10) }}</p>{% endif %}
+    {% else %}<p class="muted">{{ _("report.no_key_findings") }}</p>{% endif %}
+  </div>
+  <div>
+    <h3>{{ _("report.storyline") }}</h3>
+    {% if phases %}
+    <ol class="phases">
+      {% for phase in phases %}<li><b>{{ _("tactic." + phase.tactic) }}</b> <span class="muted">{{ phase.first | ts or "" }}</span>{% for hit in phase.techniques[:3] %}<div class="tech"><span class="tag">{{ hit.technique }}</span> {{ hit.name }}</div>{% endfor %}{% if phase.techniques | length > 3 %}<div class="muted tech">+{{ phase.techniques | length - 3 }}</div>{% endif %}</li>{% endfor %}
+    </ol>
+    {% else %}<p class="muted">{{ _("attack.summary_none") }}</p>{% endif %}
+  </div>
+</div>
+{% if stats.first_event %}<p class="muted">{{ _("report.activity_span", first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
+</section>
+
+<section id="s-conclusions">
+{{ heading("conclusions", _("report.conclusions")) }}
 {% if conclusions %}
 <div class="conclusions">{{ conclusions.text }}</div>
 <p class="muted mono">{{ _("report.conclusions_meta", version=conclusions.version, actor=conclusions.actor, timestamp=(conclusions.timestamp | ts), sha256=conclusions.sha256) }}</p>
 {% else %}<p class="muted">{{ _("report.no_conclusions") }}</p>{% endif %}
+</section>
 
-<h2>{{ section() }}. {{ _("nav.evidence") }}</h2>
+{% if matrix %}
+<section id="s-attack" class="major">
+{{ heading("attack", _("report.attack")) }}
+<p class="muted">{{ _("report.attack_note") }}</p>
 <table>
-  <tr><th>ID</th><th>{{ _("field.description") }}</th><th>{{ _("field.kind") }}</th><th>{{ _("field.size") }}</th><th>{{ _("report.hashes") }}</th><th>{{ _("report.integrity") }}</th></tr>
+  <thead><tr><th>{{ _("attack.tactic") }}</th><th>{{ _("attack.technique") }}</th><th>{{ _("field.severity") }}</th><th>{{ _("field.first") }} (UTC)</th><th>{{ _("nav.findings") }}</th></tr></thead>
+  <tbody>
+  {% for tactic, hits in matrix.items() %}{% for hit in hits %}
+  <tr>{% if loop.first %}<td rowspan="{{ hits | length }}"><b>{{ _("tactic." + tactic) }}</b></td>{% endif %}
+    <td><a href="{{ hit.url }}" class="mono">{{ hit.technique }}</a> {{ hit.name }}</td><td>{{ sevbadge(hit.severity) }}</td>
+    <td class="mono nowrap">{{ hit.first | ts }}</td>
+    <td>{% for f in (hit.findings | sort(attribute="id"))[:8] %}<a href="#f-{{ f.id }}" class="mono">#{{ f.id }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% if hit.findings | length > 8 %} …(+{{ hit.findings | length - 8 }}){% endif %}</td></tr>
+  {% endfor %}{% endfor %}
+  </tbody>
+</table>
+</section>
+{% endif %}
+
+{% if indicators %}
+<section id="s-iocs">
+{{ heading("iocs", _("report.iocs"), indicators | length) }}
+<p class="muted">{{ _("report.iocs_note") }}</p>
+<table>
+  <thead><tr><th>{{ _("field.type") }}</th><th>{{ _("report.ioc_value") }}</th><th>{{ _("field.first") }} (UTC)</th><th>{{ _("nav.findings") }}</th></tr></thead>
+  <tbody>
+  {% for item in indicators %}
+  <tr><td>{{ _("report.ioc_type." + item.type) }}</td><td class="mono">{{ item.value }}</td><td class="mono nowrap">{{ item.first_seen | ts }}</td>
+    <td>{% for fid in item.findings[:8] %}<a href="#f-{{ fid }}" class="mono">#{{ fid }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% if not item.findings %}<span class="muted">{{ _("nav.execution") }}</span>{% endif %}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</section>
+{% endif %}
+
+<section id="s-evidence" class="major">
+{{ heading("evidence", _("nav.evidence"), evidence | length) }}
+<table class="evidence">
+  <thead><tr><th>ID</th><th>{{ _("field.description") }}</th><th>{{ _("field.kind") }} · {{ _("field.size") }}</th><th>{{ _("report.integrity") }}</th></tr></thead>
   {% for ev in evidence %}
   {% set v = verifications.get(ev.id) %}
+  <tbody class="item">
   <tr>
-    <td><b>{{ ev.id }}</b></td>
+    <td rowspan="2"><b>{{ ev.id }}</b></td>
     <td>{{ ev.description }}<div class="muted mono">{{ ev.source }}</div>{% if ev.derived_from %}<div class="muted">{{ _("evidence.derived_from", id=ev.derived_from) }}</div>{% endif %}{% if ev.copied %}<div class="muted">{{ _("evidence.working_copy") }}: <span class="mono">{{ ev.path }}</span></div>{% endif %}</td>
-    <td>{{ _("evidence.kind." + ev.kind) }}<div class="muted">{{ ev.file_count }} {{ _("field.files") | lower }}</div></td>
-    <td>{{ ev.size }} B</td>
-    <td class="mono">{% for algo, value in ev.hashes.items() %}{{ algo | upper }}: {{ value }}<br>{% endfor %}</td>
+    <td>{{ _("evidence.kind." + ev.kind) }}<div class="muted">{{ ev.file_count }} {{ _("field.files") | lower }} · {{ ev.size | size }}</div></td>
     <td>{% if v %}<span class="{{ 'ok' if v.result == 'ok' else 'bad' }}">{{ _("verify.result." + v.result) }}</span><div class="muted">{{ v.timestamp | ts }}</div>{% else %}<span class="muted">{{ _("verify.never") }}</span>{% endif %}</td>
   </tr>
+  <tr class="hashes"><td colspan="3" class="mono">{% for algo, value in ev.hashes.items() %}<span><b>{{ algo | upper }}</b> {{ value }}</span>{% endfor %}</td></tr>
+  </tbody>
   {% endfor %}
 </table>
+</section>
 
 {% macro finding_table(items) %}
 <table>
-  <tr><th>#</th><th>{{ _("field.severity") }}</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("report.finding") }}</th><th>{{ _("report.review_status") }}</th></tr>
+  <thead><tr><th>#</th><th>{{ _("field.severity") }}</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("report.finding") }}</th><th>{{ _("report.review_status") }}</th></tr></thead>
+  <tbody>
   {% for f in items %}
-  <tr><td class="mono">{{ f.id }}</td><td>{{ sevbadge(f.severity) }}</td><td class="mono">{{ f.timestamp | ts }}</td>
-      <td><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}<div class="muted">{{ f.evidence_id }} · #{{ f.analysis_id }}</div></td>
+  <tr id="f-{{ f.id }}"><td class="mono nowrap">{{ f.id }}</td><td>{{ sevbadge(f.severity) }}</td><td class="mono nowrap">{{ f.timestamp | ts }}</td>
+      <td><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}<div class="muted">{{ f.evidence_id }} · #{{ f.analysis_id }}{% for tech in techniques_for(f) %} <span class="tag">{{ tech }}</span>{% endfor %}</div></td>
       <td>{{ _("review." + f.review.status) }}{% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}{% if f.review.actor %}<div class="muted">{{ f.review.actor }} · {{ f.review.timestamp | ts }}</div>{% endif %}</td></tr>
   {% endfor %}
+  </tbody>
 </table>
 {% endmacro %}
-<h2>{{ section() }}. {{ _("nav.findings") }} ({{ findings | length }})</h2>
+<section id="s-findings" class="major">
+{{ heading("findings", _("nav.findings"), findings | length) }}
 {% if not findings %}<p class="muted">{{ _("findings.none") }}</p>{% endif %}
 {% if confirmed %}<h3>{{ _("report.confirmed_findings") }} ({{ confirmed | length }})</h3>{{ finding_table(confirmed) }}{% endif %}
 {% if pending %}<h3>{{ _("report.pending_findings") }} ({{ pending | length }})</h3>{{ finding_table(pending) }}{% endif %}
 {% if discarded %}<h3>{{ _("report.discarded_findings") }} ({{ discarded | length }})</h3>{{ finding_table(discarded) }}{% endif %}
+</section>
 
 {% if bookmarks %}
-<h2>{{ section() }}. {{ _("report.bookmarked_events") }} ({{ bookmarks | length }})</h2>
+<section id="s-bookmarks">
+{{ heading("bookmarks", _("report.bookmarked_events"), bookmarks | length) }}
 <table>
-  <tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr>
+  <thead><tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr></thead>
+  <tbody>
   {% for e in bookmarks %}
-  <tr><td class="mono">{{ e.timestamp | ts }}</td><td>{{ e.type | etype }}</td><td>{{ e.details }}{% if e.bookmark.note %}<div class="note">{{ e.bookmark.note }}</div>{% endif %}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }} · #{{ e.id }}</td></tr>
+  <tr><td class="mono nowrap">{{ e.timestamp | ts }}</td><td>{{ e.type | etype }}</td><td>{{ e.details }}{% if e.bookmark.note %}<div class="note">{{ e.bookmark.note }}</div>{% endif %}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }} · #{{ e.id }}</td></tr>
   {% endfor %}
+  </tbody>
 </table>
+</section>
 {% endif %}
 
 {% if execution %}
-<h2>{{ section() }}. {{ _("nav.execution") }} ({{ execution | length }})</h2>
+<section id="s-execution" class="major">
+{{ heading("execution", _("nav.execution"), execution | length) }}
 <p class="muted">{{ _("report.execution_note") }}</p>
 <table>
-  <tr><th>{{ _("field.program") }}</th><th>{{ _("field.sources") }}</th><th>{{ _("field.first") }} (UTC)</th><th>{{ _("field.last") }} (UTC)</th><th>{{ _("field.run_count") }}</th></tr>
+  <thead><tr><th>{{ _("field.program") }}</th><th>{{ _("field.sources") }}</th><th>{{ _("field.first") }} (UTC)</th><th>{{ _("field.last") }} (UTC)</th><th>{{ _("field.run_count") }}</th></tr></thead>
+  <tbody>
   {% for p in execution %}
   <tr><td><b>{{ p.name }}</b>{% for f in p.flags %} <span class="flag">{{ f | rule }}</span>{% endfor %}<div class="muted mono">{{ p.path or "" }}</div></td>
-    <td>{{ p.sources | dictsort | map("first") | join(", ") }}</td><td class="mono">{{ p.first | ts }}</td><td class="mono">{{ p.last | ts }}</td>
+    <td>{{ p.sources | dictsort | map("first") | join(", ") }}</td><td class="mono nowrap">{{ p.first | ts }}</td><td class="mono nowrap">{{ p.last | ts }}</td>
     <td>{{ p.run_count if p.run_count is not none else "" }}</td></tr>
   {% endfor %}
+  </tbody>
 </table>
+</section>
 {% endif %}
 
-<h2>{{ section() }}. {{ _("report.chronology") }}</h2>
+<section id="s-chronology" class="major">
+{{ heading("chronology", _("report.chronology")) }}
 <p class="muted">{{ _("report.chronology_note", shown=(events | length), total=events_total) }}</p>
 <table>
-  <tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.severity") }}</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr>
+  <thead><tr><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.severity") }}</th><th>{{ _("field.type") }}</th><th>{{ _("field.details") }}</th><th>{{ _("report.source") }}</th></tr></thead>
+  <tbody>
   {% for e in events %}
-  <tr><td class="mono">{{ e.timestamp | ts }}</td><td>{{ sevbadge(e.severity) }}</td><td>{{ e.type | etype }}</td><td>{{ e.details }}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
+  <tr><td class="mono nowrap">{{ e.timestamp | ts }}</td><td>{{ sevbadge(e.severity) }}</td><td>{{ e.type | etype }}</td><td>{{ e.details }}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
   {% endfor %}
+  </tbody>
 </table>
+</section>
 
-<h2>{{ section() }}. {{ _("report.analyses") }}</h2>
+<section id="s-analyses" class="major">
+{{ heading("analyses", _("report.analyses"), analyses | length) }}
 {% for a in analyses %}
 <section class="analysis">
   <h3>#{{ a.id }} · {{ module_title(a.module) }} <span class="muted">— {{ a.evidence_id }}</span></h3>
@@ -174,30 +364,38 @@
   {% if a.errors %}<div class="callout bad"><b>{{ _("report.errors") }} ({{ a.errors | length }})</b>{% for e in a.errors[:20] %}<div class="mono">{{ e.path }}: {{ e.error }}</div>{% endfor %}</div>{% endif %}
 </section>
 {% endfor %}
+</section>
 
-<h2>{{ section() }}. {{ _("nav.custody") }}</h2>
+<section id="s-custody" class="major">
+{{ heading("custody", _("nav.custody"), custody | length) }}
 {% if custody_problems %}
 <div class="callout bad"><b>{{ _("custody.broken") }}</b>{% for p in custody_problems %}<div>#{{ p.seq }}: {{ _(p.code) }}</div>{% endfor %}</div>
 {% else %}
 <div class="callout"><span class="ok">✓ {{ _("custody.intact", count=(custody | length)) }}</span><br>{{ _("custody.head") }}: <span class="mono">{{ custody_head }}</span></div>
 {% endif %}
 <table>
-  <tr><th>#</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.action") }}</th><th>{{ _("field.actor") }}</th><th>{{ _("field.details") }}</th><th>{{ _("field.hash") }}</th></tr>
+  <thead><tr><th>#</th><th>{{ _("field.timestamp") }} (UTC)</th><th>{{ _("field.action") }}</th><th>{{ _("field.actor") }}</th><th>{{ _("field.details") }}</th><th>{{ _("field.hash") }}</th></tr></thead>
+  <tbody>
   {% for c in custody %}
-  <tr><td>{{ c.seq }}</td><td class="mono">{{ c.timestamp | ts }}</td><td>{{ c.action | action }}</td><td>{{ c.actor }}</td><td class="mono">{% for k, v in c.details.items() %}{{ k }}={{ v | val(120) }}<br>{% endfor %}</td><td class="mono">{{ c.hash[:16] }}…</td></tr>
+  <tr><td class="nowrap">{{ c.seq }}</td><td class="mono nowrap">{{ c.timestamp | ts }}</td><td>{{ c.action | action }}</td><td>{{ c.actor }}</td><td class="mono">{% for k, v in c.details.items() %}{{ k }}={{ v | val(120) }}<br>{% endfor %}</td><td class="mono">{{ c.hash[:16] }}…</td></tr>
   {% endfor %}
+  </tbody>
 </table>
+</section>
 
-<h2>{{ section() }}. {{ _("report.methodology") }}</h2>
+<section id="s-methodology">
+{{ heading("methodology", _("report.methodology")) }}
 <ul>
   <li>{{ _("report.method.readonly") }}</li>
   <li>{{ _("report.method.hashes") }}</li>
   <li>{{ _("report.method.utc") }}</li>
   <li>{{ _("report.method.custody") }}</li>
   <li>{{ _("report.method.findings") }}</li>
+  <li>{{ _("report.method.attack") }}</li>
 </ul>
-
-<footer>{{ _("report.footer", version=version) }}</footer>
+</section>
 </main>
+<footer>{{ _("report.footer", version=version) }}</footer>
+</div>
 </body>
 </html>

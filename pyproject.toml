@@ -52,7 +52,7 @@ version = { attr = "forense.__version__" }
 include = ["forense*"]
 
 [tool.setuptools.package-data]
-forense = ["locales/*.json", "report/templates/*.html", "web/templates/*.html", "web/static/*"]
+forense = ["locales/*.json", "report/templates/*.html", "web/templates/*.html", "web/static/*", "sigma/rules/*.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
