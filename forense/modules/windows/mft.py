@@ -2,15 +2,34 @@
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from pathlib import Path, PureWindowsPath
 
-from forense.core.heuristics import EXECUTABLE_EXTENSIONS
+from forense.core.heuristics import EXECUTABLE_EXTENSIONS, is_suspicious_location
 from forense.core.utils import dt_or_none_iso, find_files, relative_name
 from forense.modules.base import AnalysisContext, Module, Option, register
 from forense.parsers.mft import MftError, MftReader, PathResolver, parse_zone_identifier
 
 ZONES = {"0": "local", "1": "intranet", "2": "trusted", "3": "internet", "4": "restricted"}
+
+# Installers and OS setup copy creation times from the installation media, which looks exactly like
+# timestomping ($SI created earlier than $FN, whole seconds). Those locations are excluded.
+_INSTALLED = re.compile(
+    r"^\\((windows|winnt|program files( \(x86\))?|programdata\\(microsoft|package cache)|\$extend"
+    r"|system volume information|msocache|drivers|i386|recovery|\$windows\.~bt|\$windows\.~ws|\$winreagent)\\"
+    r"|(ntldr|ntdetect\.com|bootmgr|boot\.ini|io\.sys|msdos\.sys|config\.sys|autoexec\.bat)$)",
+    re.IGNORECASE,
+)
+
+
+def timestomp_severity(path: str) -> str | None:
+    """Severity of a timestomping indication at ``path`` (None for installer-created files)."""
+    if is_suspicious_location(path):  # e.g. \Windows\Temp: never excluded
+        return "high"
+    if _INSTALLED.match(path):
+        return None
+    return "high" if PureWindowsPath(path).suffix.lower().lstrip(".") in EXECUTABLE_EXTENSIONS else "medium"
 
 
 def _macb(times: dict) -> list[tuple[object, str]]:
@@ -90,10 +109,11 @@ class MftModule(Module):
                         for ts, macb in _macb(fn):
                             ctx.event(ts, "fs_fn", f"[{macb}] {full_path}{state}", rel)
 
-                if indicators:
-                    stats["timestomp_suspects"] += 1
-                    if len(indicators) == 2:
-                        ctx.finding("mft.timestomping", "high", si.get("created"), path=full_path,
+                if len(indicators) == 2 and entry.in_use:
+                    severity = timestomp_severity(full_path)
+                    stats["timestomp_suspects" if severity else "timestomp_installer_like"] += 1
+                    if severity:
+                        ctx.finding("mft.timestomping", severity, si.get("created"), path=full_path,
                                     si_created=dt_or_none_iso(si.get("created")),
                                     fn_created=dt_or_none_iso(fn.get("created")))
                 if zone:

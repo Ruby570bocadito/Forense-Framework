@@ -75,3 +75,36 @@ def autostart_suspicion(command: str) -> list[str]:
     if launches_interpreter(command):
         reasons.append("script_interpreter")
     return reasons
+
+# Executables whose mere execution deserves attention.
+ATTACK_TOOLS = frozenset("""
+mimikatz.exe mimikatz64.exe mimidrv.sys psexec.exe psexec64.exe psexesvc.exe paexec.exe procdump.exe procdump64.exe
+wce.exe pwdump.exe pwdump7.exe gsecdump.exe fgdump.exe lazagne.exe rubeus.exe sharphound.exe bloodhound.exe
+adfind.exe kerbrute.exe nanodump.exe safetykatz.exe sharpkatz.exe secretsdump.exe wmiexec.exe smbexec.exe
+crackmapexec.exe cme.exe netscan.exe advanced_ip_scanner.exe advanced_port_scanner.exe angryip.exe nmap.exe
+masscan.exe rclone.exe megacmd.exe megasync.exe ngrok.exe chisel.exe plink.exe cobaltstrike.exe beacon.exe
+""".split())
+REMOTE_ACCESS_TOOLS = frozenset("""
+anydesk.exe teamviewer.exe teamviewer_service.exe screenconnect.windowsclient.exe screenconnect.clientservice.exe
+connectwisecontrol.client.exe atera_agent.exe ateraagent.exe splashtop.exe srservice.exe rustdesk.exe
+remoteutilities.exe rutserv.exe rfusclient.exe netsupport.exe client32.exe logmein.exe lmiguardiansvc.exe
+ammyy_admin.exe aa_v3.exe radmin.exe tightvnc.exe tvnserver.exe winvnc.exe vncviewer.exe ultravnc.exe
+""".split())
+
+
+def tool_category(executable: str) -> str | None:
+    """``attack_tool`` / ``remote_access`` for well-known offensive or remote-control executables."""
+    name = executable.replace("/", "\\").rsplit("\\", 1)[-1].lower()
+    if name in ATTACK_TOOLS:
+        return "attack_tool"
+    if name in REMOTE_ACCESS_TOOLS:
+        return "remote_access"
+    return None
+
+
+_DEVICE_PREFIX = re.compile(r"^\\(volume\{[^}]*\}|device\\harddiskvolume\d+|\?\?\\[a-z]:)", re.IGNORECASE)
+
+
+def strip_device(path: str) -> str:
+    r"""``\VOLUME{...}\USERS\X`` or ``\Device\HarddiskVolume3\Users\X`` -> ``\USERS\X``."""
+    return _DEVICE_PREFIX.sub("", path or "")

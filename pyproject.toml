@@ -9,8 +9,15 @@ description = "Windows digital forensics framework: cases, chain of custody, art
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "evtx>=0.8",      # Windows event log parser (Rust, prebuilt wheels)
-    "Flask>=2.3",     # web interface (brings Jinja2, also used for reports)
+    "evtx>=0.8",                      # Windows event logs (Rust parser, prebuilt wheels)
+    "Flask>=2.3",                     # web interface (brings Jinja2, also used for reports)
+    "PyYAML>=6.0",                    # Sigma rules
+    "olefile>=0.46",                  # automatic jump lists (OLE compound files)
+    "libscca-python>=20240427",       # Prefetch, including Windows 10/11 compressed files
+    "libesedb-python>=20240420",      # SRUM (ESE databases)
+    "libewf-python>=20240506",        # E01 images
+    "pytsk3>=20231007",               # NTFS and partition tables (The Sleuth Kit)
+    "yara-x>=0.10",                   # YARA rules
 ]
 keywords = ["forensics", "dfir", "windows", "evtx", "registry", "timeline", "chain of custody", "forense"]
 classifiers = [
@@ -25,6 +32,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "ruff>=0.5"]
+memory = ["volatility3>=2.7"]
 
 [project.scripts]
 forense = "forense.cli:main"

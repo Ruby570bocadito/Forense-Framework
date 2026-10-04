@@ -48,6 +48,8 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _browsers(c / f"Users/{USER}/AppData")
     _files(c)
     _mft(c / "$MFT")
+    _prefetch(c / "Windows/Prefetch")
+    _usrclass(c / f"Users/{USER}/AppData/Local/Microsoft/Windows/UsrClass.dat")
 
     image = dest / "disk_unallocated.img"
     _disk_image(image)
@@ -332,3 +334,43 @@ def _disk_image(path: Path) -> None:
         image[offset:offset + len(data)] = data
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(bytes(image))
+
+
+def _prefetch(folder: Path) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
+    vol = "\\DEVICE\\HARDDISKVOLUME3"
+    entries = (
+        ("EXCEL.EXE", 0x4A81B3C2, 57, _t(-60), [f"{vol}\\PROGRAM FILES\\MICROSOFT OFFICE\\ROOT\\OFFICE16\\EXCEL.EXE"]),
+        ("SVCHOST.EXE", 0x6E0D1C17, 2, _t(26), [f"{vol}\\USERS\\PUBLIC\\SVCHOST.EXE",
+                                                f"{vol}\\WINDOWS\\SYSTEM32\\NTDLL.DLL"]),
+        ("MIMIKATZ.EXE", 0x2C0F96A1, 1, _t(58), [f"{vol}\\USERS\\PUBLIC\\TOOLS\\MIMIKATZ.EXE",
+                                                 f"{vol}\\WINDOWS\\SYSTEM32\\SAMLIB.DLL"]),
+        ("RCLONE.EXE", 0x7D3E5A08, 1, _t(120), [f"{vol}\\USERS\\PUBLIC\\TOOLS\\RCLONE.EXE",
+                                                f"{vol}\\USERS\\MARIA\\DESKTOP\\CLIENTES_2026.ZIP"]),
+    )
+    for exe, prefetch_hash, runs, when, files in entries:
+        path = folder / f"{exe}-{prefetch_hash:08X}.pf"
+        path.write_bytes(b.build_prefetch_v23(exe, prefetch_hash, runs, when, files, vol, 0x6A2F11C0))
+        _touch(path, when)
+
+
+def _usrclass(path: Path) -> None:
+    h = b.HiveBuilder(default_time=_t(-60 * 24 * 30))
+    h.key("Local Settings\\Software\\Microsoft\\Windows\\Shell\\Bags")
+    this_pc = "20d04fe0-3aea-1069-a2d8-08002b30309d"
+    network = "208d2c60-3aea-1069-a2d7-08002b30309d"
+    folder = b.shell_file_entry
+    tree = [
+        (b.shell_root(this_pc), [
+            (b.shell_volume("E:\\"), [(folder("clientes", _t(80), _t(80), _t(92), 41), None)]),
+            (b.shell_volume("C:\\"), [(folder("Users", _t(-9e5), _t(-9e5), _t(20), 70), [
+                (folder("Public", _t(-9e5), _t(-9e5), _t(25), 71), [(folder("Tools", _t(57), _t(57), _t(119), 72), None)]),
+            ])]),
+        ]),
+        (b.shell_root(network, 0x58), [
+            (b.shell_network("\\\\192.0.2.20\\C$"), None),
+            (b.shell_network("\\\\192.0.2.10\\finanzas"), None),
+        ]),
+    ]
+    b.add_shellbags(h, "Local Settings\\Software\\Microsoft\\Windows\\Shell\\BagMRU", tree, _t(93))
+    h.save(path)

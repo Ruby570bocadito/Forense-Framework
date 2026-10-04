@@ -2,8 +2,12 @@
 
 | File | Source | License |
 |---|---|---|
-| `new-user-security.evtx` | [omerbenamram/evtx](https://github.com/omerbenamram/evtx) `samples/` | MIT / Apache-2.0 |
-| `Security_short_selected.evtx` | [omerbenamram/evtx](https://github.com/omerbenamram/evtx) `samples/` | MIT / Apache-2.0 |
+| `new-user-security.evtx`, `Security_short_selected.evtx` | [omerbenamram/evtx](https://github.com/omerbenamram/evtx) `samples/` | MIT / Apache-2.0 |
+| `prefetch/*.pf` (Windows XP, 7 and 10 formats) | [log2timeline/plaso](https://github.com/log2timeline/plaso) `test_data/winprefetch/` | Apache-2.0 ([LICENSE-plaso.txt](LICENSE-plaso.txt)) |
+| `jumplists/*.automaticDestinations-ms`, `jumplists/*.customDestinations-ms` | plaso `test_data/` | Apache-2.0 |
+| `SRUDB.dat.gz` (gzip of `SRUDB.dat`) | plaso `test_data/` | Apache-2.0 |
+| `image.E01` | plaso `test_data/` | Apache-2.0 |
 
 Every other artifact used by the tests (registry hives, LNK, `$I`, `$MFT`,
-browser databases, images) is generated on the fly by `forense.demo.builders`.
+browser databases, Prefetch v23, ShellBags, images) is generated on the fly
+by `forense.demo.builders`.

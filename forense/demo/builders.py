@@ -443,3 +443,104 @@ def build_zip(files: dict[str, bytes]) -> bytes:
         for name, data in files.items():
             zf.writestr(name, data)
     return buffer.getvalue()
+
+
+# --------------------------------------------------------------------------
+# Prefetch (uncompressed, format version 23 as written by Windows 7)
+# --------------------------------------------------------------------------
+def build_prefetch_v23(executable: str, prefetch_hash: int, run_count: int, last_run: datetime,
+                       loaded_files: list[str], volume_device: str = "\\DEVICE\\HARDDISKVOLUME2",
+                       volume_serial: int = 0x1A2B3C4D, volume_created: Optional[datetime] = None) -> bytes:
+    """Minimal but structurally valid Windows 7 prefetch file (readable by libscca)."""
+    names = b"".join((name + "\x00").encode("utf-16-le") for name in loaded_files)
+    metrics = bytearray()
+    traces = bytearray()
+    offset = 0
+    for index, name in enumerate(loaded_files):
+        metrics += struct.pack("<IIIIIIQ", index, 1, 0, offset, len(name), 0x200, 0)
+        traces += struct.pack("<IIBBH", 0xFFFFFFFF, 1, 0x02, 0x01, 0xFFFF)
+        offset += (len(name) + 1) * 2
+    header_size, info_size = 84, 156
+    metrics_offset = header_size + info_size
+    trace_offset = metrics_offset + len(metrics)
+    names_offset = trace_offset + len(traces)
+    volumes_offset = names_offset + len(names)
+    volumes_offset += -volumes_offset % 8
+    device = (volume_device + "\x00").encode("utf-16-le")
+    directories = [d for d in dict.fromkeys("\\".join(f.split("\\")[:-1]) for f in loaded_files) if d]
+    dir_blob = b"".join(struct.pack("<H", len(d)) + (d + "\x00").encode("utf-16-le") for d in directories)
+    vol_header = 104
+    device_off = vol_header
+    refs_off = device_off + len(device)
+    refs_off += -refs_off % 8
+    refs = struct.pack("<IIQ", 1, 0, 0)
+    dirs_off = refs_off + len(refs)
+    volume = struct.pack("<IIQIIIII", device_off, len(volume_device), to_filetime(volume_created or last_run),
+                         volume_serial, refs_off, len(refs), dirs_off, len(directories)).ljust(vol_header, b"\x00")
+    volume = volume.ljust(device_off, b"\x00") + device
+    volume = volume.ljust(refs_off, b"\x00") + refs + dir_blob
+    info = struct.pack("<IIIIIIIII", metrics_offset, len(loaded_files), trace_offset, len(loaded_files),
+                       names_offset, len(names), volumes_offset, 1, len(volume))
+    info = info.ljust(44, b"\x00") + struct.pack("<Q", to_filetime(last_run))
+    info = info.ljust(68, b"\x00") + struct.pack("<I", run_count)
+    info = info.ljust(info_size, b"\x00")
+    body = bytearray(info) + metrics + traces + names
+    body = body.ljust(volumes_offset - header_size, b"\x00") + volume
+    size = header_size + len(body)
+    header = struct.pack("<I4sII", 23, b"SCCA", 0x11, size) + executable.encode("utf-16-le")[:58].ljust(60, b"\x00")
+    header += struct.pack("<II", prefetch_hash, 0)
+    return bytes(header + body)
+
+
+# --------------------------------------------------------------------------
+# Shell items (ShellBags)
+# --------------------------------------------------------------------------
+def shell_root(guid: str, sort_index: int = 0x50) -> bytes:
+    return struct.pack("<HBB", 20, 0x1F, sort_index) + uuid.UUID(guid).bytes_le
+
+
+def shell_volume(name: str) -> bytes:
+    body = struct.pack("<B", 0x2F) + name.encode("ascii").ljust(20, b"\x00") + b"\x00\x00"
+    return struct.pack("<H", len(body) + 2) + body
+
+
+def _fat(dt: Optional[datetime]) -> bytes:
+    if dt is None:
+        return b"\x00\x00\x00\x00"
+    date = ((dt.year - 1980) << 9) | (dt.month << 5) | dt.day
+    time = (dt.hour << 11) | (dt.minute << 5) | (dt.second // 2)
+    return struct.pack("<HH", date, time)
+
+
+def shell_file_entry(name: str, modified: datetime, created: datetime, accessed: datetime, mft_entry: int = 0,
+                     mft_sequence: int = 1, directory: bool = True) -> bytes:
+    """File entry shell item (Windows 8.1/10 layout) with a version 9 0xBEEF0004 extension block."""
+    short = name.upper()[:12].encode("ascii", "replace") + b"\x00"
+    short += b"\x00" * (len(short) % 2)
+    long_name = (name + "\x00").encode("utf-16-le")
+    ext = struct.pack("<HHI", 0, 9, 0xBEEF0004) + _fat(created) + _fat(accessed) + struct.pack("<H", 0x2E)
+    ext += struct.pack("<HQQ", 0, (mft_sequence << 48) | mft_entry, 0) + struct.pack("<H", 0)
+    ext += struct.pack("<II", 0, 0) + long_name + struct.pack("<H", 0)
+    ext = struct.pack("<H", len(ext)) + ext[2:]
+    body = struct.pack("<BBI", 0x31 if directory else 0x32, 0, 0) + _fat(modified) + struct.pack("<H", 0x10)
+    item = body + short + ext
+    return struct.pack("<H", len(item) + 2) + item
+
+
+def shell_network(location: str) -> bytes:
+    body = struct.pack("<BBB", 0x41, 0, 0) + location.encode("ascii") + b"\x00\x00\x00"
+    return struct.pack("<H", len(body) + 2) + body
+
+
+def add_shellbags(hive: "HiveBuilder", root: str, tree: list, when: datetime) -> None:
+    """Add a BagMRU tree. ``tree`` items are ``(shell_item_bytes, [children...])``; newest first."""
+    def add(path: str, items: list) -> None:
+        hive.key(path, when)
+        for index, (item, children) in enumerate(items):
+            hive.value(path, str(index), REG_BINARY, item + b"\x00\x00")
+            if children is not None:
+                add(f"{path}\\{index}", children)
+        order = b"".join(struct.pack("<I", i) for i in range(len(items))) + b"\xff\xff\xff\xff"
+        hive.value(path, "MRUListEx", REG_BINARY, order)
+
+    add(root, tree)

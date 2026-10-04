@@ -11,4 +11,15 @@ from forense.modules.base import (  # noqa: F401
     register,
 )
 from forense.modules.generic import carving, hashset, inventory, ioc  # noqa: F401
-from forense.modules.windows import browsers, evtx, lnk, mft, recyclebin, registry  # noqa: F401
+from forense.modules.windows import (  # noqa: F401
+    browsers,
+    evtx,
+    jumplists,
+    lnk,
+    mft,
+    prefetch,
+    recyclebin,
+    registry,
+    shellbags,
+    srum,
+)

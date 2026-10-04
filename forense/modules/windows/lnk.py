@@ -1,4 +1,4 @@
-"""Shell links (.lnk) and custom jump lists: evidence of opened files and folders."""
+"""Shell links (.lnk): evidence of opened files and folders (jump lists: see ``jumplists``)."""
 
 from __future__ import annotations
 
@@ -8,14 +8,13 @@ from pathlib import Path
 from forense.core.heuristics import autostart_suspicion, suspicious_command_rules
 from forense.core.utils import dt_or_none_iso, find_files, relative_name, ts_to_iso
 from forense.modules.base import AnalysisContext, Module, register
-from forense.parsers.lnk import LnkError, LnkFile, find_embedded_lnks, parse_lnk
+from forense.parsers.lnk import LnkError, LnkFile, parse_lnk
 
 MAX_LNK_SIZE = 16 * 1024 * 1024
 
 
 def _is_candidate(path: Path) -> bool:
-    name = path.name.lower()
-    return name.endswith(".lnk") or name.endswith(".customdestinations-ms")
+    return path.name.lower().endswith(".lnk")
 
 
 @register
@@ -40,28 +39,22 @@ class LnkModule(Module):
             except OSError as exc:
                 ctx.error(rel, exc)
                 continue
-            if path.name.lower().endswith(".customdestinations-ms"):
-                items = [(f"{rel}@{offset}", lnk) for offset, lnk in find_embedded_lnks(data)]
-                source = "jumplist"
-            else:
-                try:
-                    items = [(rel, parse_lnk(data))]
-                except LnkError as exc:
-                    ctx.error(rel, exc)
-                    continue
-                source = "lnk"
-            for name, lnk in items:
-                total += 1
-                drive_types[lnk.drive_type or "-"] = drive_types.get(lnk.drive_type or "-", 0) + 1
-                self._emit(ctx, name, lnk, source, st if source == "lnk" else None)
+            try:
+                lnk = parse_lnk(data)
+            except LnkError as exc:
+                ctx.error(rel, exc)
+                continue
+            total += 1
+            drive_types[lnk.drive_type or "-"] = drive_types.get(lnk.drive_type or "-", 0) + 1
+            self._emit(ctx, rel, lnk, st)
         ctx.summary.update({"links": total, "drive_types": drive_types})
 
     @staticmethod
-    def _emit(ctx: AnalysisContext, name: str, lnk: LnkFile, source: str, st: os.stat_result | None) -> None:
+    def _emit(ctx: AnalysisContext, name: str, lnk: LnkFile, st: os.stat_result | None) -> None:
         target = lnk.target_path
         command = f"{target} {lnk.arguments}".strip()
         record = {
-            "file": name, "source": source, "target_path": target, "arguments": lnk.arguments,
+            "file": name, "target_path": target, "arguments": lnk.arguments,
             "working_dir": lnk.working_dir, "relative_path": lnk.relative_path,
             "target_created": dt_or_none_iso(lnk.target_created),
             "target_modified": dt_or_none_iso(lnk.target_modified),
