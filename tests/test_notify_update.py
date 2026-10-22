@@ -102,6 +102,11 @@ def test_cli_notify(tmp_path, evidence_dir, webhook, monkeypatch, capsys):
 
 
 # -- update ------------------------------------------------------------------------------------
+def test_refs_only_keeps_main():
+    """The retired development branch must not stay as an update fallback (refs-rama-heredada)."""
+    assert update.REFS == ("main",)
+
+
 def test_update_check_and_upgrade(monkeypatch):
     pages = {"main": None, "dev": '__version__ = "99.1.0"\n'}
     info = update.check(("main", "dev"), fetch=lambda url: pages["dev"] if "/dev/" in url else None)

@@ -23,7 +23,7 @@ from forense import __version__
 from forense.core.errors import ForenseError
 
 REPOSITORY = "Ruby570bocadito/Forense-Framework"
-REFS = ("main", "claude/inspiring-cray-xn35zk")
+REFS = ("main",)
 RELEASES = f"https://github.com/{REPOSITORY}/releases"
 _VERSION = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 
