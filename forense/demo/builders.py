@@ -16,7 +16,7 @@ import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 FILETIME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
 
@@ -290,40 +290,26 @@ def build_i_file(original_path: str, size: int, deleted: datetime, version: int 
     return struct.pack("<QqQI", 2, size, to_filetime(deleted), len(original_path) + 1) + path
 
 
-def build_mft_record(record: int, name: str, parent: int, *, si: tuple, fn: tuple, sequence: int = 1,
-                     parent_sequence: int = 1, in_use: bool = True, directory: bool = False, size: int = 0,
-                     zone_identifier: str = "", record_size: int = 1024) -> bytes:
-    """One FILE record with $STANDARD_INFORMATION, $FILE_NAME, $DATA and an optional Zone.Identifier.
+def _mft_resident_attr(attr_type: int, content: bytes, attr_name: str = "") -> bytes:
+    """One resident attribute of an MFT record."""
+    name_raw = attr_name.encode("utf-16-le")
+    name_off = 24
+    content_off = (name_off + len(name_raw) + 7) & ~7
+    length = (content_off + len(content) + 7) & ~7
+    attr = struct.pack("<IIBBHHHIHBB", attr_type, length, 0, len(attr_name), name_off, 0, 0, len(content),
+                       content_off, 0, 0)
+    attr = attr.ljust(name_off, b"\x00") + name_raw
+    attr = attr.ljust(content_off, b"\x00") + content
+    return attr.ljust(length, b"\x00")
 
-    ``si`` and ``fn`` are (created, modified, mft_modified, accessed) FILETIME integers.
-    """
-    def resident(attr_type: int, content: bytes, attr_name: str = "") -> bytes:
-        name_raw = attr_name.encode("utf-16-le")
-        name_off = 24
-        content_off = (name_off + len(name_raw) + 7) & ~7
-        length = (content_off + len(content) + 7) & ~7
-        attr = struct.pack("<IIBBHHHIHBB", attr_type, length, 0, len(attr_name), name_off, 0, 0, len(content),
-                           content_off, 0, 0)
-        attr = attr.ljust(name_off, b"\x00") + name_raw
-        attr = attr.ljust(content_off, b"\x00") + content
-        return attr.ljust(length, b"\x00")
 
-    si_content = struct.pack("<QQQQ", *si) + b"\x00" * 16
-    raw_name = name.encode("utf-16-le")
-    fn_content = struct.pack("<QQQQQQQIIBB", (parent_sequence << 48) | parent, *fn, size, size,
-                             0x10000000 if directory else 0x20, 0, len(name), 1) + raw_name
-    attrs = resident(0x10, si_content) + resident(0x30, fn_content)
-    if not directory:
-        attrs += resident(0x80, b"\x00" * min(size, 64))
-        if zone_identifier:
-            attrs += resident(0x80, zone_identifier.encode("utf-8"), "Zone.Identifier")
-    attrs += struct.pack("<I", 0xFFFFFFFF) + b"\x00" * 4
-
+def _mft_record_bytes(record: int, sequence: int, flags: int, attrs: bytes, *, base_ref: int = 0,
+                      record_size: int = 1024) -> bytes:
+    """Assemble an MFT FILE record (header, attributes) and apply the update sequence array."""
     first_attr = 56
     usa_offset, usa_count = 48, record_size // 512 + 1
-    flags = (0x1 if in_use else 0) | (0x2 if directory else 0)
     header = struct.pack("<4sHHQHHHHIIQHHI", b"FILE", usa_offset, usa_count, 0, sequence, 1, first_attr, flags,
-                         first_attr + len(attrs), record_size, 0, 0, 0, record)
+                         first_attr + len(attrs), record_size, base_ref, 0, 0, record)
     buf = bytearray(header.ljust(first_attr, b"\x00") + attrs)
     buf = buf.ljust(record_size, b"\x00")
     # Update sequence array: store the real sector tails and stamp the USN.
@@ -334,6 +320,65 @@ def build_mft_record(record: int, name: str, parent: int, *, si: tuple, fn: tupl
         buf[usa_offset + i * 2:usa_offset + i * 2 + 2] = buf[end:end + 2]
         buf[end:end + 2] = usn
     return bytes(buf)
+
+
+def build_mft_record(record: int, name: str, parent: int, *, si: tuple, fn: tuple, sequence: int = 1,
+                     parent_sequence: int = 1, in_use: bool = True, directory: bool = False, size: int = 0,
+                     zone_identifier: str = "", record_size: int = 1024, attribute_list: bytes = b"",
+                     omit_data: bool = False) -> bytes:
+    """One FILE record with $STANDARD_INFORMATION, $FILE_NAME, $DATA and an optional Zone.Identifier.
+
+    ``si`` and ``fn`` are (created, modified, mft_modified, accessed) FILETIME integers.
+    ``attribute_list`` embeds a resident $ATTRIBUTE_LIST (see ``build_mft_attribute_list``) and
+    ``omit_data`` leaves the unnamed $DATA out of the record, as when it moved to an extension record.
+    """
+    si_content = struct.pack("<QQQQ", *si) + b"\x00" * 16
+    raw_name = name.encode("utf-16-le")
+    fn_content = struct.pack("<QQQQQQQIIBB", (parent_sequence << 48) | parent, *fn, size, size,
+                             0x10000000 if directory else 0x20, 0, len(name), 1) + raw_name
+    attrs = _mft_resident_attr(0x10, si_content) + _mft_resident_attr(0x30, fn_content)
+    if attribute_list:
+        attrs += _mft_resident_attr(0x20, attribute_list)
+    if not directory and not omit_data:
+        attrs += _mft_resident_attr(0x80, b"\x00" * min(size, 64))
+    if not directory and zone_identifier:
+        attrs += _mft_resident_attr(0x80, zone_identifier.encode("utf-8"), "Zone.Identifier")
+    attrs += struct.pack("<I", 0xFFFFFFFF) + b"\x00" * 4
+    flags = (0x1 if in_use else 0) | (0x2 if directory else 0)
+    return _mft_record_bytes(record, sequence, flags, attrs, record_size=record_size)
+
+
+def build_mft_attribute_list(entries: Sequence[tuple[int, str, int, int]]) -> bytes:
+    """Resident content of an $ATTRIBUTE_LIST: (attr_type, name, record, sequence) per entry."""
+    content = b""
+    for attr_type, name, record, sequence in entries:
+        name_raw = name.encode("utf-16-le")
+        length = (26 + len(name_raw) + 7) & ~7
+        entry = struct.pack("<IHBBQQH", attr_type, length, len(name), 26, 0,
+                            (sequence << 48) | record, 0) + name_raw
+        content += entry.ljust(length, b"\x00")
+    return content
+
+
+def build_mft_extension_record(record: int, base: int, *, base_sequence: int = 1, sequence: int = 1,
+                               in_use: bool = True, data_size: int = 0,
+                               ads: Sequence[tuple[str, str]] = ()) -> bytes:
+    """Extension FILE record holding attributes of ``base`` that did not fit in the base record.
+
+    ``data_size`` is exposed through an unnamed non-resident $DATA header with an empty runlist;
+    ``ads`` adds resident named $DATA streams as (name, content).
+    """
+    attrs = b""
+    if data_size:
+        length = (64 + 1 + 7) & ~7  # fixed non-resident header plus the runlist end marker
+        attrs = struct.pack("<IIBBHHHQQHHIQQQ", 0x80, length, 1, 0, 0, 0, 0, 0, 1, 64, 0, 0,
+                            data_size, data_size, data_size) + b"\x00"
+        attrs = attrs.ljust(length, b"\x00")
+    for name, content in ads:
+        attrs += _mft_resident_attr(0x80, content.encode("utf-8"), name)
+    attrs += struct.pack("<I", 0xFFFFFFFF) + b"\x00" * 4
+    return _mft_record_bytes(record, sequence, 0x1 if in_use else 0, attrs,
+                             base_ref=(base_sequence << 48) | base)
 
 
 # --------------------------------------------------------------------------

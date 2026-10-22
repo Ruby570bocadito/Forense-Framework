@@ -351,6 +351,16 @@ def _mft(path: Path) -> None:
     records[76] = b.build_mft_record(76, "sync.ps1", 65, si=(rcl,) * 4, fn=(rcl,) * 4, size=2048, in_use=False)
     records[80] = b.build_mft_record(80, "Windows", 5, si=normal, fn=normal, directory=True, parent_sequence=5)
     records[81] = b.build_mft_record(81, "Prefetch", 80, si=normal, fn=normal, directory=True)
+    # backup_correo.pst: so large and fragmented that its $DATA and its Zone.Identifier ADS live
+    # in an extension record ($ATTRIBUTE_LIST), a common shape for mailbox archives taken as loot.
+    pst = ft(_t(90)) + 321
+    records[90] = b.build_mft_record(90, "backup_correo.pst", 67, si=(pst,) * 4, fn=(pst,) * 4,
+                                     attribute_list=b.build_mft_attribute_list(
+                                         [(0x80, "", 91, 1), (0x80, "Zone.Identifier", 91, 1)]),
+                                     omit_data=True)
+    records[91] = b.build_mft_extension_record(91, 90, data_size=2_147_483_648,
+                                               ads=[("Zone.Identifier", "[ZoneTransfer]\r\nZoneId=3\r\n"
+                                                     "HostUrl=http://update-cdn.example/dl/backup_correo.pst\r\n")])
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "wb") as fh:
         for number in range(max(records) + 1):
