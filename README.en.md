@@ -194,11 +194,11 @@ Every command has an English name and a Spanish alias.
 | `forense -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions; `--file` reads an existing file |
 | `forense -c CASE timeline [--from] [--to] [--search] [--source] [--bookmarked]` | `cronologia` | Super timeline |
 | `forense -c CASE execution [--search X] [--suspicious]` | `ejecucion` | Programs executed according to every source |
-| `forense -c CASE export {analysis N,timeline,findings,execution,stix,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON or STIX 2.1 |
+| `forense -c CASE export {analysis N,timeline,findings,execution,stix,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON or STIX 2.1; target names accepted in English and Spanish |
 | `forense -c CASE attack [--summary]` | `mitre` | MITRE ATT&CK techniques observed or a draft incident storyline |
 | `forense -c CASE custody [--verify]` | `custodia` | Chain of custody |
 | `forense -c CASE verify` | `verificar` | Full verification (exit code 2 if anything fails) |
-| `forense -c CASE report [--verify] [--pdf] [-L es]` | `informe` | Self-contained HTML report (and PDF) |
+| `forense -c CASE report [--verify] [--pdf] [--sign] [-L es]` | `informe` | Self-contained HTML report (and PDF), optional Ed25519 signature (`--sign`) |
 | `forense auto EVIDENCE… [--new DIR] [-p PLAYBOOK]` | `auto` | From evidence to report in one command |
 | `forense watch FOLDER [-w WORKSPACE] [--once]` | `vigilar` | Automatically process whatever is dropped into a folder |
 | `forense config [show\|init\|path]` | `configuracion` | Configuration |
@@ -401,10 +401,11 @@ with their SHA-256 in the chain of custody. Structure:
    execution, chronology, analyses performed (options and results hash), full chain of custody and methodology.
 
 The PDF is A4 with the case ID and "page x / y" in the footer and no table rows split across pages; the browser that
-prints it is launched headless with `--no-sandbox`. In the web interface, the **Reports** page produces either one in
+prints it is launched headless with `--no-sandbox`. The **Reports** page of the web interface produces either one in
 the language you choose and, when the `FORENSE_SIGN_KEY` variable points to the analyst's private key (Ed25519 PEM),
-can **digitally sign** the report: a detached `.sig` signature is stored next to the report and the chain of custody
-records the fingerprint of the public key (`FORENSE_SIGN_PUB`), which can be used to verify it later.
+can **digitally sign** the report; on the CLI, `report --sign` does the same (with `--pdf` for the PDF too). Either
+way a detached `.sig` signature is stored next to the report and the chain of custody records the fingerprint of the
+public key (`FORENSE_SIGN_PUB`), which can be used to verify it later.
 
 ## Web interface
 
@@ -537,6 +538,8 @@ case/
 - **External processes without a shell**: Volatility 3 and the browser that prints the PDF run as separate processes,
   no shell, controlled arguments and captured output.
 - **Structured inputs**: configuration and playbooks load with YAML `safe_load`; YAML never executes code.
+- **Bounded Sigma rules**: `|re` patterns are validated before compilation (structural and branching limits against
+  ReDoS); a hostile rule is a load error, never a hung scan.
 - **Web interface**: listens on `127.0.0.1` by default, forms carry a CSRF token, CSP and `X-Frame-Options` headers,
   optional password (HTTP Basic) with a permanent warning when missing, and request bodies over 1 MiB are rejected
   before parsing. `/healthz` answers without a password and without case data.

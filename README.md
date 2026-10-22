@@ -195,11 +195,11 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas); `--archivo` lee un archivo existente |
 | `forense -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
 | `forense -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
-| `forense -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1 |
+| `forense -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1; los destinos se aceptan en es/en |
 | `forense -c CASO mitre [--resumen]` | `attack` | Técnicas MITRE ATT&CK observadas o borrador del relato del incidente |
 | `forense -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
 | `forense -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
-| `forense -c CASO informe [--verificar] [--pdf] [-L en]` | `report` | Informe HTML autocontenido (y PDF) |
+| `forense -c CASO informe [--verificar] [--pdf] [--firmar] [-L en]` | `report` | Informe HTML autocontenido (y PDF), con firma Ed25519 opcional (`--firmar`) |
 | `forense auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
 | `forense vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
 | `forense config [show\|init\|path]` | `config` | Configuración |
@@ -406,10 +406,11 @@ su SHA-256 en la cadena de custodia. Estructura:
    y metodología.
 
 El PDF sale en A4 con el ID del caso y «página x / y» en el pie, sin cortar filas entre páginas; el navegador que lo
-imprime se lanza en modo headless con `--no-sandbox`. En la web, la página **Informes** genera cualquiera de los dos en
+imprime se lanza en modo headless con `--no-sandbox`. La página **Informes** de la web genera cualquiera de los dos en
 el idioma que elija y, si la variable `FORENSE_SIGN_KEY` apunta a la clave privada del analista (PEM Ed25519), puede
-**firmar digitalmente** el informe: se guarda una firma desacoplada `.sig` junto al informe y la cadena de custodia
-registra la huella de la clave pública (`FORENSE_SIGN_PUB`), con la que se puede verificar después.
+**firmar digitalmente** el informe; en la CLI, `informe --firmar` hace lo mismo (con `--pdf` también en el PDF). En
+ambos casos se guarda una firma desacoplada `.sig` junto al informe y la cadena de custodia registra la huella de la
+clave pública (`FORENSE_SIGN_PUB`), con la que se puede verificar después.
 
 ## Interfaz web
 
@@ -543,6 +544,8 @@ caso/
   shell, con argumentos controlados y salida capturada.
 - **Entradas estructuradas**: la configuración y los playbooks se cargan con `safe_load` de YAML; el YAML nunca
   ejecuta código.
+- **Reglas Sigma acotadas**: los patrones `|re` se validan antes de compilarse (límites estructurales y de
+  ramificación contra ReDoS); una regla hostil es un error de carga, nunca un escaneo colgado.
 - **Interfaz web**: escucha en `127.0.0.1` por defecto, formularios con token CSRF, cabeceras CSP y
   `X-Frame-Options`, contraseña opcional (HTTP Basic) con aviso permanente si falta y cuerpos de más de 1 MiB
   rechazados antes de parsear. `/healthz` responde sin contraseña y sin datos del caso.
