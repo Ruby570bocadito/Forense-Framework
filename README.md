@@ -433,7 +433,8 @@ forense web -w ./casos            # http://127.0.0.1:8765
 - Selector **ES/EN** y campo **Analista**: el nombre se registra en cada acción de la custodia.
 
 Seguridad: escucha solo en `127.0.0.1` por defecto, todos los formularios llevan token CSRF, envía cabeceras de
-seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` o `FORENSE_WEB_PASSWORD` (HTTP Basic). Si la
+seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` o `FORENSE_WEB_PASSWORD` (HTTP Basic); si arranca
+sin contraseña, la interfaz muestra un aviso permanente hasta que se configure. Si la
 expones en red, ponla detrás de HTTPS. `--abrir` abre el navegador al arrancar; `/healthz` responde sin contraseña para
 las comprobaciones de estado de contenedores.
 

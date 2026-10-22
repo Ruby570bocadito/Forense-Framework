@@ -428,7 +428,8 @@ forense web -w ./cases            # http://127.0.0.1:8765
 - **ES/EN** selector and **Analyst** field: the name is recorded in every custody action.
 
 Security: listens on `127.0.0.1` by default, every form carries a CSRF token, security headers (CSP,
-`X-Frame-Options`) are sent and a password can be required with `--password` or `FORENSE_WEB_PASSWORD` (HTTP Basic).
+`X-Frame-Options`) are sent and a password can be required with `--password` or `FORENSE_WEB_PASSWORD` (HTTP Basic);
+when it starts without one, the interface shows a permanent warning until a password is set.
 If you expose it on a network, put it behind HTTPS. `--open` opens the browser on start; `/healthz` answers without a
 password for container health checks.
 
