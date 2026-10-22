@@ -72,3 +72,49 @@ def test_modules_listing_and_demo(tmp_path, capsys):
     assert "Demo case analysed" in capsys.readouterr().out
     assert main(["findings", "-c", str(tmp_path / "demo" / "case_demo"), "--min-severity", "critical"]) == EXIT_OK
     assert "IFEO debugger for sethc.exe" in capsys.readouterr().out
+
+
+def _web_args(tmp_path, **overrides):
+    import argparse
+    defaults = {"workspace": str(tmp_path / "w"), "password": None, "host": "127.0.0.1",
+                "port": 8765, "open": False}
+    defaults.update(overrides)
+    return argparse.Namespace(**defaults)
+
+
+def test_web_without_password_warns_on_loopback_start(tmp_path, monkeypatch, capsys):
+    """Petition of TEST: starting without a password must be announced even on loopback."""
+    from forense import cli as cli_mod
+    from forense.i18n import set_language
+
+    monkeypatch.setenv("FORENSE_LANG", "es")
+    set_language(None)  # reset ContextVar so detect_language() re-reads the env
+    monkeypatch.delenv("FORENSE_WEB_PASSWORD", raising=False)
+    seen = {}
+    monkeypatch.setattr("forense.web.run_server",
+                        lambda workspace, host, port, password: seen.update(host=host, password=password))
+    assert cli_mod.cmd_web(_web_args(tmp_path)) == cli_mod.EXIT_OK
+    err = capsys.readouterr().err
+    assert "sin autenticación" in err
+    assert seen == {"host": "127.0.0.1", "password": None}
+
+
+def test_web_network_warning_preserved(tmp_path, monkeypatch, capsys):
+    from forense import cli as cli_mod
+    from forense.i18n import set_language
+
+    monkeypatch.setenv("FORENSE_LANG", "es")
+    set_language(None)
+    monkeypatch.delenv("FORENSE_WEB_PASSWORD", raising=False)
+    monkeypatch.setattr("forense.web.run_server", lambda *a, **k: None)
+    assert cli_mod.cmd_web(_web_args(tmp_path, host="0.0.0.0")) == cli_mod.EXIT_OK
+    err = capsys.readouterr().err
+    assert "red sin contraseña" in err
+
+
+def test_web_with_password_is_quiet(tmp_path, monkeypatch, capsys):
+    from forense import cli as cli_mod
+
+    monkeypatch.setattr("forense.web.run_server", lambda *a, **k: None)
+    assert cli_mod.cmd_web(_web_args(tmp_path, password="s3cret", host="0.0.0.0")) == cli_mod.EXIT_OK
+    assert capsys.readouterr().err == ""

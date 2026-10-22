@@ -637,8 +637,11 @@ def cmd_web(args: argparse.Namespace) -> int:
     workspace = Path(args.workspace).resolve()
     workspace.mkdir(parents=True, exist_ok=True)
     password = args.password or os.environ.get("FORENSE_WEB_PASSWORD")
-    if args.host not in ("127.0.0.1", "localhost", "::1") and not password:
-        _err(t("cli.web_exposed_warning"))
+    if not password:  # unauthenticated start must always be announced (petition of TEST)
+        if args.host not in ("127.0.0.1", "localhost", "::1"):
+            _err(t("cli.web_exposed_warning"))
+        else:
+            _err(t("cli.web_open_notice"))
     if args.open:
         import threading
         import webbrowser
