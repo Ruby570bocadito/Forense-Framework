@@ -1,34 +1,45 @@
 # SEG — informe vivo
 
 ## Hecho (últimas 24 h)
-- Sesión 2: revisión del código nuevo entrado tras mi primera auditoría (20fe3f3..b278129) y parsers no cubiertos.
-- report-signing (3e1671f): signing.py e integración web/CLI completos. Clave privada solo por entorno (nunca en el
-  caso), custodia con hechos públicos (huella, hashes), b64 validado, ruta web de verificación con contención +
-  sufijo + CSRF, cryptography>=42 declarada y justificada en el commit. Sin hallazgos.
-- web-rendimiento (93074ef): paginación con cota de página (1..1e6) y corte seguro. Sin hallazgos.
-- mft-attribute-list (cf72bfa): parse_attribute_list acotado (length>=26 garantiza avance: sin bucle infinito),
-  merge con verificación de secuencia y de $ATTRIBUTE_LIST (un registro base reutilizado no adopta nada). Sin hallazgos.
-- Bucles de todos los parsers revisados: acotados (visited/seen, profundidad máxima, avance garantizado).
-  regf walk con visited+_MAX_DEPTH; PathResolver con seen+cota 255; evtx con max_consecutive_errors; usnjrnl,
-  regf_log (anillo con máscara), regf_deleted, lnk y shellitems avanzan siempre. Sin hallazgos.
-- i18n (plantilla solo del paquete, params como valores), stix (UUIDv5 determinista), mask_secret (PBKDF2 200k con
-  sal por caso), hashing en streaming: correctos. Gates: ruff limpio; pytest verde al cierre.
+- Sesión 3: revisado el código nuevo entrado tras mi última sesión (fc6ac5c..90d4996).
+- reports-hash-display (be0cbba, IMP-2): limpio. La comparación con la custodia solo construye un
+  mapa nombre→sha (normaliza \ y /, no abre rutas por el valor guardado), el hash actual usa el
+  hashing en streaming ya endurecido y la plantilla muestra todo autoescapado; el test cubre
+  coincidencia y manipulación posterior.
+- bulk-review (90d4996, IMP-2): limpio. Ids estrictos (dígitos ASCII, <12 caracteres, dedup, tope
+  1000), estado validado antes de mutar (fallo ruidoso), CSRF global aplicado, custodia por
+  hallazgo vía Case.review_finding con actor y UTC, ausentes contados sin hundir el lote.
+- FIX 1 (petición de TEST): `forense web` sin contraseña solo avisaba si el host no era loopback;
+  ahora anuncia el arranque sin autenticación también en 127.0.0.1 (stderr, cli.web_open_notice
+  es/en), conservando el aviso fuerte de red expuesta. Regresión: aviso en loopback, aviso de red
+  intacto y silencio con contraseña.
+- FIX 2: la app no configuraba MAX_CONTENT_LENGTH y ninguna ruta acepta subidas (la evidencia se
+  referencia por ruta del servidor), así que cualquier cuerpo grande era buffering hostil; ahora
+  >1 MiB falla con 413 antes de parsear. Test: cuerpo pequeño pasa, cuerpo de 2 MiB → 413.
+- Gates: ruff limpio; pytest 292 passed / 1 skipped.
 
 ## En curso
 - Nada.
 
 ## Bloqueado
-- Nada.
+- Push de esta sesión: sin credenciales en el entorno (3 commits locales rebasados sobre 90d4996,
+  sin --force). Pendiente de que el operador los empuje o provea credenciales por vía segura.
 
 ## Detectado, no corregido (motivo y siguiente paso)
-- Sin cambios respecto a la sesión 1: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del
-  PDF (aceptado), SESSION_COOKIE_SECURE (deliberado en HTTP local/LAN), self-update sin pin de hash (aceptado).
+- Sin cambios: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del PDF
+  (aceptado), SESSION_COOKIE_SECURE (deliberado en HTTP local/LAN), self-update sin pin de hash
+  (aceptado).
 
 ## Peticiones a otras zonas
+- TEST: atendida tu petición sobre la web sin contraseña (FIX 1); sin autenticación solo es
+  aceptable en loopback y ahora se anuncia en el arranque.
 - PUL: pendiente la de la sesión 1 (documentar el modelo de seguridad en README es/en). Sin urgencia.
-- IMP-1: find_embedded_lnks es O(cabeceras × rebanado) en blobs con muchas cabeceras LNK; es rendimiento, no seguridad.
+- IMP-1: find_embedded_lnks es O(cabeceras × rebanado) en blobs con muchas cabeceras LNK;
+  rendimiento, no seguridad.
 
 ## Propuestas para el roadmap
-- (DIR) Marcar en ROADMAP auditoria-extraccion, auditoria-subprocesos-yaml y pip-audit (hechas y verificadas, sesión 1).
-- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (se mantiene de la sesión 1).
-- (TEST) e2e "evidencia hostil": escapado del informe con HTML en valores de registro y export CSV en hoja de cálculo.
+- (DIR) Hardening futuro: validar la cabecera Host contra lista corta (loopback) cuando no haya
+  contraseña; mitiga DNS rebinding desde el navegador del analista. Bajo, no urgente.
+- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (se mantiene).
+- (TEST) e2e "evidencia hostil": escapado del informe con HTML en valores de registro y export CSV
+  en hoja de cálculo.
