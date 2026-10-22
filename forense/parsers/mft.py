@@ -6,8 +6,10 @@ timestamps, the logical size, alternate data streams (including the content of
 full path rebuilt from parent references. Records are fixed up with the update
 sequence array before parsing.
 
-Limitations: attributes stored in extension records ($ATTRIBUTE_LIST) of very
-fragmented files are not merged into their base record.
+Attributes that did not fit in the base record live in extension records
+($ATTRIBUTE_LIST), which is common for very fragmented or large files. The
+reader yields them separately; combine them into the base entry with
+``collect_extensions`` followed by ``merge_extensions``.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import struct
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO, Iterator, Optional
+from typing import BinaryIO, Iterable, Iterator, Optional
 
 from forense.core.utils import filetime_to_dt
 
@@ -43,12 +45,24 @@ class Timestamps:
 
 
 @dataclass
+class AttributeEntry:
+    """One entry of an $ATTRIBUTE_LIST: where an attribute of the file lives."""
+
+    attr_type: int
+    name: str
+    record: int
+    record_sequence: int
+    vcn: int
+
+
+@dataclass
 class MftEntry:
     record: int
     sequence: int
     in_use: bool
     is_directory: bool
     base_record: int
+    base_sequence: int = 0
     si: Optional[Timestamps] = None
     fn: Optional[Timestamps] = None
     name: str = ""
@@ -58,6 +72,8 @@ class MftEntry:
     ads: list[str] = field(default_factory=list)
     zone_identifier: str = ""
     fixup_ok: bool = True
+    attribute_list: list[AttributeEntry] = field(default_factory=list)
+    has_unnamed_data: bool = False
 
     @property
     def timestomp_indicators(self) -> list[str]:
@@ -95,8 +111,9 @@ def parse_record(raw: bytes, record_number: int) -> Optional[MftEntry]:
     buf = bytearray(raw)
     fixup_ok = _apply_fixups(buf)
     sequence, _links, first_attr, flags = struct.unpack_from("<HHHH", buf, 16)
-    base_ref = struct.unpack_from("<Q", buf, 32)[0] & 0xFFFFFFFFFFFF
-    entry = MftEntry(record_number, sequence, bool(flags & 0x1), bool(flags & 0x2), base_ref, fixup_ok=fixup_ok)
+    base_ref = struct.unpack_from("<Q", buf, 32)[0]
+    entry = MftEntry(record_number, sequence, bool(flags & 0x1), bool(flags & 0x2), base_ref & 0xFFFFFFFFFFFF,
+                     base_sequence=base_ref >> 48, fixup_ok=fixup_ok)
 
     best_ns = None
     off = first_attr
@@ -113,6 +130,8 @@ def parse_record(raw: bytes, record_number: int) -> Optional[MftEntry]:
 
         if attr_type == SI and len(content) >= 32:
             entry.si = Timestamps(*struct.unpack_from("<QQQQ", content, 0))
+        elif attr_type == ATTR_LIST and content:
+            entry.attribute_list = parse_attribute_list(content)
         elif attr_type == FILE_NAME and len(content) >= 66:
             namespace = content[65]
             # Prefer Win32 / POSIX names over 8.3 DOS names.
@@ -132,9 +151,66 @@ def parse_record(raw: bytes, record_number: int) -> Optional[MftEntry]:
                 if attr_name == "Zone.Identifier" and content:
                     entry.zone_identifier = content.decode("utf-8", errors="replace")
             else:
+                entry.has_unnamed_data = True
                 entry.size = len(content) if not non_resident else struct.unpack_from("<Q", buf, off + 48)[0]
         off += length
     return entry
+
+
+def parse_attribute_list(content: bytes) -> list[AttributeEntry]:
+    """Parse the resident content of an $ATTRIBUTE_LIST attribute.
+
+    Each 8-byte aligned entry says which attribute of the file sits in which MFT record.
+    Corrupt content yields the entries decoded so far (never an exception).
+    """
+    entries: list[AttributeEntry] = []
+    off = 0
+    while off + 26 <= len(content):
+        attr_type, length, name_len, name_off = struct.unpack_from("<IHBB", content, off)
+        if attr_type == END or length < 26 or off + length > len(content):
+            break
+        vcn, ref = struct.unpack_from("<QQ", content, off + 8)
+        name = ""
+        if name_len:
+            raw = content[off + name_off:off + name_off + name_len * 2]
+            name = raw.decode("utf-16-le", errors="replace")
+        entries.append(AttributeEntry(attr_type, name, ref & 0xFFFFFFFFFFFF, ref >> 48, vcn))
+        off += (length + 7) & ~7
+    return entries
+
+
+def collect_extensions(entries: Iterable[MftEntry]) -> dict[int, list[MftEntry]]:
+    """Group extension records (``base_record`` set) by the record number of their base record."""
+    extensions: dict[int, list[MftEntry]] = {}
+    for entry in entries:
+        if entry.base_record:
+            extensions.setdefault(entry.base_record, []).append(entry)
+    return extensions
+
+
+def merge_extensions(base: MftEntry, extensions: list[MftEntry]) -> MftEntry:
+    """Merge into ``base`` the attributes that live in its extension records.
+
+    Very fragmented files keep their non-resident $DATA (real size) and sometimes named
+    $DATA streams in extension records. A stale extension record is never merged: its
+    stored base sequence must match the base record's current sequence, and when the
+    base carries a readable $ATTRIBUTE_LIST the extension must be listed in it with the
+    expected sequence (a base record reused by another file adopts nothing).
+    """
+    refs = {e.record: e.record_sequence for e in base.attribute_list} if base.attribute_list else None
+    for ext in extensions:
+        if ext.base_sequence and base.sequence and ext.base_sequence != base.sequence:
+            continue  # the base record was reused by another file since
+        if refs is not None and refs.get(ext.record) != ext.sequence:
+            continue  # not listed in the base's $ATTRIBUTE_LIST (anymore)
+        if ext.size and not base.has_unnamed_data:
+            base.size = ext.size
+        for name in ext.ads:
+            if name not in base.ads:
+                base.ads.append(name)
+        if not base.zone_identifier and ext.zone_identifier:
+            base.zone_identifier = ext.zone_identifier
+    return base
 
 
 class MftReader:

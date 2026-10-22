@@ -592,6 +592,7 @@
  "field.end_offset": "End offset",
  "field.entries": "Entries",
  "field.entries_per_application": "Entries per application",
+ "field.extension_records": "Merged extension records",
  "field.entry": "Entry",
  "field.event_id": "Event ID",
  "field.events": "Events",

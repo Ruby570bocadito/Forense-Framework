@@ -592,6 +592,7 @@
  "field.end_offset": "Fin",
  "field.entries": "Entradas",
  "field.entries_per_application": "Entradas por aplicación",
+ "field.extension_records": "Registros de extensión combinados",
  "field.entry": "Entrada",
  "field.event_id": "ID de evento",
  "field.events": "Eventos",

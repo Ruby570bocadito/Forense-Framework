@@ -9,7 +9,15 @@ import pytest
 from forense.demo import builders as b
 from forense.parsers.evtx import iter_events, normalize
 from forense.parsers.lnk import LnkError, find_embedded_lnks, parse_lnk
-from forense.parsers.mft import MftReader, PathResolver, parse_record, parse_zone_identifier
+from forense.parsers.mft import (
+    MftReader,
+    PathResolver,
+    collect_extensions,
+    merge_extensions,
+    parse_attribute_list,
+    parse_record,
+    parse_zone_identifier,
+)
 from forense.parsers.recyclebin import RecycleBinError, parse_i_file
 from forense.parsers.regf import REG_BINARY, RegistryError, RegistryHive, identify
 from forense.parsers.shimcache import ShimCacheError, parse_appcompatcache
@@ -124,6 +132,65 @@ def test_mft_reader_and_paths(tmp_path):
     assert resolver.path(7) == "\\Users\\a.txt"
     assert resolver.path(8) == "\\$OrphanFiles\\lost.txt"
     assert not entries[-1].in_use
+
+
+def test_mft_attribute_list_merges_extension_records(tmp_path):
+    t = _times(T, 5)
+    zone = "[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=http://x.example/backup.pst\r\n"
+    ext = b.build_mft_extension_record(41, 40, data_size=3_221_225_472, ads=[("Zone.Identifier", zone)])
+    base = b.build_mft_record(40, "backup.pst", 67, si=t, fn=t,
+                              attribute_list=b.build_mft_attribute_list(
+                                  [(0x80, "", 41, 1), (0x80, "Zone.Identifier", 41, 1)]),
+                              omit_data=True)
+    path = tmp_path / "$MFT"
+    blob = {0: b.build_mft_record(0, "$MFT", 5, si=t, fn=t), 40: base, 41: ext}
+    path.write_bytes(b"".join(blob.get(i, b"\x00" * 1024) for i in range(42)))  # records at their MFT positions
+    with MftReader.open(path) as reader:
+        entries = list(reader)
+    assert [e.record for e in entries] == [0, 40, 41]
+    base, ext_entry = entries[1], entries[2]
+    assert base.size == 0 and base.ads == [] and not base.has_unnamed_data
+    assert [(a.record, a.record_sequence, a.name) for a in base.attribute_list] == [(41, 1, ""),
+                                                                                    (41, 1, "Zone.Identifier")]
+    assert ext_entry.size == 3_221_225_472 and ext_entry.base_record == 40 and ext_entry.base_sequence == 1
+    merged = merge_extensions(base, collect_extensions(entries)[40])
+    assert merged.size == 3_221_225_472  # real size of the $DATA that lives in the extension record
+    assert merged.ads == ["Zone.Identifier"]
+    assert parse_zone_identifier(merged.zone_identifier)["HostUrl"] == "http://x.example/backup.pst"
+
+
+def test_mft_merge_rejects_stale_extension_records():
+    t = _times(T)
+    stale = parse_record(b.build_mft_extension_record(41, 40, data_size=999_999), 41)
+    # base reused by another file: the extension stores sequence 1, the base is now sequence 5
+    reused = parse_record(b.build_mft_record(40, "reused.txt", 5, si=t, fn=t, sequence=5, size=512), 40)
+    assert merge_extensions(reused, [stale]).size == 64  # resident $DATA: nothing adopted
+    # readable $ATTRIBUTE_LIST that no longer lists the extension record
+    relisted = parse_record(b.build_mft_record(40, "moved.txt", 5, si=t, fn=t,
+                                               attribute_list=b.build_mft_attribute_list([(0x80, "", 42, 1)]),
+                                               size=512), 40)
+    assert merge_extensions(relisted, [stale]).size == 64 and merge_extensions(relisted, [stale]).ads == []
+    # unreadable $ATTRIBUTE_LIST: the header link plus matching sequences are trusted
+    plain = parse_record(b.build_mft_record(40, "plain.txt", 5, si=t, fn=t, omit_data=True,
+                                            attribute_list=b"\x99" * 40), 40)
+    assert plain.attribute_list == [] and not plain.has_unnamed_data
+    assert merge_extensions(plain, [stale]).size == 999_999
+
+
+def test_mft_attribute_list_corrupt_content():
+    assert parse_attribute_list(b"") == []
+    assert parse_attribute_list(b"\x99" * 25) == []  # shorter than one entry
+    zero = struct.pack("<IH", 0x80, 0) + b"\x00" * 30
+    assert parse_attribute_list(zero) == []  # zero-length entry: stop, no infinite loop
+    truncated = struct.pack("<IHBBQQH", 0x80, 40, 0, 26, 0, (1 << 48) | 41, 0) + b"\x00" * 4
+    assert parse_attribute_list(truncated) == []  # entry announces more bytes than there are
+    assert len(parse_attribute_list(truncated + b"\x00" * 36)) == 1  # complete: exactly one entry
+    junk = parse_record(b"FILE" + bytes(range(256)) * 4, 7)  # hostile extension record: must not raise
+    assert junk is None or not junk.fixup_ok
+    t = _times(T)
+    plain = parse_record(b.build_mft_record(40, "a.txt", 5, si=t, fn=t), 40)
+    merged = merge_extensions(plain, [junk] if junk else [])
+    assert merged.size == 0 and merged.ads == []
 
 
 # -- ShimCache ------------------------------------------------------------------------------

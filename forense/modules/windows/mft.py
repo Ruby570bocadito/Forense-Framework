@@ -1,4 +1,8 @@
-"""NTFS $MFT: file system timeline, deleted entries, downloads (Zone.Identifier) and timestomping."""
+"""NTFS $MFT: file system timeline, deleted entries, downloads (Zone.Identifier) and timestomping.
+
+Attributes that live in extension records ($ATTRIBUTE_LIST, very fragmented files) are merged
+into their base entry before reporting.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +13,7 @@ from pathlib import Path, PureWindowsPath
 from forense.core.heuristics import EXECUTABLE_EXTENSIONS, is_suspicious_location
 from forense.core.utils import dt_or_none_iso, find_files, relative_name
 from forense.modules.base import AnalysisContext, Module, Option, register
-from forense.parsers.mft import MftError, MftReader, PathResolver, parse_zone_identifier
+from forense.parsers.mft import MftEntry, MftError, MftReader, PathResolver, merge_extensions, parse_zone_identifier
 
 ZONES = {"0": "local", "1": "intranet", "2": "trusted", "3": "internet", "4": "restricted"}
 
@@ -66,10 +70,13 @@ class MftModule(Module):
 
     def _analyze_file(self, ctx: AnalysisContext, path: Path, rel: str) -> None:
         resolver = PathResolver()
+        extensions: dict[int, list[MftEntry]] = {}
         ctx.progress(f"{rel}: paths")
         with MftReader.open(path) as reader:
             for entry in reader:
                 resolver.add(entry)
+                if entry.base_record:  # extension records are rare: buffer them for the merge
+                    extensions.setdefault(entry.base_record, []).append(entry)
 
         timeline = ctx.options["timeline"]
         include_deleted = ctx.options["include_deleted"]
@@ -79,6 +86,10 @@ class MftModule(Module):
             for entry in reader:
                 if entry.base_record or not entry.name:
                     continue
+                exts = extensions.pop(entry.record, [])
+                if exts:
+                    entry = merge_extensions(entry, exts)
+                    stats["extension_records"] += len(exts)
                 stats["entries"] += 1
                 stats["directories" if entry.is_directory else "files"] += 1
                 if not entry.in_use:

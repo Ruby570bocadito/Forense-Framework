@@ -92,6 +92,11 @@ def test_mft_module(demo, tmp_path):
     entries = {r["path"]: r for r in records(sink, "mft_entry")}
     assert entries["\\Users\\Public\\svchost.exe"]["host_url"] == "http://update-cdn.example/dl/svchost.exe"
     assert not entries["\\Users\\maria\\clientes_2026.zip"]["in_use"]
+    # the mailbox archive is so fragmented that its $DATA and its ADS live in an extension record
+    pst = entries["\\Users\\maria\\Downloads\\backup_correo.pst"]
+    assert pst["size"] == 2_147_483_648 and pst["ads"] == "Zone.Identifier"
+    assert pst["host_url"] == "http://update-cdn.example/dl/backup_correo.pst"
+    assert sum(s.get("extension_records", 0) for s in ctx.summary["mft_files"].values()) == 1
     found = codes(sink)
     assert found["mft.timestomping"][0]["params"]["path"] == "\\Users\\Public\\svchost.exe"
     assert len(found["mft.downloaded_executable"]) == 2
