@@ -28,7 +28,7 @@
 </form>
 {% if events.rows %}
 <div class="table-wrap"><table>
-  <tr><th>★</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.severity') }}</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
+  <thead><tr><th scope="col" aria-label="{{ _('web.bookmark') }}">★</th><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('field.severity') }}</th><th scope="col">{{ _('field.type') }}</th><th scope="col">{{ _('field.details') }}</th><th scope="col">{{ _('field.source') }}</th></tr></thead>
   {% for e in events.rows %}
   <tr id="e{{ e.id }}" class="{{ 'bookmarked' if e.bookmark }}">
       <td>
@@ -44,7 +44,7 @@
         {% if e.bookmark %}{% if e.bookmark.note %}<div class="note">{{ e.bookmark.note }}</div>{% endif %}
         {% else %}<details class="inline-note"><summary>{{ _('web.bookmark') }} + {{ _('review.note') | lower }}</summary>
           <form method="post" action="{{ url_for('bookmark_event', slug=slug, event_id=e.id) }}" class="row">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div><input name="note" placeholder="{{ _('review.note') }}"></div>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><div><input name="note" placeholder="{{ _('review.note') }}" aria-label="{{ _('review.note') }}"></div>
             <button class="secondary small" type="submit">★ {{ _('web.bookmark') }}</button></form></details>{% endif %}
       </td>
       <td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>

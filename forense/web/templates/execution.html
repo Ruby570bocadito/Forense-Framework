@@ -17,7 +17,7 @@
 </form>
 {% if programs %}
 <div class="table-wrap"><table>
-  <tr><th>{{ _('field.program') }}</th><th>{{ _('field.sources') }}</th><th>{{ _('field.first') }} (UTC)</th><th>{{ _('field.last') }} (UTC)</th><th>{{ _('field.run_count') }}</th><th>{{ _('field.users') }}</th></tr>
+  <thead><tr><th scope="col">{{ _('field.program') }}</th><th scope="col">{{ _('field.sources') }}</th><th scope="col">{{ _('field.first') }} (UTC)</th><th scope="col">{{ _('field.last') }} (UTC)</th><th scope="col">{{ _('field.run_count') }}</th><th scope="col">{{ _('field.users') }}</th></tr></thead>
   {% for p in programs %}
   <tr class="{{ 'flagged' if p.flags }}">
     <td class="wrap"><b>{{ p.name }}</b>{% for f in p.flags %} <span class="badge high">{{ f | rule }}</span>{% endfor %}

@@ -51,7 +51,7 @@
 <h2>{{ _('web.analyses_done') }}</h2>
 {% if analyses %}
 <div class="table-wrap"><table>
-  <tr><th>#</th><th>{{ _('field.module') }}</th><th>{{ _('field.evidence') }}</th><th>{{ _('field.status') }}</th><th>{{ _('field.started') }}</th><th>{{ _('report.records') }}</th><th>{{ _('report.events') }}</th><th>{{ _('report.findings') }}</th><th>{{ _('field.actor') }}</th><th></th></tr>
+  <thead><tr><th scope="col">#</th><th scope="col">{{ _('field.module') }}</th><th scope="col">{{ _('field.evidence') }}</th><th scope="col">{{ _('field.status') }}</th><th scope="col">{{ _('field.started') }}</th><th scope="col">{{ _('report.records') }}</th><th scope="col">{{ _('report.events') }}</th><th scope="col">{{ _('report.findings') }}</th><th scope="col">{{ _('field.actor') }}</th><th scope="col">{{ _('field.actions') }}</th></tr></thead>
   {% for a in analyses %}
   <tr>
     <td><a href="{{ url_for('analysis', slug=slug, analysis_id=a.id) }}">#{{ a.id }}</a></td>

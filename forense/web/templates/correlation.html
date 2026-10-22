@@ -18,7 +18,7 @@
 </div>
 {% if shared %}
 <div class="table-wrap"><table>
-  <tr><th>{{ _('correlation.type') }}</th><th>{{ _('correlation.value') }}</th><th>{{ _('correlation.cases') }}</th><th>{{ _('field.first') }} (UTC)</th></tr>
+  <thead><tr><th scope="col">{{ _('correlation.type') }}</th><th scope="col">{{ _('correlation.value') }}</th><th scope="col">{{ _('correlation.cases') }}</th><th scope="col">{{ _('field.first') }} (UTC)</th></tr></thead>
   {% for s in shared %}
   <tr class="{{ 'flagged' if s.ioc }}">
     <td><span class="tag">{{ _('correlation.kind.' + s.kind) }}</span></td>

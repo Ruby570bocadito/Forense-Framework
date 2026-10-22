@@ -8,6 +8,7 @@
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 </head>
 <body>
+<a class="skip-link" href="#content">{{ _('common.skip_to_content') }}</a>
 {% from "_macros.html" import icon with context %}
 <header class="topbar">
   <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Forense<span>-Framework</span></span></a>
@@ -23,32 +24,32 @@
     <input name="analyst" value="{{ analyst }}" placeholder="{{ _('web.analyst') }}" aria-label="{{ _('web.analyst') }}">
     <button class="secondary small" type="submit">{{ _('common.save') }}</button>
   </form>
-  <span class="lang">{% for code in languages %}<a href="?lang={{ code }}" class="{{ 'active' if code == lang }}">{{ code | upper }}</a>{% endfor %}</span>
+  <span class="lang">{% for code in languages %}<a href="?lang={{ code }}" hreflang="{{ code }}" class="{{ 'active' if code == lang }}" aria-current="{{ 'true' if code == lang else 'false' }}">{{ code | upper }}</a>{% endfor %}</span>
 </header>
 <div class="shell {{ '' if slug is defined else 'no-nav' }}">
   {% if slug is defined %}
-  <nav class="side">
+  <nav class="side" aria-label="{{ _('nav.main') }}">
     {% set here = request.endpoint %}
-    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}">{{ icon('dashboard') }}{{ _('nav.dashboard') }}</a>
-    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}">{{ icon('evidence') }}{{ _('nav.evidence') }}</a>
-    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}">{{ icon('analyses') }}{{ _('nav.analyses') }}</a>
+    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}" aria-current="{{ 'page' if here == 'dashboard' else 'false' }}">{{ icon('dashboard') }}{{ _('nav.dashboard') }}</a>
+    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}" aria-current="{{ 'page' if here == 'evidence' else 'false' }}">{{ icon('evidence') }}{{ _('nav.evidence') }}</a>
+    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}" aria-current="{{ 'page' if here in ('analyses', 'analysis') else 'false' }}">{{ icon('analyses') }}{{ _('nav.analyses') }}</a>
     <div class="group">{{ _('nav.group_investigation') }}</div>
-    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}">{{ icon('findings') }}{{ _('nav.findings') }}</a>
-    <a href="{{ url_for('attack', slug=slug) }}" class="{{ 'active' if here == 'attack' }}">{{ icon('attack') }}{{ _('nav.attack') }}</a>
-    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}">{{ icon('timeline') }}{{ _('nav.timeline') }}</a>
-    <a href="{{ url_for('execution', slug=slug) }}" class="{{ 'active' if here == 'execution' }}">{{ icon('execution') }}{{ _('nav.execution') }}</a>
+    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}" aria-current="{{ 'page' if here == 'findings' else 'false' }}">{{ icon('findings') }}{{ _('nav.findings') }}</a>
+    <a href="{{ url_for('attack', slug=slug) }}" class="{{ 'active' if here == 'attack' }}" aria-current="{{ 'page' if here == 'attack' else 'false' }}">{{ icon('attack') }}{{ _('nav.attack') }}</a>
+    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}" aria-current="{{ 'page' if here == 'timeline' else 'false' }}">{{ icon('timeline') }}{{ _('nav.timeline') }}</a>
+    <a href="{{ url_for('execution', slug=slug) }}" class="{{ 'active' if here == 'execution' }}" aria-current="{{ 'page' if here == 'execution' else 'false' }}">{{ icon('execution') }}{{ _('nav.execution') }}</a>
     <div class="group">{{ _('nav.group_documentation') }}</div>
-    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}">{{ icon('conclusions') }}{{ _('nav.conclusions') }}</a>
-    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}">{{ icon('custody') }}{{ _('nav.custody') }}</a>
-    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}">{{ icon('reports') }}{{ _('nav.reports') }}</a>
+    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}" aria-current="{{ 'page' if here == 'conclusions' else 'false' }}">{{ icon('conclusions') }}{{ _('nav.conclusions') }}</a>
+    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}" aria-current="{{ 'page' if here == 'custody' else 'false' }}">{{ icon('custody') }}{{ _('nav.custody') }}</a>
+    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}" aria-current="{{ 'page' if here == 'reports' else 'false' }}">{{ icon('reports') }}{{ _('nav.reports') }}</a>
   </nav>
   {% endif %}
-  <main>
+  <main id="content">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+      {% for category, message in messages %}<div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}
     {% endwith %}
     {% if slug is defined %}
-    <div id="jobs" class="panel jobs" hidden data-url="{{ url_for('api_jobs', case=slug) }}" data-reload="1"
+    <div id="jobs" class="panel jobs" hidden aria-live="polite" data-url="{{ url_for('api_jobs', case=slug) }}" data-reload="1"
          data-open="{{ _('common.open') }}" data-status-queued="{{ _('job.queued') }}" data-status-running="{{ _('job.running') }}"
          data-status-done="{{ _('job.done') }}" data-status-failed="{{ _('job.failed') }}">
       <b>{{ _('web.jobs') }}</b><ul></ul>

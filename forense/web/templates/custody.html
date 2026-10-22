@@ -12,7 +12,7 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_json') }}</button>
 </form>
 <div class="table-wrap"><table>
-  <tr><th>#</th><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.action') }}</th><th>{{ _('field.actor') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.hash') }}</th></tr>
+  <thead><tr><th scope="col">#</th><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('field.action') }}</th><th scope="col">{{ _('field.actor') }}</th><th scope="col">{{ _('field.details') }}</th><th scope="col">{{ _('field.hash') }}</th></tr></thead>
   {% for c in entries | reverse %}
   <tr><td>{{ c.seq }}</td><td class="mono" style="white-space:nowrap">{{ c.timestamp | ts }}</td><td>{{ c.action | action }}</td><td>{{ c.actor }}</td>
       <td class="mono wrap">{% for k, v in c.details.items() %}{{ k }}={{ v | val(160) }}<br>{% endfor %}</td>

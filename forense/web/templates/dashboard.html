@@ -37,7 +37,7 @@
       {% for s in ['critical', 'high', 'medium'] %}<span class="viz-key"><i class="viz-swatch viz-sev-{{ s }}"></i>{{ _('report.findings_of', severity=_('severity.plural.' + s)) }}</span>{% endfor %}
     </div>
     <details class="viz-table"><summary>{{ _('web.table_view') }}</summary>
-      <div class="table-wrap"><table><tr><th>{{ _('field.start') }} (UTC)</th><th class="num">{{ _('report.events') }}</th><th class="num">{{ _('web.buckets_with_alerts') }}</th></tr>
+      <div class="table-wrap"><table><thead><tr><th scope="col">{{ _('field.start') }} (UTC)</th><th scope="col" class="num">{{ _('report.events') }}</th><th scope="col" class="num">{{ _('web.buckets_with_alerts') }}</th></tr></thead>
       {% for b in overview.buckets if b.count %}<tr><td class="mono">{{ b.start.strftime('%Y-%m-%d %H:%M') }}</td><td class="num">{{ b.count }}</td><td class="num">{{ b.flagged }}</td></tr>{% endfor %}
       </table></div></details>
   {% else %}<p class="muted">{{ _('web.no_activity') }}</p>{% endif %}

@@ -9,7 +9,7 @@
 
 {% if cases %}
 <div class="table-wrap"><table>
-  <tr><th>{{ _('case.name') }}</th><th>{{ _('case.id') }}</th><th>{{ _('case.investigator') }}</th><th>{{ _('case.created') }}</th><th>{{ _('nav.evidence') }}</th><th>{{ _('nav.findings') }}</th></tr>
+  <thead><tr><th scope="col">{{ _('case.name') }}</th><th scope="col">{{ _('case.id') }}</th><th scope="col">{{ _('case.investigator') }}</th><th scope="col">{{ _('case.created') }}</th><th scope="col">{{ _('nav.evidence') }}</th><th scope="col">{{ _('nav.findings') }}</th></tr></thead>
   {% for c in cases %}
   <tr>
     <td><a href="{{ url_for('dashboard', slug=c.slug) }}"><b>{{ c.info.name }}</b></a><div class="muted mono">{{ c.slug }}</div></td>

@@ -4,7 +4,7 @@
 <h1>{{ _('web.search_results') }}</h1>
 <form class="panel" method="get">
   <div class="row">
-    <div><input type="search" name="q" value="{{ query }}" placeholder="{{ _('web.search_case') }}" autofocus></div>
+    <div><input type="search" name="q" value="{{ query }}" placeholder="{{ _('web.search_case') }}" aria-label="{{ _('web.search_case') }}" autofocus></div>
     <div style="flex:0 0 auto"><button type="submit">{{ _('common.search') }}</button></div>
   </div>
   <div class="muted small">{{ _('web.search_help') }}</div>
@@ -36,7 +36,7 @@
 <section class="panel" id="s-events">
   <div class="panel-head"><h2>{{ _('nav.timeline') }}</h2><a href="{{ url_for('timeline', slug=slug, q=query) }}">{{ _('web.search_open_timeline', total=results.events_total) }} →</a></div>
   <div class="table-wrap"><table>
-    <tr><th>{{ _('field.timestamp') }} (UTC)</th><th>{{ _('field.type') }}</th><th>{{ _('field.details') }}</th><th>{{ _('field.source') }}</th></tr>
+    <thead><tr><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('field.type') }}</th><th scope="col">{{ _('field.details') }}</th><th scope="col">{{ _('field.source') }}</th></tr></thead>
     {% for e in results.events %}
     <tr><td class="mono" style="white-space:nowrap"><a href="{{ url_for('timeline', slug=slug, q=query) }}#e{{ e.id }}">{{ e.timestamp | ts }}</a></td>
       <td>{{ e.type | etype }}</td><td class="wrap">{{ e.details }}</td><td class="muted">{{ e.evidence_id }} · {{ e.source }}</td></tr>
@@ -49,7 +49,7 @@
 <section class="panel" id="s-records">
   <div class="panel-head"><h2>{{ _('web.search_records') }}</h2></div>
   <div class="table-wrap"><table>
-    <tr><th>{{ _('nav.analyses') }}</th><th>{{ _('field.artifact') }}</th><th>{{ _('field.count') }}</th><th>{{ _('web.search_example') }}</th></tr>
+    <thead><tr><th scope="col">{{ _('nav.analyses') }}</th><th scope="col">{{ _('field.artifact') }}</th><th scope="col">{{ _('field.count') }}</th><th scope="col">{{ _('web.search_example') }}</th></tr></thead>
     {% for r in results.records %}
     <tr><td>#{{ r.analysis_id }} · {{ r.module }} · {{ r.evidence_id }}</td>
       <td><a href="{{ url_for('analysis', slug=slug, analysis_id=r.analysis_id, artifact=r.artifact, q=query) }}">{{ r.artifact | artifact }}</a></td>

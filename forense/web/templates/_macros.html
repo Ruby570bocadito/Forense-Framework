@@ -19,7 +19,7 @@
 
 {% macro render(value) %}
   {%- if value is mapping -%}
-    <table class="kv">{% for k, v in value.items() %}<tr><th>{{ k | label }}</th><td class="wrap">{{ render(v) }}</td></tr>{% endfor %}</table>
+    <table class="kv">{% for k, v in value.items() %}<tr><th scope="row">{{ k | label }}</th><td class="wrap">{{ render(v) }}</td></tr>{% endfor %}</table>
   {%- elif value is iterable and value is not string -%}
     {{ value | join(", ") }}
   {%- else -%}{{ value | val }}{%- endif -%}

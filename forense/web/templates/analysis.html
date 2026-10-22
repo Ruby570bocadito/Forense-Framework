@@ -27,7 +27,7 @@
 <div class="tabs">{% for art, n in artifacts %}<a href="{{ url_for('analysis', slug=slug, analysis_id=analysis.id, artifact=art) }}" class="{{ 'active' if art == artifact }}">{{ art | artifact }} ({{ n }})</a>{% endfor %}</div>
 <form class="row" method="get">
   <input type="hidden" name="artifact" value="{{ artifact }}">
-  <div><input type="search" name="q" value="{{ search }}" placeholder="{{ _('common.search') }}"></div>
+  <div><input type="search" name="q" value="{{ search }}" placeholder="{{ _('common.search') }}" aria-label="{{ _('common.search') }}"></div>
   <button class="secondary" type="submit">{{ _('common.search') }}</button>
 </form>
 <form method="post" action="{{ url_for('export', slug=slug, what=analysis.id) }}" style="margin:8px 0">
@@ -35,7 +35,7 @@
   <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button> <span class="muted">{{ _('cli.showing', shown=(records.rows | length), total=records.total) }}</span>
 </form>
 <div class="table-wrap"><table>
-  <tr>{% for c in columns %}<th>{{ c | label }}</th>{% endfor %}</tr>
+  <thead><tr>{% for c in columns %}<th scope="col">{{ c | label }}</th>{% endfor %}</tr></thead>
   {% for art, row in records.rows %}<tr>{% for c in columns %}<td class="wrap">{{ row.get(c) | val(300) }}</td>{% endfor %}</tr>{% endfor %}
 </table></div>
 {{ pager(page, pages, dict(request.args, slug=slug, analysis_id=analysis.id), 'analysis') }}

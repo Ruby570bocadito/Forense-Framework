@@ -13,7 +13,7 @@
 {% if history | length > 1 %}
 <h2>{{ _('web.history') }}</h2>
 <div class="table-wrap"><table>
-  <tr><th>#</th><th>{{ _('field.actor') }}</th><th>{{ _('field.timestamp') }} (UTC)</th><th>SHA-256</th><th>{{ _('field.size') }}</th></tr>
+  <thead><tr><th scope="col">#</th><th scope="col">{{ _('field.actor') }}</th><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">SHA-256</th><th scope="col">{{ _('field.size') }}</th></tr></thead>
   {% for h in history %}<tr><td>{{ h.version }}</td><td>{{ h.actor }}</td><td class="mono">{{ h.timestamp | ts }}</td><td class="mono">{{ h.sha256 }}</td><td>{{ h.length }}</td></tr>{% endfor %}
 </table></div>
 {% endif %}

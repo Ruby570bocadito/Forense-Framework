@@ -170,3 +170,35 @@ def test_findings_and_execution_pagination(tmp_path, monkeypatch):
 
     programs = client.get("/c/case_demo/execution").get_data(as_text=True)
     assert "Page 1 of" in programs and ">21 programs<" in programs and "page=2" in programs
+
+
+def test_accessibility_basics(client):
+    page = client.get("/c/case1/findings").get_data(as_text=True)
+    assert 'class="skip-link" href="#content"' in page and 'id="content"' in page  # skip link target
+    assert 'aria-label="Main navigation"' in page and 'aria-current="page"' in page
+    assert 'aria-current="false"' in page  # non-active items are explicitly marked
+
+
+def test_accessibility_workspace_pages(client):
+    custody = client.get("/c/case1/custody").get_data(as_text=True)  # the custody table always renders
+    assert "<thead>" in custody and 'scope="col"' in custody
+    index = client.get("/").get_data(as_text=True)
+    assert "<thead>" in index and 'hreflang="es"' in index and 'hreflang="en"' in index
+
+
+def test_accessibility_timeline_header(tmp_path):
+    from forense.cli import EXIT_OK, main
+
+    root = tmp_path / "ws"
+    assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
+    app = create_app(root)
+    app.config["TESTING"] = True
+    page = app.test_client().get("/c/case_demo/timeline").get_data(as_text=True)
+    assert "<thead>" in page and 'aria-label="Bookmark"' in page and 'scope="col"' in page
+
+
+def test_flash_messages_have_roles(client):
+    token = _token(client)
+    response = client.post("/c/case1/analyses", data={"csrf_token": token, "module": "hashset", "evidence": "EV-001"},
+                           follow_redirects=True)
+    assert 'role="alert"' in response.get_data(as_text=True)  # error flash is announced assertively

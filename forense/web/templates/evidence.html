@@ -6,7 +6,7 @@
 
 {% if evidence %}
 <div class="table-wrap"><table>
-  <tr><th>ID</th><th>{{ _('field.description') }}</th><th>{{ _('field.kind') }}</th><th>{{ _('field.size') }}</th><th>{{ _('report.hashes') }}</th><th>{{ _('report.integrity') }}</th><th></th></tr>
+  <thead><tr><th scope="col">ID</th><th scope="col">{{ _('field.description') }}</th><th scope="col">{{ _('field.kind') }}</th><th scope="col">{{ _('field.size') }}</th><th scope="col">{{ _('report.hashes') }}</th><th scope="col">{{ _('report.integrity') }}</th><th scope="col">{{ _('field.actions') }}</th></tr></thead>
   {% for ev in evidence %}
   {% set v = verifications.get(ev.id) %}
   <tr>
