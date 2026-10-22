@@ -155,8 +155,9 @@ forense demo ./laboratorio -a "Tu nombre"
 
 Genera un escenario **ficticio**: el equipo `WS-CONTAB01` comprometido. Incluye una recolección de triaje (colmenas,
 `$MFT`, `$LogFile`, `$UsnJrnl`, Prefetch, ShellBags, tareas programadas, repositorio WMI, historial de PowerShell, línea de tiempo
-de Windows, `setupapi`, accesos directos, papelera, historial de Chrome/Firefox…), una imagen raw para carving, la
-memoria RAM del equipo (salidas de Volatility 3), una lista de hashes maliciosos, una lista de IOC y una regla YARA.
+de Windows, `setupapi`, accesos directos, papelera, historial de Chrome/Firefox, notificaciones de Windows y caché
+RDP…), una imagen raw para carving, la memoria RAM del equipo (salidas de Volatility 3), una lista de hashes
+maliciosos, una lista de IOC y una regla YARA.
 Después crea el caso `laboratorio/case_demo`, registra las tres evidencias, lanza el triaje y los módulos de
 inteligencia, y genera más de 50 hallazgos. Entre ellos, un depurador IFEO en `sethc.exe`, timestomping, persistencia
 en `Run`, en una tarea oculta y en una suscripción WMI, un servicio en `C:\Windows\Temp`, ejecución de mimikatz y
@@ -225,7 +226,7 @@ forense -c ./2026-017 analizar hashset EV-002 -o hash_list=C:\intel\malware_sha2
 forense -c ./2026-017 analizar yara EV-002 -o rules=C:\intel\yara
 forense -c ./2026-017 hallazgos --severidad medium
 forense -c ./2026-017 revisar 12 confirmado -n "Coincide con el 4688 del controlador de dominio"
-# redacte antes conclusiones.md: --archivo lo lee como entrada
+notepad conclusiones.md   # redacte las conclusiones antes; --archivo las lee como entrada
 forense -c ./2026-017 conclusiones --archivo conclusiones.md
 forense -c ./2026-017 informe --verificar
 ```
@@ -461,6 +462,8 @@ las comprobaciones de estado de contenedores.
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detecciones (amenaza, recurso, usuario), procesos activos según su registro de rendimiento (prueba de ejecución que sobrevive al borrado de los EVTX) y ficheros consultados con SHA-1/SHA-256 |
 | `psreadline` | `ConsoleHost_history.txt` | Comandos de PowerShell de cada usuario: descargas, ejecución codificada, desactivación de Defender, herramientas ofensivas |
 | `wintimeline` | `ActivitiesCache.db` | Aplicaciones y documentos usados, tiempo en primer plano e **historial del portapapeles** |
+| `notifications` | `wpndatabase.db` | **Notificaciones de Windows**: aplicaciones que avisaron, momento de llegada y texto mostrado en cada toast (título y cuerpo) |
+| `rdp_cache` | `Cache*.bin`, `bCache*.bin` | **Caché RDP (Bitmap Cache)**: tiles del escritorio remoto que dibujó el cliente, extraídos como BMP para el informe; evidencia de sesiones RDP salientes |
 | `setupapi` | `setupapi.dev.log` | Primera conexión de USB y dispositivos portátiles (fabricante, modelo, número de serie), convertida a UTC |
 | `memory` | Volcado de memoria o salidas JSON de Volatility 3 | Ver [Memoria RAM](#memoria-ram) |
 | `image` | E01/Ex01, raw, VHD/VHDX, VMDK, QCOW2 | Ver [Imágenes de disco](#imágenes-de-disco-y-recolección-en-vivo) |
@@ -513,6 +516,10 @@ hash = SHA-256(JSON canónico de {seq, timestamp, action, actor, details, prev_h
   ocultar la manipulación.
 - Cada informe y cada exportación registran su propio SHA-256 en la cadena.
 - Las evidencias derivadas registran de qué evidencia y de qué análisis proceden.
+- Las rutas de las evidencias se guardan relativas a la carpeta del caso, así que puedes **mover, copiar o archivar
+  el caso** (otro disco u otro equipo) y `verificar` seguirá comprobando los hashes contra los ficheros de la propia
+  carpeta. Las altas con ruta absoluta se verifican donde estaban y, si el caso se movió, contra la copia guardada
+  dentro del caso; la custodia anota ese re-baseo.
 
 Estructura de un caso:
 
@@ -551,7 +558,8 @@ forense/
 ├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
 ├── sigma/       motor Sigma y reglas integradas
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, notifications, rdp_cache,
+│                setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py recolección en vivo
 ├── automation.py  auto y vigilar (playbooks)
@@ -624,12 +632,14 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 - **$LogFile**: soporte básico: operaciones con nombre sobre registros del `$MFT` y entradas de índice de directorios,
   con su LSN y transacción; el diario no guarda marcas de tiempo, así que estas operaciones no aportan fechas propias
   a la cronología.
+- **Caché RDP**: los tiles se extraen como BMP, pero el contenedor no guarda marcas de tiempo: evidencian la
+  actividad del escritorio remoto, no cuándo ocurrió.
 - **Heurísticas**: las reglas de detección son indicios para priorizar el trabajo, no veredictos.
 - La interfaz web usa el servidor integrado de Flask, pensado para uso local por un analista o un equipo pequeño.
 
 ## Hoja de ruta
 
-- Más artefactos: BITS (`qmgr.db`), notificaciones, RDP Bitmap Cache
+- Más artefactos: BITS (`qmgr.db`)
 - Importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
 

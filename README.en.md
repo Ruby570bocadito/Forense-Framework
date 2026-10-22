@@ -154,8 +154,9 @@ forense demo ./lab -a "Your name"
 
 This generates a **fictitious** scenario: the compromised workstation `WS-CONTAB01`. It contains a triage collection
 (hives, `$MFT`, `$LogFile`, `$UsnJrnl`, Prefetch, ShellBags, scheduled tasks, WMI repository, PowerShell history, Windows
-Timeline, `setupapi`, shell links, Recycle Bin, Chrome/Firefox history…), a raw image for carving, the
-workstation memory (Volatility 3 outputs), a known-bad hash list, an IOC list and a YARA rule. It then creates the
+Timeline, `setupapi`, shell links, Recycle Bin, Chrome/Firefox history, Windows notifications and the RDP cache…), a
+raw image for carving, the workstation memory (Volatility 3 outputs), a known-bad hash list, an IOC list and a YARA
+rule. It then creates the
 case `lab/case_demo`, registers the three evidence items, runs triage and the intelligence modules and produces more
 than 50 findings: an IFEO debugger on `sethc.exe`, timestomping, persistence in a `Run` key, a hidden task and a WMI
 subscription, a service in `C:\Windows\Temp`, mimikatz and rclone execution (and their deletion according to the
@@ -223,7 +224,7 @@ forense -c ./2026-017 analyze hashset EV-002 -o hash_list=C:\intel\malware_sha25
 forense -c ./2026-017 analyze yara EV-002 -o rules=C:\intel\yara
 forense -c ./2026-017 findings --min-severity medium
 forense -c ./2026-017 review 12 confirmed -n "Matches 4688 on the domain controller"
-# write conclusions.md first: --file reads it as input
+notepad conclusions.md   # write the conclusions first; --file reads them as input
 forense -c ./2026-017 conclusions --file conclusions.md
 forense -c ./2026-017 report --verify
 ```
@@ -456,6 +457,8 @@ password for container health checks.
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detections (threat, resource, user), processes active according to its performance log (evidence of execution that survives clearing the EVTX) and files queried with SHA-1/SHA-256 |
 | `psreadline` | `ConsoleHost_history.txt` | Each user's PowerShell commands: downloads, encoded execution, Defender tampering, offensive tools |
 | `wintimeline` | `ActivitiesCache.db` | Applications and documents used, time in focus and **clipboard history** |
+| `notifications` | `wpndatabase.db` | **Windows notifications**: apps that sent each toast, arrival time and the text shown (title and body) |
+| `rdp_cache` | `Cache*.bin`, `bCache*.bin` | **RDP Bitmap Cache**: tiles of the remote desktop drawn by the RDP client, extracted as BMP files for the report; evidence of outgoing RDP sessions |
 | `setupapi` | `setupapi.dev.log` | First connection of USB and portable devices (vendor, model, serial number), converted to UTC |
 | `memory` | Memory dump or Volatility 3 JSON outputs | See [Memory](#memory) |
 | `image` | E01/Ex01, raw, VHD/VHDX, VMDK, QCOW2 | See [Disk images](#disk-images-and-live-collection) |
@@ -508,6 +511,10 @@ hash = SHA-256(canonical JSON of {seq, timestamp, action, actor, details, prev_h
   then hide tampering.
 - Every report and export records its own SHA-256 in the chain.
 - Derived evidence records which evidence and which analysis it comes from.
+- Evidence paths are stored relative to the case folder, so you can **move, copy or archive the case** (another disk
+  or machine) and `verify` keeps checking the hashes against the files inside that folder. Entries registered with an
+  absolute path are verified where they were or, once the case has moved, against the copy kept inside the case; the
+  custody chain records that re-basing.
 
 Case layout:
 
@@ -545,7 +552,8 @@ forense/
 ├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor
 ├── sigma/       Sigma engine and built-in rules
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, notifications, rdp_cache,
+│                setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py live collection
 ├── automation.py  auto and watch (playbooks)
@@ -616,12 +624,14 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 - **WMI**: the repository is searched for strings (like PyWMIPersistenceFinder), not parsed as a full CIM database.
 - **$LogFile**: basic support: named operations on `$MFT` records and directory index entries, with LSN and
   transaction; the journal carries no timestamps, so these operations add no dates of their own to the timeline.
+- **RDP cache**: tiles are extracted as BMP files, but the container carries no timestamps: they evidence remote
+  desktop activity, not when it happened.
 - **Heuristics**: detection rules are leads to prioritise work, not verdicts.
 - The web interface uses Flask's built-in server, meant for local use by one analyst or a small team.
 
 ## Roadmap
 
-- More artifacts: BITS (`qmgr.db`), notifications, RDP Bitmap Cache
+- More artifacts: BITS (`qmgr.db`)
 - Intelligence import from MISP/OpenCTI
 - Linux and macOS as analysed systems
 
