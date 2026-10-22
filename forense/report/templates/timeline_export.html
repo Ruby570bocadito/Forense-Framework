@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ case.get('name', '') }} — {{ _('nav.timeline') }}</title>
+<style>
+body { font: 13px/1.45 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; margin: 0; padding: 24px; }
+header { border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 6px; }
+h1 { font-size: 19px; margin: 0 0 4px; }
+.meta { color: #555; font-size: 12px; }
+.meta div { margin: 1px 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #b5b5b5; padding: 4px 7px; text-align: left; vertical-align: top; font-size: 12px; }
+thead { display: table-header-group; }
+th { background: #efefef; }
+tr { page-break-inside: avoid; }
+td.ts { font-family: ui-monospace, Consolas, Menlo, monospace; white-space: nowrap; }
+.wrap { word-break: break-word; }
+.mono { font-family: ui-monospace, Consolas, Menlo, monospace; }
+.muted { color: #5f5f5f; }
+.note { font-style: italic; }
+.sev { font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .3px; white-space: nowrap; }
+footer { margin-top: 14px; border-top: 1px solid #b5b5b5; padding-top: 8px; color: #555; font-size: 11px; }
+@page { size: A4; margin: 14mm; }
+@media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+{% set filter_labels = {"start": _("web.from"), "end": _("web.to"), "search": _("common.search"),
+                        "source": _("field.source"), "min_severity": _("field.severity"),
+                        "evidence_id": _("field.evidence"), "bookmarked": _("web.only_bookmarked")} %}
+<header>
+  <h1>{{ _('nav.timeline') }} — {{ case.get('name', '') }}</h1>
+  <div class="meta">
+    <div>{{ case.get('id', '') }}{% if case.get('slug') and case.get('slug') != case.get('id') %} · {{ case.get('slug') }}{% endif %}</div>
+    <div>{{ _('export_html.generated', when=generated, analyst=analyst) }}</div>
+    <div>{% if filters %}{{ _('export_html.filters') }}
+      {%- for k, v in filters.items() %} {{ filter_labels.get(k, k) }}: {{ v }}{{ ';' if not loop.last else '' }}{% endfor %}
+    {% else %}{{ _('export_html.no_filters') }}{% endif %}</div>
+    <div>{{ _('export_html.events', n=rows | length) }}</div>
+  </div>
+</header>
+{% if rows %}
+<table>
+  <thead><tr><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('field.severity') }}</th>
+  <th scope="col">{{ _('field.type') }}</th><th scope="col">{{ _('field.details') }}</th>
+  <th scope="col">{{ _('field.source') }}</th></tr></thead>
+  <tbody>
+  {% for e in rows %}
+  <tr>
+    <td class="ts">{{ e.timestamp | ts }}<div class="muted">#{{ e.id }}</div></td>
+    <td>{% if e.severity and e.severity != 'info' %}<span class="sev">{{ e.severity | sev }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td>{{ e.type | etype }}</td>
+    <td class="wrap">{{ e.details }}{% if e.path %}<div class="muted mono">{{ e.path }}</div>{% endif %}
+      {% if e.note %}<div class="note">{{ _('review.note') }}: {{ e.note }}</div>{% endif %}</td>
+    <td class="muted">{{ e.evidence_id }} · {{ e.source }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ _('common.no_rows') }}</p>
+{% endif %}
+<footer>{{ _('export_html.custody_note') }} · {{ version }}</footer>
+</body>
+</html>

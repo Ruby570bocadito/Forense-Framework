@@ -209,3 +209,58 @@ def test_generate_report_signed_and_custody(demo_case, tmp_path, monkeypatch):
     assert details["signature_file"] == "signed.html.sig" and details["algorithm"] == "ed25519"
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", details["key_fingerprint"])
     assert "BEGIN PRIVATE KEY" not in str(details)  # the key never enters the case
+
+
+def test_timeline_html_export_is_standalone_and_custody_logged(demo_case, tmp_path):
+    from forense.report.timeline_html import export_timeline_html
+
+    with Case.open(demo_case) as case:
+        total = case.events(limit=1).total
+        path = export_timeline_html(case, tmp_path / "timeline.html", "en", "Ana")
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+        assert case.custody.verify() == []
+    assert "<script" not in html and "<style>" in html  # no JS, inline styles only
+    assert "src=" not in html and "href=" not in html  # no external resources at all
+    assert "Generated on" in html and "Ana" in html and "(UTC)" in html
+    assert entry.action == "export_created" and entry.actor == "Ana"
+    assert entry.details["kind"] == "timeline" and entry.details["format"] == "html"
+    assert entry.details["rows"] == total and len(entry.details["sha256"]) == 64
+
+
+def test_timeline_html_export_applies_filters(demo_case, tmp_path):
+    from forense.report.timeline_html import export_timeline_html
+
+    with Case.open(demo_case) as case:
+        total = case.events(limit=1).total
+        path = export_timeline_html(case, tmp_path / "high.html", "en", min_severity="high")
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+    assert entry.details["rows"] < total  # the demo has events below high severity
+    assert entry.details["filters"] == {"min_severity": "high"}
+    assert "Applied filters" in html and "Severity: high" in html
+
+
+def test_timeline_html_export_empty_case(case, tmp_path):
+    from forense.report.timeline_html import export_timeline_html
+
+    path = export_timeline_html(case, tmp_path / "empty.html", "es", "Perito")
+    html = path.read_text(encoding="utf-8")
+    assert "0 eventos." in html and "Sin filtros" in html
+
+
+def test_timeline_html_export_escapes_hostile_values(case, evidence_dir, tmp_path):
+    from forense.core.case import _CaseSink
+    from forense.report.timeline_html import export_timeline_html
+
+    evidence = case.add_evidence(evidence_dir)
+    analysis = case.run_analysis("inventory", evidence.id)
+    _CaseSink(case.conn, analysis.id, evidence.id).add_events([{
+        "timestamp": "2026-10-23T10:00:00Z", "source": "evil<script>", "type": "event",
+        "details": '<script>alert(1)</script> & "quoted"', "path": "C:\\Users\\x<img src=y>", "severity": "high",
+    }])
+    path = export_timeline_html(case, tmp_path / "hostile.html", "en", "Ana")
+    html = path.read_text(encoding="utf-8")
+    assert "<script>alert" not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<img src=y>" not in html and "&lt;img" in html
+    assert "evil&lt;script&gt;" in html

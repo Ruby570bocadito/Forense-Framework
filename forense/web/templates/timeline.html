@@ -24,6 +24,7 @@
 <form method="post" action="{{ url_for('export', slug=slug, what='timeline', **filter_args) }}" style="margin-bottom:8px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
+  <button class="secondary small" type="submit" formaction="{{ url_for('export', slug=slug, what='timeline_html', **filter_args) }}">{{ _('web.export_html') }}</button>
   <span class="muted">{{ _('cli.showing', shown=(events.rows | length), total=events.total) }}</span>
 </form>
 {% if events.rows %}

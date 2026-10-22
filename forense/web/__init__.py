@@ -655,6 +655,11 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             if what == "timeline":
                 path = exports.export_timeline(case, stamped_path(exports_dir, "timeline", ".csv"), fmt, g.lang, actor(),
                                                **_timeline_filters())
+            elif what == "timeline_html":
+                from forense.report.timeline_html import export_timeline_html
+
+                path = export_timeline_html(case, stamped_path(exports_dir, "timeline", ".html"), g.lang, actor(),
+                                            **_timeline_filters())
             elif what == "findings":
                 path = exports.export_findings(case, stamped_path(exports_dir, "findings", ".csv"), fmt, g.lang, actor())
             elif what == "execution":
