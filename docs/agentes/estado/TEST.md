@@ -5,7 +5,7 @@
   del mismo EVTX avisa por stderr «Aviso: contenido idéntico a EV-001 (SHA-256 …); el registro
   continúa» en el idioma de sesión (-L es verificado; en locale C el aviso sale en inglés, que es
   el comportamiento conocido, no parte de H-005). Exit 0 en todos los casos, stdout limpio para
-  consumo automático, `evidencia listar` muestra las 3 gemelas, y también avisa con directorios
+  consumo automático, `evidencia listar` muestra las gemelas, y también avisa con directorios
   duplicados y con copia renombrada (mismo contenido, otra ruta). El primer registro de un caso
   jamás avisa (sin falsos positivos). Residual para IMP-1/IMP-2: la subida web
   (POST /c/<slug>/evidence) ignora `ev.duplicate_of` — el flash solo dice «Evidencia EV-00X
@@ -20,20 +20,29 @@
 - Nota técnica del e2e: el flash viaja en la cookie de sesión que refresca el 302; hay que
   REEMPLAZAR (no acumular) los cookies de misma clave — werkzeug se queda con el primer valor
   duplicado, así que mezclar cookies viejas y nuevas silencia los flashes.
-- Re-confirmados abiertos: H-006 (errno crudo, exit 1 correcto — IMP-1 la acaba de reclamar),
-  H-009 (argparse rechaza «hallazgos» con -L es), H-010 (--sign sigue ausente de informe --help).
-- Suite: 344 passed, 1 skipped; ruff limpio. 1 e2e nuevo esta ronda (10 ficheros e2e).
+- H-006 verificado y CERRADO (fix 0606ea2 + README de PUL a36a780): archivo inexistente da
+  «El archivo … no existe: redáctelo primero …; también puede usar --texto» (exit 1), binario da
+  «No se puede leer …» con el detalle, archivo existente sigue funcionando, y la ayuda de
+  --archivo aclara que es de lectura; el ejemplo del README muestra la creación previa.
+- H-009 verificado y CERRADO (fix 8383161): `exportar hallazgos/custodia` (es) y `findings`
+  (en) funcionan con exit 0 y custodia; acentos plegados («análisis» resuelve); destino inválido
+  da error localizado en el idioma de sesión listando ambos lenguajes; el help de argparse ya no
+  filtra inglés (validación manual, no choices).
+- Re-confirmado abierto: H-010 (--sign sigue ausente de informe --help; es lo que queda en cola).
+- Suite: 346 passed, 1 skipped; ruff limpio. 1 e2e nuevo esta ronda (10 ficheros e2e).
+- Quinta carrera de instancias en paralelo (IMP-1/PUL/SEG empujaron durante mi ronda): rebase
+  limpio, sin conflictos.
 
 ## Estado hallazgos
-- Cerrados esta ronda: H-005. Abiertos: H-006, H-009, H-010 (todos IMP-1, en su cola).
+- Cerrados esta ronda: H-005, H-006, H-009. Abiertos: solo H-010 (IMP-1).
 
 ## Sin probar
 - Job pdf de CI (GitHub), Docker, recolectar (Windows admin), memoria real con Volatility,
   disco lleno, muestras reales de wpndatabase/qmgr.db/Cache*.bin.
 
 ## Peticiones
-- IMP-1: H-006/009/010 cuando puedas (H-006 ya reclamada). Residual de H-005: que la subida web
-  muestre el gemelo duplicado (1 línea con ev.duplicate_of en el mensaje del job).
+- IMP-1: H-010 (la última de la cola). Residual de H-005: que la subida web muestre el gemelo
+  duplicado (1 línea con ev.duplicate_of en el mensaje del job).
 - IMP-2: filtros guardados — verificado todo; solo el residual de arriba toca tu superficie web.
-- PUL: pendientes README de notifications/rdp_cache y documentar mover/archivar caso (H-007).
+- PUL: readme-sync recibido (módulos nuevos, mover/archivar, ejemplo conclusiones) — bien.
 - DIR: el token sigue pendiente de rotación por el operador.
