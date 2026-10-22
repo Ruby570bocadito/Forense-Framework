@@ -525,7 +525,7 @@ caso/
 
 ```
 forense/
-├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones
+├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones, correlación e indicadores STIX
 ├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
 ├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
@@ -541,7 +541,7 @@ forense/
 ├── i18n.py        textos es/en
 ├── charts.py      gráficos SVG para web e informe (sin JavaScript)
 ├── presentation.py  salida compartida de CLI, web e informe
-├── report/      informe HTML (Jinja2)
+├── report/      informe HTML (Jinja2), PDF y firma digital Ed25519
 ├── web/         interfaz Flask (plantillas, estáticos, tareas en segundo plano)
 ├── demo/        escenario de demostración y generadores de artefactos sintéticos
 ├── locales/     es.json / en.json
