@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,7 @@ from forense.modules.base import AnalysisContext, ResultSink
 from forense.parsers.evtx import WinEvent
 
 DATA = Path(__file__).parent / "data"
+_T0 = datetime(2026, 9, 14, 2, 10, tzinfo=timezone.utc)
 
 
 def run(module: str, target: Path, tmp_path: Path, **options):
@@ -102,6 +105,61 @@ def test_mft_module(demo, tmp_path):
     assert len(found["mft.downloaded_executable"]) == 2
     _, sink_no_deleted = run("mft", demo["triage"], tmp_path, include_deleted="no", timeline="none")
     assert all(r["in_use"] for _, r in sink_no_deleted.records) and not sink_no_deleted.events
+
+
+def test_notifications_module(demo, tmp_path):
+    ctx, sink = run("notifications", demo["triage"], tmp_path)
+    rows = records(sink, "notification")
+    assert len(rows) == 4 and all(r["user"] == "maria" for r in rows)
+    by_app = {r["app"]: r for r in rows}
+    invoice = by_app["Microsoft.OutlookForWindows_8wekyb3d8bbwe!Microsoft.OutlookForWindows"]
+    assert invoice["title"] == "Factura septiembre" and "Factura_0914.pdf" in invoice["body"]
+    assert invoice["type"] == "toast" and invoice["arrival"].startswith("2026-09-14T02:02")
+    defender = by_app["Windows.Defender_8wekyb3d8bbwe!WindowsDefender"]
+    assert defender["title"] == "Acción recomendada"
+    assert ctx.summary["notifications"] == 4
+    assert ctx.summary["per_app"]["MicrosoftTeams_8wekyb3d8bbwe!Microsoft.Teams"] == 1
+    assert any(e["type"] == "notification" for e in sink.events)
+
+
+def test_notifications_tolerates_corruption(tmp_path):
+    db = tmp_path / "wpndatabase.db"
+    b.build_wpndatabase(db, [("App.example!App", "Título", "Cuerpo", _T0, _T0)])
+    good = db.read_bytes()
+    db.write_bytes(good[: len(good) // 3])  # truncated real SQLite: header intact, tables lost
+    ctx, sink = run("notifications", db, tmp_path)
+    assert sink.records == [] and len(ctx.errors) == 1
+    db.write_bytes(b"not a sqlite database at all")
+    ctx, sink = run("notifications", db, tmp_path)
+    assert sink.records == [] and ctx.errors == []  # rejected by the discovery predicate
+    db.unlink()
+    conn = sqlite3.connect(db)
+    conn.execute("CREATE TABLE Other (x INTEGER)")
+    conn.commit()
+    conn.close()
+    ctx, sink = run("notifications", db, tmp_path)
+    assert sink.records == [] and len(ctx.errors) == 1  # SQLite without the expected tables
+
+
+def test_notifications_payload_variants(tmp_path):
+    db = tmp_path / "wpndatabase.db"
+    b.build_wpndatabase(db, [("A.example!A", "Uno & dos", "Cuerpo", _T0, _T0)])
+    conn = sqlite3.connect(db)
+    utf8 = b'<toast><binding template="ToastGeneric"><text id="1">UTF8</text><text id="2">dos</text></binding></toast>'
+    conn.execute("INSERT INTO Notification (Type, Payload, ArrivalTime, ExpiryTime, PrimaryId, HandlerId) "
+                 "VALUES (1,?,1,0,'A.example!A','x')", (utf8,))  # tiny non-zero FILETIME: 1601
+    conn.execute("INSERT INTO Notification (Type, Payload, ArrivalTime, ExpiryTime, PrimaryId, HandlerId) "
+                 "VALUES (3,?,2,0,'A.example!A','x')", (b"\x00\x01\x02 binary noise",))
+    conn.commit()
+    conn.close()
+    ctx, sink = run("notifications", db, tmp_path)
+    rows = records(sink, "notification")
+    assert len(rows) == 3  # ORDER BY ArrivalTime: 1 < 2 < the built toast
+    assert rows[0]["title"] == "UTF8" and rows[0]["body"] == "dos"
+    assert rows[1]["title"] == "" and rows[1]["body"] == "" and rows[1]["type"] == "3"
+    assert rows[2]["title"] == "Uno & dos" and rows[2]["body"] == "Cuerpo"  # escaped XML decoded once
+    assert rows[0]["arrival"].startswith("1601") and rows[2]["arrival"].startswith("2026")
+    assert len([e for e in sink.events if e["type"] == "notification"]) == 3
 
 
 def test_logfile_module(demo, tmp_path):
@@ -214,7 +272,7 @@ def test_evtx_brute_force_followed_by_success(tmp_path):
 def test_every_module_is_described():
     names = [m.name for m in available_modules()]
     windows = {"evtx", "registry", "lnk", "logfile", "recyclebin", "browsers", "mft", "prefetch", "srum",
-               "shellbags", "jumplists", "memory", "tasks", "psreadline", "wintimeline", "setupapi",
-               "wmi", "usnjrnl", "defender"}
+               "shellbags", "jumplists", "memory", "notifications", "tasks", "psreadline", "wintimeline",
+               "setupapi", "wmi", "usnjrnl", "defender"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first

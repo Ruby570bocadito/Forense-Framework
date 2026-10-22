@@ -20,6 +20,7 @@ from forense.modules.windows import (  # noqa: F401
     logfile,
     memory,
     mft,
+    notifications,
     prefetch,
     psreadline,
     recyclebin,

@@ -7,6 +7,7 @@ be exercised without shipping real, potentially personal, evidence.
 
 from __future__ import annotations
 
+import html
 import io
 import sqlite3
 import struct
@@ -529,6 +530,36 @@ def build_firefox_places(path: Path, visits: list[tuple[str, str, datetime, int]
 # --------------------------------------------------------------------------
 # Generic files (for carving and signature tests)
 # --------------------------------------------------------------------------
+def build_wpndatabase(path: Path, notifications: list[tuple[str, str, str, datetime, datetime]]) -> Path:
+    """Windows notification database. ``notifications``: (AUMID, title, body, arrival, expiry)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.executescript("""
+        CREATE TABLE NotificationHandler (HandlerId TEXT PRIMARY KEY, PrimaryId TEXT, HandlerType INTEGER,
+                                          WnfId BLOB, Capabilities BLOB);
+        CREATE TABLE Notification (Id INTEGER PRIMARY KEY AUTOINCREMENT, Type INTEGER, Payload BLOB,
+                                   ArrivalTime INTEGER, ExpiryTime INTEGER, PrimaryId TEXT, HandlerId TEXT,
+                                   Key TEXT);
+    """)
+    handlers: dict[str, str] = {}
+    for aumid, _, _, _, _ in notifications:
+        if aumid not in handlers:
+            handlers[aumid] = str(uuid.uuid5(uuid.NAMESPACE_URL, "forense-demo-" + aumid)).upper()
+            conn.execute("INSERT INTO NotificationHandler VALUES (?,?,1,?,'')",
+                         (handlers[aumid], aumid, b""))
+    for i, (aumid, title, body, arrival, expiry) in enumerate(notifications, 1):
+        payload = (f'<toast launch="action=view&amp;argument={i}"><visual><binding template="ToastGeneric">'
+                   f'<text id="1">{html.escape(title)}</text><text id="2">{html.escape(body)}</text>'
+                   f'</binding></visual></toast>')
+        conn.execute("INSERT INTO Notification (Type, Payload, ArrivalTime, ExpiryTime, PrimaryId, HandlerId, Key) "
+                     "VALUES (1,?,?,?,?,?,?)",
+                     (payload.encode("utf-16-le"), to_filetime(arrival), to_filetime(expiry), aumid,
+                      handlers[aumid], f"toast-{i}"))
+    conn.commit()
+    conn.close()
+    return path
+
+
 def build_png(width: int = 4, height: int = 4, color: tuple = (200, 30, 30)) -> bytes:
     raw = b"".join(b"\x00" + bytes(color) * width for _ in range(height))
 

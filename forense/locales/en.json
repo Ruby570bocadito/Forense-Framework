@@ -1478,5 +1478,14 @@
  "web.zoom_out": "Clear the interval",
  "artifact.logfile_entry": "$LogFile operations",
  "module.logfile.title": "NTFS $LogFile",
- "module.logfile.description": "NTFS write-ahead journal: named operations on MFT records and directory index entries (basic support; the journal carries no timestamps)."
+ "module.logfile.description": "NTFS write-ahead journal: named operations on MFT records and directory index entries (basic support; the journal carries no timestamps).",
+ "artifact.notification": "Notifications (toast)",
+ "etype.notification": "Notification",
+ "field.arrival": "Arrival",
+ "field.body": "Body",
+ "field.expiry": "Expiry",
+ "field.notifications": "Notifications",
+ "field.per_app": "Per application",
+ "module.notifications.title": "Windows notifications",
+ "module.notifications.description": "Action Center database (wpndatabase.db): which apps notified, when each toast arrived and the text it showed (title and body)."
 }

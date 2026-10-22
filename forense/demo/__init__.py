@@ -58,6 +58,7 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _tasks(c / "Windows/System32/Tasks")
     _psreadline(c / f"Users/{USER}/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt")
     _wintimeline(c / f"Users/{USER}/AppData/Local/ConnectedDevicesPlatform/L.{USER}/ActivitiesCache.db")
+    _notifications(c / f"Users/{USER}/AppData/Local/Microsoft/Windows/Notifications/wpndatabase.db")
     _setupapi(c / "Windows/inf/setupapi.dev.log")
     _wmi_repository(c / "Windows/System32/wbem/Repository/OBJECTS.DATA")
     _usn_journal(c / "$Extend/$J")
@@ -643,6 +644,21 @@ def _wintimeline(path: Path) -> None:
                       json.dumps(payload).encode(), clipboard, "dGVzdA=="))
     conn.commit()
     conn.close()
+
+
+def _notifications(path: Path) -> None:
+    """Toasts of the scenario: the phishing mail, the colleagues' chatter and the Defender alert."""
+    outlook = "Microsoft.OutlookForWindows_8wekyb3d8bbwe!Microsoft.OutlookForWindows"
+    teams = "MicrosoftTeams_8wekyb3d8bbwe!Microsoft.Teams"
+    defender = "Windows.Defender_8wekyb3d8bbwe!WindowsDefender"
+    promo = "RetailDemo.ContosoMall_cw5n1h2txyewy!App"
+    b.build_wpndatabase(path, [
+        (promo, "Contoso Mall", "Semana de rebajas: hasta un 40% en electrónica", _t(-60 * 24 * 3), _t(-60 * 24 * 2)),
+        (outlook, "Factura septiembre", "Su factura está lista para descargar (Factura_0914.pdf)", _t(-8), _t(1152)),
+        (teams, "Sergio (contabilidad)", "¿te llega bien el ZIP de clientes? lo paso por la carpeta compartida",
+         _t(3), _t(1443)),
+        (defender, "Acción recomendada", "Se detectó una amenaza durante un análisis rápido", _t(59), _t(1499)),
+    ])
 
 
 def _setupapi(path: Path) -> None:

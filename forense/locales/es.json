@@ -1478,5 +1478,14 @@
  "web.zoom_out": "Quitar el intervalo",
  "artifact.logfile_entry": "Operaciones del $LogFile",
  "module.logfile.title": "NTFS $LogFile",
- "module.logfile.description": "Diario transaccional de NTFS: operaciones con nombre propio sobre registros del MFT y entradas de índice de directorios (soporte básico; el diario no guarda marcas de tiempo)."
+ "module.logfile.description": "Diario transaccional de NTFS: operaciones con nombre propio sobre registros del MFT y entradas de índice de directorios (soporte básico; el diario no guarda marcas de tiempo).",
+ "artifact.notification": "Notificaciones (toast)",
+ "etype.notification": "Notificación",
+ "field.arrival": "Llegada",
+ "field.body": "Cuerpo",
+ "field.expiry": "Caducidad",
+ "field.notifications": "Notificaciones",
+ "field.per_app": "Por aplicación",
+ "module.notifications.title": "Notificaciones de Windows",
+ "module.notifications.description": "Centro de notificaciones (wpndatabase.db): aplicaciones que avisaron, momento de llegada y texto mostrado en cada toast (título y cuerpo)."
 }

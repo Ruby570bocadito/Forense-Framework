@@ -255,7 +255,7 @@ def test_triage_runs_applicable_modules(case, demo):
     evidence = case.add_evidence(demo["triage"])
     results = {module: (analysis, error) for module, analysis, error in case.triage(evidence.id)}
     assert results["evtx"] == (None, "triage.no_artifacts")
-    for module in ("registry", "lnk", "recyclebin", "browsers", "mft", "inventory"):
+    for module in ("registry", "lnk", "recyclebin", "browsers", "mft", "notifications", "inventory"):
         assert results[module][0] is not None and results[module][0].status == "completed", module
     stats = case.stats()
     assert stats["findings_by_severity"].get("critical") == 1
