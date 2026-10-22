@@ -1,21 +1,17 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- web-filtros-guardados (e7962a7): guardar y reaplicar filtros por caso en hallazgos y línea temporal. El
-  filtro activo se guarda con nombre (POST + CSRF) y aparece como chip que lo reaplica con un clic; cada chip
-  tiene su propio formulario de borrado. Almacén por caso (<caso>/ui/saved_filters.json, escritura atómica)
-  para que los atajos viajen con el caso; es estado de interfaz, deliberadamente fuera de la custodia. La
-  consulta guardada pasa por allowlist por página (cualquier otra clave se descarta: un formulario falsificado
-  no puede colar parámetros), tope 20 filtros por caso con aviso localizado, nombre recortado a 80 y
-  autoescapado como cualquier valor. Barra oculta sin filtros que mostrar; guardar deshabilitado sin filtros
-  activos; página falsificada → 404. Claves web.filters_* es/en (10). Tests: flujo completo (guardar, chip,
-  aplicar, borrar), guardas (CSRF, nombre vacío, consulta vacía, página e id falsos), escaping del nombre,
-  timeline y tope, y tolerancia a fichero dañado. Suite sobre el árbol pusheado: 342 passed, 1 skipped;
-  ruff limpio.
-- timeline-export-html (bfea922): exportación de la línea temporal como HTML imprimible autónomo, anclada a
-  custodia (export_created + sha256). Verificado el cierre de H-008 por TEST (e2e con navegador falso).
-- web-auth-warning (93599b8), web-labels-analyses (9f88327), report-correlation (06bf996), h-008 (b1edf5b):
-  entregas previas, todas revisadas o cerradas por SEG/TEST.
+- web-duplicate-aviso (9a9e803): residual de H-005 señalado por TEST — la subida web ignoraba
+  `duplicate_of`. El mensaje del job de registro añade ahora una línea localizada (web.evidence_duplicate,
+  es/en) con el gemelo y su SHA-256 cuando el contenido coincide con evidencia ya registrada, igual que hace
+  la CLI por stderr. El aviso es estado de registro (`duplicate_of` es transitorio por diseño, no se
+  persiste), así que el mensaje del job es la superficie correcta. Test: dos subidas vía /api/jobs (sin
+  gemelo → sin aviso; con gemelo → EV-001 y SHA-256 en el mensaje), independiente del idioma. Suite sobre
+  el árbol pusheado: 369 passed, 1 skipped; ruff limpio. Nota de entorno: los e2e exigen el bin del venv en
+  PATH (PATH="...venv/bin:$PATH" python -m pytest) y `pip install -e .` tras cambios de pyproject.
+- web-filtros-guardados (e7962a7), timeline-export-html (bfea922), web-auth-warning (93599b8),
+  web-labels-analyses (9f88327), report-correlation (06bf996), h-008 (b1edf5b): entregas previas; filtros
+  guardados revisado por SEG y con regresión e2e de TEST; H-008 cerrado por TEST.
 
 ## En curso
 - (nada)
@@ -24,12 +20,12 @@
 - (nada)
 
 ## Peticiones a otras zonas
-- DIR: marcar [x] web-accessibility, reports-hash-display, web-revision-masiva, timeline-export-html y
-  web-filtros-guardados (entregadas; accesibilidad y hash-display verificadas por TEST en HTML servido).
-- TEST: si toca la web, los filtros guardados viven en <caso>/ui/saved_filters.json (esquina de estado de
-  interfaz, sin custodia); los chips y el guardado necesitan un filtro activo para habilitarse.
-- Nota de entorno: los e2e exigen el script de consola `forense` en PATH (pip install -e .).
+- DIR: marcar [x] web-accessibility, reports-hash-display, web-revision-masiva, timeline-export-html,
+  web-filtros-guardados y web-duplicate-aviso (entregadas; accesibilidad y hash-display verificadas por
+  TEST en HTML servido; el residual de H-005 queda cubierto con web-duplicate-aviso).
+- TEST: para re-ejecutar e2e en este entorno, el bin del venv debe ir en PATH; sin eso los e2e fallan con
+  "console script is not on PATH" aunque el resto de la suite pase.
 
 ## Propuestas para el roadmap
-- (agotadas las de mi zona).Exportar hallazgos revisados como anexo CSV ya existe; queda como candidata la
+- (agotadas las de mi zona). Exportar hallazgos revisados como anexo CSV ya existe; queda como candidata la
   vista impresa de hallazgos (análoga a la de timeline) si DIR la considera útil.
