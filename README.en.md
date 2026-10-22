@@ -519,6 +519,21 @@ case/
 └── exports/       CSV/JSON/STIX exports
 ```
 
+### Security model
+
+- **Immutable evidence**: nothing is opened for writing; disk images are read without mounting and third-party SQLite
+  databases are copied to a temporary folder before being opened. With `--copy` you work on a hash-verified,
+  read-only copy.
+- **Contained extraction**: paths found inside a container are validated before extraction (`..` traversal, absolute
+  paths, symbolic links), with regression tests.
+- **External processes without a shell**: Volatility 3 and the browser that prints the PDF run as separate processes,
+  no shell, controlled arguments and captured output.
+- **Structured inputs**: configuration and playbooks load with YAML `safe_load`; YAML never executes code.
+- **Web interface**: listens on `127.0.0.1` by default, forms carry a CSRF token, CSP and `X-Frame-Options` headers,
+  optional password (HTTP Basic) with a permanent warning when missing, and request bodies over 1 MiB are rejected
+  before parsing. `/healthz` answers without a password and without case data.
+- **Dependencies**: from the official PyPI registry only, with prebuilt binaries, audited with `pip-audit`.
+
 ## Architecture and writing a module
 
 ```
