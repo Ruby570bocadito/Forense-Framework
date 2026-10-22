@@ -262,3 +262,11 @@ def test_unicode_digit_exports_are_404(web):
     token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
     assert client.post("/c/case1/export/\u0663", data={"csrf_token": token}).status_code == 404
     assert client.post("/c/case1/export/" + "1" * 40, data={"csrf_token": token}).status_code == 404
+
+
+def test_request_bodies_are_size_capped(web):
+    """Form-only app (no uploads): oversized bodies must fail with 413 instead of being buffered."""
+    client = create_app(web).test_client()
+    token = re.search(r'name="csrf_token" value="([^"]+)"', client.get("/").get_data(as_text=True)).group(1)
+    assert client.post("/analyst", data={"csrf_token": token, "analyst": "Wendy"}).status_code in (200, 302)
+    assert client.post("/analyst", data={"csrf_token": token, "analyst": "A" * (2 * 1024 * 1024)}).status_code == 413

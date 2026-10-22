@@ -66,6 +66,9 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         PASSWORD=password,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Strict",
+        # Every route is a small HTML form (evidence is added by server-side path, never uploaded),
+        # so any body larger than this is hostile buffering: fail with 413 instead of spooling it.
+        MAX_CONTENT_LENGTH=1_048_576,
     )
     jobs = JobManager()
     app.extensions["forense_jobs"] = jobs
