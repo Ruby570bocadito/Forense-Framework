@@ -372,7 +372,11 @@ class Case(ReviewMixin):
                     _force_rmtree(staging.parent)
                     raise
                 work_path = final_dir / staging.name
-            evidence = Evidence(evidence_id, str(work_path), str(source), kind, size, count, hashes,
+            try:  # paths inside the case are stored relative to it, so a copied or moved case verifies itself
+                stored_path = work_path.relative_to(self.root).as_posix()
+            except ValueError:
+                stored_path = str(work_path)
+            evidence = Evidence(evidence_id, stored_path, str(source), kind, size, count, hashes,
                                 description.strip(), utc_now(), actor, copy, derived_from)
             self.conn.execute(
                 "INSERT INTO evidence (id, path, source, kind, size, file_count, hashes, description, added_at, "
@@ -429,10 +433,37 @@ class Case(ReviewMixin):
             raise CaseError("error.evidence_unknown", evidence=evidence_id)
         return Evidence.from_row(row)
 
+    def _internal_candidates(self, path: Path) -> Iterator[Path]:
+        """Sub-paths of an old absolute evidence path that may live inside this case folder."""
+        parts = path.parts
+        for marker in ("evidence", "analyses"):
+            for index, part in enumerate(parts):
+                if part == marker and index < len(parts) - 1:
+                    yield Path(*parts[index:])
+
+    def disk_path(self, stored: str) -> Path:
+        """Disk location of a registered evidence path, re-based to this case folder.
+
+        Registrations made from now on store paths relative to the case root, so a copied or
+        moved case verifies its own files instead of the originals they came from (H-007).
+        Old absolute entries resolve in place while the case sits at its original location,
+        or against the copy inside this folder once the case has been moved or duplicated.
+        """
+        path = Path(stored)
+        if not path.is_absolute():
+            return self.root / path
+        if self.root == path or self.root in path.parents:
+            return path
+        for candidate in self._internal_candidates(path):
+            rebased = self.root / candidate
+            if rebased.exists():
+                return rebased
+        return path
+
     def verify_evidence(self, evidence_id: str, actor: Optional[str] = None,
                         progress: Optional[ProgressCallback] = None) -> Verification:
         evidence = self.get_evidence(evidence_id)
-        path = Path(evidence.path)
+        path = self.disk_path(evidence.path)
         current: dict = {}
         error = None
         if not path.exists():
@@ -443,10 +474,12 @@ class Case(ReviewMixin):
             except (OSError, ForenseError):
                 error = "verify.unreadable"
         ok = error is None and current == evidence.hashes
-        self.custody.append("evidence_verified", self.actor(actor), {
-            "evidence_id": evidence.id, "result": "ok" if ok else "mismatch" if error is None else "error",
-            "sha256": current.get("sha256"),
-        })
+        details = {"evidence_id": evidence.id, "result": "ok" if ok else "mismatch" if error is None else "error",
+                   "sha256": current.get("sha256")}
+        registered = Path(evidence.path)
+        if registered.is_absolute() and path != registered:
+            details["path"] = str(path)  # verification was re-based: the registered location no longer applies
+        self.custody.append("evidence_verified", self.actor(actor), details)
         return Verification(evidence.id, ok, evidence.hashes, current, error)
 
     def last_verifications(self) -> dict[str, dict]:
@@ -465,7 +498,7 @@ class Case(ReviewMixin):
 
         module = get_module(module_name)
         evidence = self.get_evidence(evidence_id)
-        target = Path(evidence.path)
+        target = self.disk_path(evidence.path)
         module.check_target(target)
         parsed = module.parse_options(options)
         actor = self.actor(actor)
@@ -525,7 +558,7 @@ class Case(ReviewMixin):
 
         options = options or {}
         evidence = self.get_evidence(evidence_id)
-        target = Path(evidence.path)
+        target = self.disk_path(evidence.path)
         results: list[tuple[str, Optional[Analysis], str]] = []
         kind = evidence_kind(target)
         if kind in ("memory", "volatility"):
@@ -547,7 +580,7 @@ class Case(ReviewMixin):
             results.append(("image", analysis, ""))
             if derived is None:
                 return results
-            evidence, target = derived, Path(derived.path)
+            evidence, target = derived, self.disk_path(derived.path)
         for module in available_modules():
             if not module.triage:
                 continue
@@ -595,7 +628,7 @@ class Case(ReviewMixin):
         if analysis.output_dir:
             folder = (self.root / analysis.output_dir).resolve()
             dependent = [e.id for e in self.evidence_list()
-                         if Path(e.path).resolve() == folder or folder in Path(e.path).resolve().parents]
+                         if (p := self.disk_path(e.path).resolve()) == folder or folder in p.parents]
             if dependent:
                 raise CaseError("error.analysis_has_derived", analysis=analysis.id, evidence=", ".join(dependent))
         with transaction(self.conn):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,10 +108,62 @@ def test_add_and_verify_evidence(case, evidence_dir):
 def test_copied_evidence_is_read_only_and_verified(case, evidence_dir):
     evidence = case.add_evidence(evidence_dir / "a.txt", copy=True)
     assert evidence.copied and evidence.path != evidence.source
-    assert case.root in Path(evidence.path).parents
+    assert Path(evidence.path) == Path("evidence") / evidence.id / "a.txt"  # stored relative to the case
+    assert case.root in case.disk_path(evidence.path).parents
     if os.name != "nt":
-        assert not os.access(evidence.path, os.W_OK) or os.geteuid() == 0
+        assert not os.access(case.disk_path(evidence.path), os.W_OK) or os.geteuid() == 0
     assert case.verify_evidence(evidence.id).ok
+
+
+def test_external_evidence_keeps_its_absolute_path(case, evidence_dir):
+    evidence = case.add_evidence(evidence_dir / "a.txt")  # no copy: the file lives outside the case
+    assert Path(evidence.path).is_absolute() and Path(evidence.path) == evidence_dir / "a.txt"
+    assert case.verify_evidence(evidence.id).ok
+
+
+def test_copied_case_verifies_itself_not_the_original(tmp_path, evidence_dir):
+    """A copied case verifies the files registered in ITS folder: tampering the copy fails (H-007)."""
+    with Case.create(tmp_path / "c1", "C1", "Tester") as case:
+        case.add_evidence(evidence_dir / "a.txt", copy=True)
+    shutil.copytree(tmp_path / "c1", tmp_path / "c1-copy")
+    tampered = tmp_path / "c1-copy" / "evidence" / "EV-001" / "a.txt"
+    os.chmod(tampered, 0o644)
+    tampered.write_text("tampered", encoding="utf-8")
+    with Case.open(tmp_path / "c1-copy") as copy:
+        result = copy.verify_evidence("EV-001")
+        assert not result.ok and result.error is None  # the copy's own file was checked
+    with Case.open(tmp_path / "c1") as original:
+        assert original.verify_evidence("EV-001").ok  # the original is untouched
+
+
+def test_moved_case_still_verifies(tmp_path, evidence_dir):
+    with Case.create(tmp_path / "c1", "C1", "Tester") as case:
+        case.add_evidence(evidence_dir / "a.txt", copy=True)
+    (tmp_path / "c1").rename(tmp_path / "c1-moved")
+    with Case.open(tmp_path / "c1-moved") as case:
+        assert case.verify_evidence("EV-001").ok
+
+
+def test_legacy_absolute_paths_are_re_based(tmp_path, evidence_dir):
+    """Cases registered before relative storage verify in place, and re-base once moved (H-007)."""
+    with Case.create(tmp_path / "c1", "C1", "Tester") as case:
+        case.add_evidence(evidence_dir / "a.txt", copy=True)
+        legacy = str(case.root / "evidence" / "EV-001" / "a.txt")  # the absolute path old cases stored
+        db = sqlite3.connect(case.root / "forense.db")
+        db.execute("UPDATE evidence SET path = ? WHERE id = 'EV-001'", (legacy,))
+        db.commit()
+        db.close()
+    shutil.copytree(tmp_path / "c1", tmp_path / "c1-copy")
+    with Case.open(tmp_path / "c1-copy") as copy:
+        assert copy.verify_evidence("EV-001").ok  # re-based to the copy's own file
+        tampered = copy.root / "evidence" / "EV-001" / "a.txt"
+        os.chmod(tampered, 0o644)
+        tampered.write_text("tampered", encoding="utf-8")
+        assert not copy.verify_evidence("EV-001").ok
+        entry = [e for e in copy.custody.entries() if e.action == "evidence_verified"][-1]
+        assert entry.details.get("path") == str(tampered)  # the custody chain notes the re-based location
+    with Case.open(tmp_path / "c1") as original:
+        assert original.verify_evidence("EV-001").ok  # the original location still verifies in place
 
 
 def test_evidence_errors(case, tmp_path):
