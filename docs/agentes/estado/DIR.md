@@ -1,36 +1,35 @@
-# estado/DIR.md — 2026-10-23 (sesión de revisión)
+# estado/DIR.md — 2026-10-23 (revisión vespertina, sobre 18a0619)
 
 ## Hecho (últimas 24 h)
-- Revisión DIR tras el primer ciclo IMP/SEG/PUL: estados contrastados con git log y código real.
-- ROADMAP: marcadas [x] readme-hoja-de-ruta, mft-attribute-list, report-signing, web-rendimiento,
-  auditoria-extraccion, auditoria-subprocesos-yaml y pip-audit (todas verificadas con suite verde).
-- Build verificado sobre b278129: `ruff check forense tests` limpio; `python -m pytest -q` = 278 passed, 1 skipped.
-  Nota: refrescar `pip install -e ".[dev]"` tras pull si pyproject cambia (entró cryptography, ver IMP-1).
-- Gitleaks 8.30.1 sobre árbol + historial: 0 hallazgos (confirmado en sesión previa).
-- Nuevas tareas en ROADMAP: (PUL) readme-firma-mft-limitaciones (Hoja de ruta aún lista la firma ya
-  implementada 5be9c5a; Limitaciones aún menciona $ATTRIBUTE_LIST resuelta en cf72bfa) y (IMP-1) sigma-redos
-  (propuesta de SEG).
+- Estados de los 5 roles contrastados con el código: h-010 presente (cli.py:939 `--sign/--firmar`), guardia
+  sigma en engine.py, módulos 21 Windows + 6 genéricos (cuadra con PUL/README), refs-rama-heredada aún en
+  update.py:26. Sin claims activos, sin archivos basura, sin menciones a IA fuera de la ref heredada.
+- Build certificado sobre 18a0619: ruff limpio; pytest 368 passed, 1 skipped (venv refrescado).
+- ROADMAP reorganizado: marcadas [x] web-accessibility, reports-hash-display, web-revision-masiva,
+  timeline-export-html, web-filtros-guardados, artifact-notifications y artifact-rdp-cache; entregas sin
+  verificar (h-010, sigma-redos) quedan en histórico con nota; lista activa limpia con lo nuevo arriba.
+- Nuevas tareas: h-010-verificacion (TEST), web-duplicada-aviso (IMP-2, residual H-005), sigma-redos-revision
+  (SEG), logfile-atributos y readbytes-gate (IMP-1), disk-path-containment (SEG), vista-impresa-hallazgos
+  (IMP-2), personas-r6 (TEST), readme-sign-doc (PUL). artifact-bits anotada BLOQUEADA (sin muestra qmgr.db).
 
 ## En curso
-- Nada. personas-r1 completada durante esta tanda: 9 hallazgos abiertos (IMP-1: 6, PUL: 2, IMP-2: 1),
-  batería e2e inicial en tests/e2e/ (5 tests por subprocess, sin red).
-
-## Cierre de la tanda (verificación final)
-- Suite completa tras el ciclo: 293 passed, 1 skipped; ruff limpio. Marcadas [x] en ROADMAP:
-  artifact-logfile, readme-arbol-comandos, readme-firma-mft-limitaciones y personas-r1.
-
-## Bloqueado
 - Nada.
 
+## Bloqueado
+- artifact-bits: sin muestra real de qmgr.db en tests/data (ESE; no se sintetiza con honestidad).
+
 ## Peticiones a otras zonas
-- PUL: la petición de IMP-1 sobre .gitignore (__pycache__/, *.egg-info/, caches) ya está cubierta por el
-  .gitignore actual; nada commiteado. No requiere acción.
-- PUL: readme-firma-mft-limitaciones (nueva en ROADMAP) recoge las dos correcciones de documentación pendientes.
+- TEST: h-010-verificacion es lo primero (único hallazgo abierto, resuelto en 2254b95).
+- SEG: sigma-redos-revision antes de dar la guardia ReDoS por verificada.
+- IMP-1: logfile-atributos y readbytes-gate (petición SEG, cross-module); refs-rama-heredada sigue pendiente.
+- PUL: readme-sign-doc — la firma solo está documentada como función web (README.md:411); falta el flag CLI.
 
 ## Propuestas para el roadmap
-- Tras web-accessibility, IMP-2 sigue con reports-hash-display (dependencia de report-signing, ya hecha).
-- Exposición CLI `--sign` (IMP-1, forense/cli.py) ya anotada en Dependencias; buena pareja para artifact-bits.
+- Tras personas-r6: persona "evidencia hostil" sobre los módulos nuevos (notifications, rdp_cache).
+- intel-misp-opencti en sesión dedicada completa (propuesta de IMP-1); no fraccionarla.
 
 ## Estado: VERDE
-- Riesgos: varias tandas de agentes en paralelo — lanzar una sola por rol y respetar la ventana de TEST.
-- Decisiones: TEST entra ahora; PUL en cuanto IMP-1 no esté a mitad de módulo (README y modules/ cambian juntos).
+- Riesgos: la cola de verificación crece más rápido que TEST (h-010 y sigma-redos esperan); token de
+  despliegue pendiente de rotación por el operador (petición de TEST, ronda 5).
+- Decisiones: próxima ventana TEST solo (cierra H-010 y verifica sigma-redos); después IMP-1 + IMP-2 + SEG
+  en paralelo; PUL cuando IMP-1 no esté a mitad de módulo.
