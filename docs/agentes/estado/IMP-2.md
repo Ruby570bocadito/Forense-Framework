@@ -14,6 +14,11 @@
   desaparecidos se omiten y se resumen en un aviso. Checkboxes vía atributo form= (sin formularios anidados)
   y "seleccionar todo" en static/app.js (CSP limpia). Claves web.bulk_* es/en; tests: flujo, CSRF, estado
   inválido, selección vacía y fallo parcial.
+- web-auth-warning (93599b8): banda permanente en la interfaz cuando arranca sin contraseña
+  (role=status, color --warn del tema, en todas las páginas) con referencia a FORENSE_WEB_PASSWORD;
+  desaparece al configurarla. Responde a la petición de TEST (dirigida a SEG); el aviso CLI solo cubre
+  bind no-loopback. Claves web.no_auth_warning es/en; tests con y sin contraseña. Suite: 296 passed,
+  1 skipped; ruff limpio.
 - h-008 (b1edf5b): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
   (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
   sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
