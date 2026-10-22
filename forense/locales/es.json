@@ -1387,6 +1387,7 @@
  "web.draft_summary": "Borrador del relato",
  "web.events_per_bucket": "Eventos por intervalo",
  "web.evidence_added": "Evidencia {id} registrada",
+ "web.evidence_duplicate": "Aviso: contenido idéntico a {id} (SHA-256 {hash}); el registro continúa, puede ser legítimo.",
  "web.evidence_hash_note": "El cálculo de hashes se hace en segundo plano.",
  "web.evidence_help": "Las evidencias se registran por su ruta en este equipo y se identifican por sus hashes. Nunca se modifican.",
  "web.evidence_path": "Ruta de la evidencia (archivo o carpeta, p. ej. una recolección KAPE o un volumen montado)",

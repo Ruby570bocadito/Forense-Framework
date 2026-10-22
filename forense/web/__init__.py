@@ -346,7 +346,11 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         def work(case: Case, progress) -> tuple[str, str]:
             ev = case.add_evidence(Path(path), description, copy, who,
                                    progress=lambda files, size: progress(f"{files} · {size} B"))
-            return t("web.evidence_added", id=ev.id), ("evidence", {"slug": slug})
+            message = t("web.evidence_added", id=ev.id)
+            if ev.duplicate_of:  # H-005 residual: the web announces the twin just like the CLI does
+                message += " " + t("web.evidence_duplicate", id=ev.duplicate_of,
+                                   hash=ev.hashes.get("sha256", ""))
+            return message, ("evidence", {"slug": slug})
 
         submit(slug, "evidence", t("web.job.evidence", path=path), work)
         return redirect(url_for("evidence", slug=slug))

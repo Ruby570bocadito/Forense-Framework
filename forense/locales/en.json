@@ -1387,6 +1387,7 @@
  "web.draft_summary": "Draft narrative",
  "web.events_per_bucket": "Events per interval",
  "web.evidence_added": "Evidence {id} registered",
+ "web.evidence_duplicate": "Warning: content identical to {id} (SHA-256 {hash}); registration proceeds, it can be legitimate.",
  "web.evidence_hash_note": "Hashing runs in the background.",
  "web.evidence_help": "Evidence is registered by its path on this machine and identified by its hashes. It is never modified.",
  "web.evidence_path": "Evidence path (file or folder, e.g. a KAPE collection or a mounted volume)",

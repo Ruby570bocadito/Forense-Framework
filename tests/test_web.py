@@ -91,6 +91,29 @@ def test_invalid_option_is_flashed(client):
     assert "hash_list" in response.get_data(as_text=True)
 
 
+def test_evidence_upload_announces_duplicate(client, workspace, evidence_dir, tmp_path):
+    # H-005 residual: the web job message must name the twin, like the CLI does.
+    other = tmp_path / "other.bin"
+    other.write_bytes(b"different content")
+    token = _token(client, "/c/case1/evidence")
+    response = client.post("/c/case1/evidence", data={"csrf_token": token, "path": str(other),
+                                                      "description": "original"})
+    assert response.status_code == 302
+    job = _wait(client)
+    assert job["status"] == "done"
+    assert "SHA-256" not in job["message"]  # no twin, no notice
+
+    token = _token(client, "/c/case1/evidence")
+    client.post("/c/case1/evidence", data={"csrf_token": token, "path": str(evidence_dir),
+                                           "description": "twin of the fixture folder"})
+    job = _wait(client)
+    assert job["status"] == "done"
+    # duplicate_of is a transient registration-time notice (not persisted): the job message is
+    # the surface that carries the twin to the analyst, same as the CLI stderr line.
+    assert "EV-003" in job["message"]  # the new registration
+    assert "EV-001" in job["message"] and "SHA-256" in job["message"]  # names the twin and its hash
+
+
 def test_bulk_review_flow(tmp_path):
     from forense.cli import EXIT_OK, main
 
