@@ -9,6 +9,7 @@
 </head>
 <body>
 <a class="skip-link" href="#content">{{ _('common.skip_to_content') }}</a>
+{% if not auth_enabled %}<div class="auth-warning" role="status">{{ _('web.no_auth_warning') }}</div>{% endif %}
 {% from "_macros.html" import icon with context %}
 <header class="topbar">
   <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Forense<span>-Framework</span></span></a>

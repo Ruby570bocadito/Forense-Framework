@@ -111,6 +111,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         return {
             "_": lambda key, /, **params: t(key, lang, **params), "lang": lang, "languages": SUPPORTED,
             "csrf_token": session.get("csrf", ""), "version": __version__, "analyst": g.get("analyst", ""),
+            "auth_enabled": bool(app.config["PASSWORD"]),
             "colors": SEVERITY_COLORS, "severities": SEVERITIES,
             "finding_title": lambda f: finding_title(f, lang),
             "finding_description": lambda f: finding_description(f, lang),

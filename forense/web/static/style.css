@@ -123,6 +123,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px soli
 .skip-link { position: fixed; left: -100vw; top: 10px; z-index: 100; padding: 8px 14px; border-radius: 8px;
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); box-shadow: var(--shadow); }
 .skip-link:focus { left: 10px; }
+/* Persistent notice shown when the interface runs without a password. */
+.auth-warning { padding: 8px 16px; border-bottom: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); font-size: 13px;
+  text-align: center; }
+
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .row > div { flex: 1 1 160px; }
 button, .button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 1px solid var(--accent);

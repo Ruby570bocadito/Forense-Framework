@@ -1401,6 +1401,7 @@
  "web.new_case": "New case",
  "web.no_activity": "There are no timeline events yet.",
  "web.no_analyses": "No analyses yet.",
+ "web.no_auth_warning": "Interface without a password: anyone with access to this address can open the case. Start the interface with FORENSE_WEB_PASSWORD to protect it.",
  "web.no_cases": "There are no cases in this workspace yet.",
  "web.no_evidence": "No evidence yet.",
  "web.no_execution": "No evidence of execution: analyse Prefetch, the registry, SRUM, EVTX or memory.",

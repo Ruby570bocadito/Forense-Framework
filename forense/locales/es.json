@@ -1401,6 +1401,7 @@
  "web.new_case": "Nuevo caso",
  "web.no_activity": "Todavía no hay eventos en la línea temporal.",
  "web.no_analyses": "Todavía no hay análisis.",
+ "web.no_auth_warning": "Interfaz sin contraseña: cualquier persona con acceso a esta dirección puede abrir el caso. Arranque la interfaz con FORENSE_WEB_PASSWORD para protegerla.",
  "web.no_cases": "Todavía no hay casos en este espacio de trabajo.",
  "web.no_evidence": "Todavía no hay evidencias.",
  "web.no_execution": "No hay evidencias de ejecución: analice Prefetch, registro, SRUM, EVTX o memoria.",

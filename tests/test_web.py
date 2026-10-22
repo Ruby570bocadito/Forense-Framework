@@ -163,7 +163,18 @@ def test_password_protection(workspace):
     client = create_app(workspace, password="s3cret").test_client()
     assert client.get("/").status_code == 401
     auth = base64.b64encode(b"any:s3cret").decode()
-    assert client.get("/", headers={"Authorization": f"Basic {auth}"}).status_code == 200
+    page = client.get("/", headers={"Authorization": f"Basic {auth}"})
+    assert page.status_code == 200
+    assert "auth-warning" not in page.get_data(as_text=True)  # authenticated interface does not warn
+
+
+def test_no_password_warning(client):
+    page = client.get("/c/case1/").get_data(as_text=True)
+    assert 'class="auth-warning" role="status"' in page
+    assert "FORENSE_WEB_PASSWORD" in page
+    es = client.get("/c/case1/?lang=es").get_data(as_text=True)
+    assert "Interfaz sin contraseña" in es
+    assert "Interfaz sin contraseña" not in page  # default language is English
 
 
 def test_web_report_signing(client, workspace, monkeypatch):
