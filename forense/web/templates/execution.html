@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager with context %}
 {% block content %}
 <h1>{{ _('nav.execution') }}</h1>
 <div class="subtitle">{{ _('web.execution_help') }}</div>
@@ -12,7 +13,7 @@
 <form method="post" action="{{ url_for('export', slug=slug, what='execution', **filter_args) }}" style="margin-bottom:8px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
-  <span class="muted">{{ programs | length }} {{ _('field.programs') | lower }}</span>
+  <span class="muted">{{ total }} {{ _('field.programs') | lower }}</span>
 </form>
 {% if programs %}
 <div class="table-wrap"><table>
@@ -31,5 +32,6 @@
   </tr>
   {% endfor %}
 </table></div>
+{{ pager(page, pages, dict(filter_args, slug=slug), 'execution') }}
 {% else %}<div class="panel empty">{{ _('web.no_execution') }}</div>{% endif %}
 {% endblock %}

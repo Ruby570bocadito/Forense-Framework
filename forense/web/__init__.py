@@ -401,14 +401,23 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         severity = request.args.get("severity") or None
         status = request.args.get("status") or None
         technique = request.args.get("technique") or None
+        page = min(max(1, request.args.get("page", 1, type=int)), 1_000_000)
+        filter_args = {k: request.args[k] for k in ("severity", "status", "technique") if request.args.get(k)}
         with open_case(slug) as case:
             items = case.findings(min_severity=severity, review_status=status)
-            for item in items:
-                item["techniques"] = techniques_for(item)
             if technique:
+                for item in items:
+                    item["techniques"] = techniques_for(item)
                 items = [f for f in items if technique in f["techniques"]]
+            total = len(items)
+            rows = items[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
+            if not technique:  # only the visible page needs its ATT&CK techniques
+                for item in rows:
+                    item["techniques"] = techniques_for(item)
             return render_template("findings.html", slug=slug, case=case.info, severity=severity, status=status,
-                                   technique=technique, findings=items, progress=case.review_progress())
+                                   technique=technique, findings=rows, total=total, page=page,
+                                   pages=max(1, math.ceil(total / PAGE_SIZE)), filter_args=filter_args,
+                                   progress=case.review_progress())
 
     @app.post("/c/<slug>/findings/<int:finding_id>/review")
     def review_finding(slug: str, finding_id: int):
@@ -485,9 +494,13 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
         search = request.args.get("q", "")
         suspicious = request.args.get("suspicious") == "1"
+        page = min(max(1, request.args.get("page", 1, type=int)), 1_000_000)
         with open_case(slug) as case:
             programs = execution_overview(case, search, suspicious)
-            return render_template("execution.html", slug=slug, case=case.info, programs=programs, args=request.args,
+            total = len(programs)
+            return render_template("execution.html", slug=slug, case=case.info,
+                                   programs=programs[(page - 1) * PAGE_SIZE:page * PAGE_SIZE], total=total,
+                                   page=page, pages=max(1, math.ceil(total / PAGE_SIZE)), args=request.args,
                                    filter_args={k: v for k, v in (("q", search), ("suspicious", "1" if suspicious
                                                                                        else "")) if v})
 

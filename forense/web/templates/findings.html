@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import sevbadge, render, pager, reviewbadge with context %}
 {% block content %}
-<h1>{{ _('nav.findings') }} ({{ findings | length }})</h1>
+<h1>{{ _('nav.findings') }} ({{ total }})</h1>
 <div class="subtitle">{{ _('web.findings_help') }}</div>
 {% if progress.total %}<p><b>{{ _('web.review_progress') }}:</b> {{ _('review.progress', **progress) }}</p>{% endif %}
 {% if technique %}<p class="flash info">{{ _('web.filtered_by_technique', technique=technique) }} · <a href="{{ url_for('findings', slug=slug, severity=severity, status=status) }}">{{ _('web.clear_filter') }}</a></p>{% endif %}
@@ -45,5 +45,6 @@
   </tr>
   {% endfor %}
 </table></div>
+{{ pager(page, pages, dict(filter_args, slug=slug), 'findings') }}
 {% else %}<div class="panel empty">{{ _('findings.none') }}</div>{% endif %}
 {% endblock %}

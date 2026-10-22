@@ -144,3 +144,29 @@ def test_web_verify_signature_rejects_traversal(client, workspace, monkeypatch):
                        data={"csrf_token": token}).status_code == 404
     with Case.open(workspace / "case1") as case:
         assert not any(e.action == "report_signature_verified" for e in case.custody.entries())
+
+
+def test_findings_and_execution_pagination(tmp_path, monkeypatch):
+    from forense.cli import EXIT_OK, main
+    from forense.core.attack import techniques_for
+
+    monkeypatch.setattr("forense.web.PAGE_SIZE", 2)
+    root = tmp_path / "ws"
+    assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
+    app = create_app(root)
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    page1 = client.get("/c/case_demo/findings").get_data(as_text=True)
+    assert "Page 1 of" in page1 and "page=2" in page1 and page1.count("review-form") == 2
+    page2 = client.get("/c/case_demo/findings?page=2").get_data(as_text=True)
+    assert "Page 2 of" in page2 and page2.count("review-form") == 2
+
+    with Case.open(root / "case_demo") as case:
+        techniques = {tech for finding in case.findings() for tech in techniques_for(finding)}
+    assert techniques
+    filtered = client.get(f"/c/case_demo/findings?technique={sorted(techniques)[0]}").get_data(as_text=True)
+    assert filtered.count("review-form") <= 2 and "Page 1 of" in filtered
+
+    programs = client.get("/c/case_demo/execution").get_data(as_text=True)
+    assert "Page 1 of" in programs and ">21 programs<" in programs and "page=2" in programs
