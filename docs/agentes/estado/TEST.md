@@ -1,9 +1,12 @@
-# estado/TEST.md — 2026-10-23
+# estado/TEST.md — 2026-10-22 (sesión personas-r1)
 
 ## Hecho (últimas 24 h)
-- Instalación desde cero en Linux/Py3.12 siguiendo solo el README: falla el comando literal del README (H-001) y doctor/memoria muestran pistas corruptas (H-002); con `.[dev]` instala completo con ruedas, sin errores.
-- Personas ejecutadas (5): analista nuevo (instalación, doctor, demo, web), perito veterano (caso completo con E01 real: agregar, imagen --verificar --triaje, revisar, conclusiones, informe, verificar), despistado (caso inexistente, rutas con espacios/tildes/ñ, -L en ambas posiciones, new sin -i), evidencia hostil (evtx/SRUM truncados, colmena y $MFT de bytes aleatorios, nombre con comillas/;/ñ, HTML+JS en contenido) y operador (doctor, config, update --check, vigilar --una-vez).
-- 6 hallazgos abiertos: H-001, H-003 (PUL), H-002, H-004, H-005, H-006 (IMP-1).
+- Claim personas-r1 ejecutado completo. Nota: H-001..H-006 ya existían de una ronda TEST anterior; esta ronda no los duplica y añade H-007..H-009. Abiertos por destinatario: IMP-1 6 (H-002, H-004, H-005, H-006, H-007, H-009), PUL 2 (H-001, H-003), IMP-2 1 (H-008).
+- Analista nuevo: venv desde cero con solo el README; el comando literal de instalación sigue fallando (H-001 vivo); con el extra correcto instala limpio y `doctor` da 20 OK (solo falta navegador para PDF).
+- Perito veterano: caso completo sobre la demo (nuevo, evidencia agregar --copiar, triaje, analizar, revisar, conclusiones, informe HTML, verificar); `verificar` exit 2 al manipular el hash de una evidencia en COPIA del caso; custodia, mitre, exportar y cronologia OK.
+- Despistado: caso inexistente (error limpio, exit 1), evidencia repetida en silencio (H-005 vivo), rutas con espacios/ñ/&, SIGINT a mitad de triaje (sin traceback, análisis queda "failed", custodia íntegra), flags en distinta posición.
+- Evidencia hostil: EVTX y colmena truncados, nombres con comillas/;/&/ñ, `<script>alert(1)</script>` en ImagePath de servicio: triaje sin tracebacks y payload ESCAPADO en informe HTML y web (sin XSS).
+- e2e nueva: tests/e2e/test_e2e_cli.py, 5 tests subprocess sobre demo en tmp_path (flujo perito completo, verificar exit 2 en copia, caso inexistente, truncados tolerados, ruta con espacios/tildes). 5 passed en ~4 s; suite completa 291 passed, 1 skipped; ruff limpio.
 
 ## En curso
 - —
@@ -12,17 +15,13 @@
 - —
 
 ## Peticiones a otras zonas
-- SEG: la web sin FORENSE_WEB_PASSWORD abre sin autenticación en 127.0.0.1 (probado: / 200, /login 404); cabeceras y cookie de sesión correctas. Revisar si hay que avisar en el arranque.
-- PUL: el ejemplo de `conclusiones --archivo` del README (línea 228) no indica que el archivo debe existir antes (detalle en H-006).
+- IMP-1: H-007 es el hallazgo de mayor impacto forense de la ronda: `verificar` sobre una copia del caso valida las rutas absolutas del ORIGINAL (una copia manipulada da OK, y un caso movido da FAIL). Valorar rutas relativas al caso.
+- IMP-2: H-008, verificar el pipeline PDF en un entorno con Chromium (aquí no hay navegador; el fallo sin navegador es limpio y accionable).
+- PUL: H-001 y H-003 reproducidos hoy tal cual (README e instaladores con el extra corrupto).
 
 ## Propuestas para el roadmap
-- Añadir a TEST: caso con imagen VHD/QCOW2 de tests/data (solo probé E01) y correlación entre casos con la demo.
-
-## Flujo y comprobaciones positivas
-- Robustez hostil: 6 evidencias corruptas/basura por triaje sin un solo traceback; custodia íntegra (verificar exit 0).
-- `verificar` sale 0 sano y 2 con custodia manipulada en copia ([FAIL] Cadena de custodia), como documenta el README.
-- Sin XSS: URLs del módulo ioc se cortan en `<`, 0 `<script>`/`<img onerror>` crudos en informe HTML y web.
-- PDF sin navegador falla con mensaje claro y accionable; vigilar --una-vez genera caso + informe + CSV + STIX.
+- Ampliar la batería e2e con imagen VHD/QCOW2 de tests/data y correlación entre casos (pendiente ya de la ronda anterior).
+- Añadir en e2e un test de XSS con payload en registro (hoy verificado a mano) si se toca plantillas del informe o la web.
 
 ## Sin probar (motivo)
-- recolectar (requiere Windows como administrador); Docker e instaladores completos (sin docker en el entorno; lógica réplica en H-003); memoria real (sin Volatility); entornos sin red (no simulables aquí); imagen VHD/QCOW2 y correlación entre casos (quedan para la próxima ronda).
+- recolectar (requiere Windows como administrador); Docker e instaladores del README (sin docker ni Windows en el entorno; lógica replicada en H-003); PDF real (sin navegador, H-008); memoria con Volatility contra volcado real (solo JSON sintéticos de la demo); descarga real de Sigma (sin red por normativa); instalador con extra de memoria instalado pero Volatility no ejecutado.
