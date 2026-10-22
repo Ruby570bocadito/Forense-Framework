@@ -153,7 +153,7 @@ forense demo ./lab -a "Your name"
 ```
 
 This generates a **fictitious** scenario: the compromised workstation `WS-CONTAB01`. It contains a triage collection
-(hives, `$MFT`, `$UsnJrnl`, Prefetch, ShellBags, scheduled tasks, WMI repository, PowerShell history, Windows
+(hives, `$MFT`, `$LogFile`, `$UsnJrnl`, Prefetch, ShellBags, scheduled tasks, WMI repository, PowerShell history, Windows
 Timeline, `setupapi`, shell links, Recycle Bin, Chrome/Firefox history…), a raw image for carving, the
 workstation memory (Volatility 3 outputs), a known-bad hash list, an IOC list and a YARA rule. It then creates the
 case `lab/case_demo`, registers the three evidence items, runs triage and the intelligence modules and produces more
@@ -447,6 +447,7 @@ password for container health checks.
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | History, downloads, **downloaded executables**, file-sharing and paste services |
 | `mft` | `$MFT` | $SI/$FN timeline, deleted entries, full paths, **Zone.Identifier** (download URL), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
+| `logfile` | `$Extend\$LogFile` | NTFS write-ahead journal (basic support): named operations on `$MFT` records and directory index entries, with LSN and transaction; the journal carries no timestamps |
 | `tasks` | `Windows\System32\Tasks` | Scheduled tasks: author, triggers, account, actions; **hidden tasks**, tasks running interpreters or binaries from suspicious locations, as SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **WMI persistence** (filter + CommandLine/ActiveScript consumer), deleted subscriptions included |
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detections (threat, resource, user), processes active according to its performance log (evidence of execution that survives clearing the EVTX) and files queried with SHA-1/SHA-256 |
@@ -521,12 +522,12 @@ case/
 ```
 forense/
 ├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports, correlation and STIX indicators
-├── parsers/     regf (+ transaction logs and deleted cells), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM,
+├── parsers/     regf (+ transaction logs and deleted cells), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
 ├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor
 ├── sigma/       Sigma engine and built-in rules
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py live collection
 ├── automation.py  auto and watch (playbooks)
@@ -595,12 +596,14 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 - **Local times** (network profiles, `setupapi`) are converted to UTC with the time zone rules of the SYSTEM hive of
   the same evidence (daylight saving time included); without it they are kept as local time.
 - **WMI**: the repository is searched for strings (like PyWMIPersistenceFinder), not parsed as a full CIM database.
+- **$LogFile**: basic support: named operations on `$MFT` records and directory index entries, with LSN and
+  transaction; the journal carries no timestamps, so these operations add no dates of their own to the timeline.
 - **Heuristics**: detection rules are leads to prioritise work, not verdicts.
 - The web interface uses Flask's built-in server, meant for local use by one analyst or a small team.
 
 ## Roadmap
 
-- More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache
+- More artifacts: BITS (`qmgr.db`), notifications, RDP Bitmap Cache
 - Intelligence import from MISP/OpenCTI
 - Linux and macOS as analysed systems
 

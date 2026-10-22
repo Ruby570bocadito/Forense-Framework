@@ -154,7 +154,7 @@ forense demo ./laboratorio -a "Tu nombre"
 ```
 
 Genera un escenario **ficticio**: el equipo `WS-CONTAB01` comprometido. Incluye una recolección de triaje (colmenas,
-`$MFT`, `$UsnJrnl`, Prefetch, ShellBags, tareas programadas, repositorio WMI, historial de PowerShell, línea de tiempo
+`$MFT`, `$LogFile`, `$UsnJrnl`, Prefetch, ShellBags, tareas programadas, repositorio WMI, historial de PowerShell, línea de tiempo
 de Windows, `setupapi`, accesos directos, papelera, historial de Chrome/Firefox…), una imagen raw para carving, la
 memoria RAM del equipo (salidas de Volatility 3), una lista de hashes maliciosos, una lista de IOC y una regla YARA.
 Después crea el caso `laboratorio/case_demo`, registra las tres evidencias, lanza el triaje y los módulos de
@@ -452,6 +452,7 @@ las comprobaciones de estado de contenedores.
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | Historial, descargas, **ejecutables descargados**, servicios de intercambio y paste |
 | `mft` | `$MFT` | Línea temporal $SI/$FN, entradas borradas, rutas completas, **Zone.Identifier** (URL de descarga), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | Creación, borrado y renombrado de archivos con rutas completas (usando el `$MFT`); herramientas ofensivas, ejecutables creados y borrados, borrado de Prefetch y EVTX, **renombrado masivo (ransomware)** y borrado masivo |
+| `logfile` | `$Extend\$LogFile` | Diario transaccional de NTFS (soporte básico): operaciones con nombre sobre registros del `$MFT` y entradas de índice de directorios, con su LSN y transacción; el diario no guarda marcas de tiempo |
 | `tasks` | `Windows\System32\Tasks` | Tareas programadas: autor, desencadenadores, cuenta, acciones; **tareas ocultas**, con intérpretes o en ubicaciones sospechosas, como SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **Persistencia WMI** (filtro + consumidor CommandLine/ActiveScript), también suscripciones borradas |
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detecciones (amenaza, recurso, usuario), procesos activos según su registro de rendimiento (prueba de ejecución que sobrevive al borrado de los EVTX) y ficheros consultados con SHA-1/SHA-256 |
@@ -526,12 +527,12 @@ caso/
 ```
 forense/
 ├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones, correlación e indicadores STIX
-├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM,
+├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
 ├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
 ├── sigma/       motor Sigma y reglas integradas
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py recolección en vivo
 ├── automation.py  auto y vigilar (playbooks)
@@ -601,12 +602,15 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
   colmena SYSTEM de la propia evidencia (incluido el horario de verano); sin ella se dejan como hora local.
 - **WMI**: el repositorio se analiza por búsqueda de cadenas (como PyWMIPersistenceFinder), no con un parser completo
   del formato CIM.
+- **$LogFile**: soporte básico: operaciones con nombre sobre registros del `$MFT` y entradas de índice de directorios,
+  con su LSN y transacción; el diario no guarda marcas de tiempo, así que estas operaciones no aportan fechas propias
+  a la cronología.
 - **Heurísticas**: las reglas de detección son indicios para priorizar el trabajo, no veredictos.
 - La interfaz web usa el servidor integrado de Flask, pensado para uso local por un analista o un equipo pequeño.
 
 ## Hoja de ruta
 
-- Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache
+- Más artefactos: BITS (`qmgr.db`), notificaciones, RDP Bitmap Cache
 - Importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
 
