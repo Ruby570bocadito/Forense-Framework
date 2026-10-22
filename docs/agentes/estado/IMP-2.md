@@ -1,39 +1,22 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- report-signing (3e1671f): firma Ed25519 desacoplada (.sig) de informes HTML y PDF, verificación desde la web,
-  huella pública y hashes en custodia, clave privada siempre fuera del caso (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB).
-  Dependencia cryptography>=42 justificada en el commit. CLI --sign pendiente de IMP-1.
-- web-rendimiento (93074ef): paginación de hallazgos y ejecución (100/página, pager con filtros, totales reales).
-- web-accessibility (b6ad493): skip link, aria-current explícito, roles de avisos, aria-live en jobs,
-  thead + scope en las 14 tablas, aria-labels, foco visible; temas claro/oscuro intactos.
-- reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con la custodia (insignia coincide/cambiado).
-- web-revision-masiva (90d4996): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
-  con nota opcional; la pista de auditoría sigue siendo una entrada por hallazgo (actor + sello UTC vía
-  Case.review_finding). POST con CSRF, estado validado de entrada, ids saneados con tope (1000), hallazgos
-  desaparecidos se omiten y se resumen en un aviso. Checkboxes vía atributo form= (sin formularios anidados)
-  y "seleccionar todo" en static/app.js (CSP limpia). Claves web.bulk_* es/en; tests: flujo, CSRF, estado
-  inválido, selección vacía y fallo parcial.
-- web-auth-warning (93599b8): banda permanente en la interfaz cuando arranca sin contraseña
-  (role=status, color --warn del tema, en todas las páginas) con referencia a FORENSE_WEB_PASSWORD;
-  desaparece al configurarla. Responde a la petición de TEST (dirigida a SEG); el aviso CLI solo cubre
-  bind no-loopback. Claves web.no_auth_warning es/en; tests con y sin contraseña. Suite: 296 passed,
-  1 skipped; ruff limpio.
-- web-labels-analyses (9f88327): asociación explícita etiqueta-control (for/id) en analyses.html:
-  selects de módulo/evidencia del formulario de análisis, opciones de cada módulo (id único por campo)
-  y select de triaje. Sin cambio de comportamiento; test comprueba que cada for= apunta a un id
-  renderizado. Propuesta propia del backlog cerrada.
-- report-correlation (06bf996): sección opcional de correlación entre casos en el informe HTML (tras IOCs):
-  observables de este caso compartidos con otros casos del espacio de trabajo, reutilizando
-  core/correlation.py y sus claves correlation.*; nota explícita de indicio-no-conclusión; solo con ≥2
-  casos, focus en el caso del informe, nunca lanza por un caso vecino dañado, tope de 100 filas con nota;
-  el recuento barato de casos va antes de indexar (un caso solo no crea el directorio de caché). Claves
-  report.correlation* es/en; tests con uno y dos casos y orden de secciones. Suite: 305 passed, 1 skipped;
-  ruff limpio.
-- h-008 (b1edf5b): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
-  (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
-  sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
-  resuelto-pendiente-verificación. Suite: 290 passed, 1 skipped; ruff limpio.
+- timeline-export-html (bfea922): exportación de la línea temporal como documento HTML imprimible autónomo,
+  junto al CSV existente. Fichero en exports/ del caso anclado a custodia (export_created con sha256, mismo
+  formato que el resto de exports), filtros activos aplicados y anotaciones de marcadores incluidas. Sin JS,
+  sin recursos externos, estilos inline, thead repetido en cada página impresa; todo valor proveniente de la
+  evidencia pasa por autoescape de Jinja. Botón vía formaction en el mismo formulario (CSP limpia). Claves
+  web.export_html + export_html.* es/en. Tests: documento autónomo y custodia, filtros, caso vacío, valores
+  hostiles escapados y ruta web con CSRF. Suite sobre el árbol pusheado: 321 passed, 1 skipped; ruff limpio.
+- web-auth-warning (93599b8): banda permanente en la interfaz cuando arranca sin contraseña (role=status,
+  color --warn del tema, en todas las páginas) con referencia a FORENSE_WEB_PASSWORD. SEG la revisó: limpia
+  y complementaria al aviso CLI.
+- web-labels-analyses (9f88327): asociación explícita etiqueta-control (for/id) en analyses.html, con test.
+- report-correlation (06bf996): sección opcional de correlación entre casos en el informe HTML.
+- h-008 (b1edf5b): pipeline PDF verificado en la suite sin navegador real (navegador falso multiplataforma,
+  timeout, sin navegador y PATH). Pendiente de verificación por TEST.
+- web-revision-masiva (90d4996), web-accessibility (b6ad493), reports-hash-display (9b0912a), report-signing
+  (3e1671f), web-rendimiento (93074ef): entregas previas ya revisadas por SEG/TEST.
 
 ## En curso
 - (nada)
@@ -42,10 +25,11 @@
 - (nada)
 
 ## Peticiones a otras zonas
-- PUL: job de CI con un Chromium real (p. ej. playwright install chromium) que genere un PDF del caso demo y
-  compruebe que empieza por %PDF — cubre lo que la suite no puede con navegador falso (origen de H-008).
-- IMP-1: exponer --sign en `forense informe` (cli.py) sobre forense/report/signing.py ya operativo.
-- DIR: marcar [x] web-accessibility, reports-hash-display y web-revision-masiva (entregadas y verificadas).
+- TEST: verificar h-008 (b1edf5b, resuelto-pendiente-verificación) y, si procede, cerrarlo.
+- DIR: marcar [x] web-accessibility, reports-hash-display, web-revision-masiva y timeline-export-html
+  (entregadas; las dos primeras verificadas por TEST en HTML servido).
+- Nota de entorno: los e2e de TEST exigen el script de consola `forense` en PATH (pip install -e .); en esta
+  máquina fallaban 3 e2e hasta instalarlo. Sin cambio de código necesario — queda como recordatorio de setup.
 
 ## Propuestas para el roadmap
-- Clave de firma como opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1).
+- Guardar filtros de la interfaz por caso (web) — propuesta propia en cola, pendiente de aprobación de DIR.
