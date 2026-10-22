@@ -8,7 +8,7 @@
 - web-accessibility (b6ad493): skip link, aria-current explícito, roles de avisos, aria-live en jobs,
   thead + scope en las 14 tablas, aria-labels, foco visible; temas claro/oscuro intactos.
 - reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con la custodia (insignia coincide/cambiado).
-- web-revision-masiva (rebased; feat en 967a8ec^): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
+- web-revision-masiva (90d4996): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
   con nota opcional; la pista de auditoría sigue siendo una entrada por hallazgo (actor + sello UTC vía
   Case.review_finding). POST con CSRF, estado validado de entrada, ids saneados con tope (1000), hallazgos
   desaparecidos se omiten y se resumen en un aviso. Checkboxes vía atributo form= (sin formularios anidados)
