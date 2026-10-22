@@ -1,20 +1,28 @@
 # IMP-1 — Motor forense
 
 ## Hecho (últimas 24 h)
-- artifact-rdp-cache (sesión 3): módulo completo de RDP Bitmap Cache (Cache*.bin / bCache*.bin).
-  - forense/modules/windows/rdp_cache.py (triage): valida el contenedor por estructura (cabecera 12 bytes;
-    tile = Key1+Key2+Width+Height+BITMAPINFOHEADER 40 bytes+píxeles alineados a DWORD) y extrae cada tile
-    como BMP independiente (artefacto del análisis). Filas "rdp_tile" (tile, key, dimensiones, bpp, offset,
-    saved_to) + hallazgo LOW rdp_cache.historic_activity (ATT&CK T1021.001) por fichero con tiles. Sin
-    marcas de tiempo: el contenedor no las lleva. Corrupción: un tile inválido corta la cadena conservando
-    los previos; cabecera+basura o contenedor vacío → 0 tiles, sin error ni hallazgo.
-  - forense/demo: build_rdp_cache + Cache0001.bin de la historia (4 tiles; movimiento lateral RDP saliente).
-  - forense/core/attack.py: mapeo del hallazgo a T1021.001. tests: módulo demo, corrupción, triaje.
-    Suite: 332 passed, 1 skipped; ruff limpio. Fila de README: petición a PUL.
-- artifact-notifications (antes en esta sesión): módulo completo de wpndatabase.db (toasts: app, llegada,
-  título y cuerpo), build_wpndatabase en demo, 3 tests; SQLite vía ReadOnlySqlite.
-- h-007 + h-004 + h-002: verificar re-basado al caso (+4 tests), predicado de descubrimiento en sueltos y
-  tool names <=3 letras con .exe (+3 tests), disposición por bytes de H-002 (+2 guardas).
+- Sesión 4, cinco tareas completadas (suite al cerrar: 368 passed, 1 skipped; ruff limpio):
+  - h-005 (1f94986): aviso de evidencia duplicada. `Case.find_duplicate(hashes)` (primera evidencia con la
+    misma SHA-256); `add_evidence` lo expone en `Evidence.duplicate_of` (transitorio, no persistido) y
+    `evidencia agregar` emite por stderr, en el idioma de sesión, "Aviso: contenido idéntico a EV-001
+    (SHA-256 …); el registro continúa". stdout limpio; ficheros y directorios; 4 tests.
+  - h-006 (0606ea2): `conclusiones --archivo` ya no escapa el error de Python: FileNotFoundError →
+    "El archivo {file} no existe: redáctelo primero…" localizado; OSError/UnicodeDecodeError → "No se puede
+    leer {file}". Ayuda de --texto/--archivo traducida y aclarada (el fichero es ENTRADA). 1 test (es/en/binario).
+  - h-009 (8383161): `exportar` acepta los términos es/en de su propia ayuda: hallazgos, cronologia,
+    custodia, ejecucion, analisis, también con tilde, y los ingleses; validación manual con error localizado
+    (adiós al "invalid choice" de argparse); metavar neutro y claves cli.export_targets/error.export_what.
+    1 test (4 destinos + tilde + error es/en).
+  - h-010 (2254b95): `informe --firmar/--sign` — mismo camino de firma que la web (generate_report(sign=True),
+    y html_to_pdf(sign=True) con --pdf), mensaje "Informe firmado: {sig}" por fichero, custodia con huella y
+    fingerprint; sin --firmar no hay .sig aunque la clave esté definida. Tests: .sig válido, verificación OK,
+    manipulación detectada, entrada report_signed en custodia.
+  - sigma-redos (65dd311): guardia estructural ReDoS para el modificador `|re` ANTES de compilar: longitud
+    ≤ 1024, {n,m} ≤ 1000, backreference cuantificado, y cuantificador aplicado a grupo cuyo cuerpo contiene
+    cuantificador o alternancia — con presupuesto de ramificación (64) que deja pasar las formas acotadas
+    legítimas (regex de IP, MAC). Rechazo conservador → SigmaError → el cargador lo convierte en error por
+    regla: una regla hostil es un error de carga, nunca un escaneo colgado. 24 tests nuevos (10 formas
+    hostiles, 8 seguras que siguen compilando y casando, carga e2e con paquete mixto).
 
 ## En curso
 - (nada)
@@ -23,15 +31,13 @@
 - artifact-bits (qmgr.db): sigue sin muestra real en tests/data; qmgr.db es ESE y no se sintetiza con honestidad.
 
 ## Peticiones a otras zonas
-- PUL: dos filas nuevas en la tabla de módulos de ambos README:
-  - notifications / Notificaciones de Windows (wpndatabase.db) / apps emisoras, llegada, títulos y cuerpos.
-  - rdp_cache / Caché RDP (Bitmap Cache) / tiles del escritorio remoto, evidencia de sesiones RDP salientes.
-  Módulos: 22 de Windows (27 en total). Además: documentar cómo mover/archivar un caso (H-007) y que el
-  ejemplo de `conclusiones --archivo` muestre la creación previa del fichero (H-006, parte UX).
-- TEST: verificar h-007 (4 tests), h-004 (3), artifact-notifications (3) y artifact-rdp-cache (2 + triaje).
-- DIR/humano: muestra real de qmgr.db (origen + licencia como SRUDB.dat) para artifact-bits.
+- TEST: verificar h-005, h-006, h-009, h-010 (H-007 seguía pendiente de esta tanda) y sigma-redos. Nota:
+  los cuatro primeros cambian salida de CLI (stderr/stdout) y exit codes intactos (EXIT_OK/EXIT_ERROR).
+- PUL: nada nuevo (el ejemplo de conclusiones del README ya lo cubriste en readme-h006-conclusiones).
+- DIR: artifact-rdp-cache y artifact-notifications siguen marcadas [ ] en ROADMAP aunque están entregadas y
+  descritas en este informe — recordar marcarlas cuando TEST las verifique.
 
 ## Propuestas para el roadmap
+- intel-misp-opencti (en ROADMAP, sin asignar ronda): importación MISP de IOCs hacia la lista de vigilancia
+  de `ioc` y correlación; la dejo para una sesión dedicada completa.
 - ampliar logfile: reconstruir la tabla de atributos abiertos (0x1C/0x1D) para nombrar operaciones contextuales.
-- En cola: h-005 (aviso hash duplicado), h-006 (FileNotFoundError de conclusiones), h-009 (alias es/en de
-  exportar), sigma-redos, intel-misp-opencti.
