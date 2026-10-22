@@ -5,6 +5,7 @@ import re
 import time
 
 import pytest
+from conftest import make_signing_key
 
 from forense.core.case import Case
 from forense.web import create_app
@@ -103,3 +104,43 @@ def test_password_protection(workspace):
     assert client.get("/").status_code == 401
     auth = base64.b64encode(b"any:s3cret").decode()
     assert client.get("/", headers={"Authorization": f"Basic {auth}"}).status_code == 200
+
+
+def test_web_report_signing(client, workspace, monkeypatch):
+    from forense.report import signing
+
+    keys = workspace / "keys"
+    keys.mkdir(exist_ok=True)
+    pem, _ = make_signing_key(keys)
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    token = _token(client, "/c/case1/reports")
+    page = client.get("/c/case1/reports").get_data(as_text=True)
+    assert 'name="sign"' in page and 'verify-signature' not in page  # checkbox on, nothing signed yet
+    client.post("/c/case1/reports", data={"csrf_token": token, "language": "es", "sign": "on"})
+    job = _wait(client)
+    assert job["status"] == "done"
+    client.set_cookie("lang", "en")
+    page = client.get("/c/case1/reports").get_data(as_text=True)
+    assert 'verify-signature' in page
+    name = re.search(r'href="/c/case1/reports/([^"]+\.html)"', page).group(1)
+    with Case.open(workspace / "case1") as case:
+        assert any(e.action == "report_signed" for e in case.custody.entries())
+    response = client.post(f"/c/case1/reports/{name}/verify-signature",
+                           data={"csrf_token": token}, follow_redirects=True)
+    assert "Valid signature" in response.get_data(as_text=True)
+    with Case.open(workspace / "case1") as case:
+        assert any(e.action == "report_signature_verified" for e in case.custody.entries())
+    assert signing.verify_file(workspace / "case1" / "reports" / name)
+
+
+def test_web_verify_signature_rejects_traversal(client, workspace, monkeypatch):
+    keys = workspace / "keys"
+    keys.mkdir(exist_ok=True)
+    pem, _ = make_signing_key(keys)
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    token = _token(client, "/c/case1/reports")
+    assert client.post("/c/case1/reports/case.db/verify-signature", data={"csrf_token": token}).status_code == 404
+    assert client.post("/c/case1/reports/../../case.db/verify-signature",
+                       data={"csrf_token": token}).status_code == 404
+    with Case.open(workspace / "case1") as case:
+        assert not any(e.action == "report_signature_verified" for e in case.custody.entries())

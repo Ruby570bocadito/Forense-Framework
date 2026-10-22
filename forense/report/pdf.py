@@ -47,7 +47,7 @@ def find_browser() -> Optional[str]:
 
 
 def html_to_pdf(html: Path, output: Optional[Path] = None, case=None, actor: Optional[str] = None,
-                timeout: int = 180) -> Path:
+                timeout: int = 180, sign: bool = False) -> Path:
     """Print ``html`` to PDF; when ``case`` is given the PDF is hashed into its chain of custody."""
     browser = find_browser()
     if not browser:
@@ -66,4 +66,8 @@ def html_to_pdf(html: Path, output: Optional[Path] = None, case=None, actor: Opt
     if case is not None:
         case.custody.append("report_pdf_generated", case.actor(actor), {
             "file": str(output), "sha256": hash_file(output, ("sha256",))["sha256"], "source": str(html)})
+        if sign:
+            from forense.report.signing import sign_into_custody
+
+            sign_into_custody(case, output, actor)
     return output

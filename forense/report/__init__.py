@@ -92,7 +92,8 @@ def _charts(overview: dict, lang: str) -> dict:
 
 
 def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Path] = None, verify: bool = False,
-                    actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300) -> Path:
+                    actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300,
+                    sign: bool = False) -> Path:
     from forense.core.attack import storyline
     from forense.core.overview import case_overview
     from forense.core.stix import collect_indicators
@@ -138,4 +139,8 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         "file": str(output), "sha256": digest, "language": lang, "verified_evidence": verify,
         "custody_head": entries[-1].hash if entries else None,
     })
+    if sign:
+        from forense.report.signing import sign_into_custody
+
+        sign_into_custody(case, output, actor)
     return output

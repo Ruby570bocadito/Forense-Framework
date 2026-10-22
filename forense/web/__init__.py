@@ -502,29 +502,33 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         directory = case_dir(slug) / "reports"
         files = sorted((p for p in directory.iterdir() if p.suffix in (".html", ".pdf")),
                        key=lambda p: p.stat().st_mtime, reverse=True) if directory.exists() else []
+        signed = {p.name[:-4] for p in directory.glob("*.sig")} if directory.exists() else set()
         with open_case(slug) as case:
             from forense.report.pdf import find_browser
+            from forense.report.signing import signing_key_path
 
-            return render_template("reports.html", slug=slug, case=case.info, files=files,
-                                   jobs=jobs.active(slug), pdf_available=bool(find_browser()))
+            return render_template("reports.html", slug=slug, case=case.info, files=files, signed=signed,
+                                   jobs=jobs.active(slug), pdf_available=bool(find_browser()),
+                                   sign_available=bool(signing_key_path()))
 
     @app.post("/c/<slug>/reports")
     def generate(slug: str):
         report_lang = normalize(request.form.get("language")) or g.lang
         verify = request.form.get("verify") == "on"
         pdf = request.form.get("pdf") == "on"
+        sign = request.form.get("sign") == "on"
         who = actor()
 
         def work(case: Case, progress) -> tuple[str, str]:
             from forense.report import generate_report
 
             progress(t("web.job.report"))
-            path = generate_report(case, report_lang, verify=verify, actor=who)
+            path = generate_report(case, report_lang, verify=verify, actor=who, sign=sign)
             if pdf:
                 from forense.report.pdf import html_to_pdf
 
                 progress("PDF")
-                path = html_to_pdf(path, case=case, actor=who)
+                path = html_to_pdf(path, case=case, actor=who, sign=sign)
             return t("cli.report_written", path=path.name), ("report_file", {"slug": slug, "name": path.name})
 
         submit(slug, "report", t("web.job.report"), work)
@@ -533,6 +537,24 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     @app.route("/c/<slug>/reports/<path:name>")
     def report_file(slug: str, name: str):
         return send_from_directory(case_dir(slug) / "reports", name)
+
+    @app.post("/c/<slug>/reports/<path:name>/verify-signature")
+    def verify_signature(slug: str, name: str):
+        from forense.report.signing import record_verification, verify_file
+
+        path = case_dir(slug) / "reports" / name
+        if Path(name).name != name or path.suffix not in (".html", ".pdf") or not path.is_file():
+            abort(404)
+        try:
+            ok = verify_file(path)
+            failure = ""
+        except ForenseError as exc:
+            ok, failure = False, f" ({exc.message(g.lang)})"
+        with open_case(slug) as case:
+            record_verification(case, path, actor(), ok)
+        flash(t("web.report_signature_ok" if ok else "web.report_signature_bad", name=name, error=failure),
+              "info" if ok else "error")
+        return redirect(url_for("reports", slug=slug))
 
     @app.post("/c/<slug>/export/<what>")
     def export(slug: str, what: str):

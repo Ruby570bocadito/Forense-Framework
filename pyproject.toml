@@ -26,6 +26,7 @@ dependencies = [
     "libbde-python>=20240502",        # BitLocker
     "pytsk3>=20231007",               # NTFS and partition tables (The Sleuth Kit)
     "yara-x>=0.10",                   # YARA rules
+    "cryptography>=42",               # detached Ed25519 signatures of reports
 ]
 keywords = ["forensics", "dfir", "windows", "evtx", "registry", "timeline", "chain of custody", "forense"]
 classifiers = [

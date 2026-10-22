@@ -8,6 +8,7 @@ import stat
 import sys
 
 import pytest
+from conftest import make_signing_key
 
 from forense.cli import EXIT_ERROR, EXIT_OK, main
 from forense.core.case import Case
@@ -85,3 +86,51 @@ def test_pdf_errors_are_reported(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     assert main(["-c", str(case), "report", "--pdf"]) == EXIT_ERROR
     assert "PDF" in capsys.readouterr().err
+
+
+# -- digital signatures of the reports -----------------------------------------------
+
+def test_signing_roundtrip(tmp_path, monkeypatch):
+    from forense.core.errors import ForenseError
+    from forense.report import signing
+
+    document = tmp_path / "report.html"
+    document.write_text("<html>informe</html>", encoding="utf-8")
+    pem, pub = make_signing_key(tmp_path)
+    key = signing.load_private_key(pem)
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", signing.fingerprint(key.public_key()))
+    sig = signing.sign_file(document, key)
+    assert sig.is_file() and re.fullmatch(r"[A-Za-z0-9+/]{86}==", sig.read_text(encoding="ascii"))
+    assert signing.verify_file(document, signing.load_public_key(pub))
+    document.write_text("<html>informe alterado</html>", encoding="utf-8")
+    assert not signing.verify_file(document, signing.load_public_key(pub))
+    other, _ = make_signing_key(tmp_path, "other")
+    assert not signing.verify_file(document, signing.load_private_key(other).public_key())
+    with pytest.raises(ForenseError):
+        signing.verify_file(tmp_path / "missing.html", signing.load_public_key(pub))
+    bogus = tmp_path / "bogus.pem"
+    bogus.write_text("not a pem", encoding="utf-8")
+    with pytest.raises(ForenseError):
+        signing.load_private_key(bogus)
+    document.write_text("<html>informe</html>", encoding="utf-8")  # original content again
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    assert signing.verify_file(document)  # public key derived from the configured signing key
+
+
+def test_generate_report_signed_and_custody(demo_case, tmp_path, monkeypatch):
+    from forense.report import signing
+
+    pem, pub = make_signing_key(tmp_path)
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    with Case.open(demo_case) as case:
+        output = generate_report(case, "en", tmp_path / "signed.html", sign=True)
+    assert signing.signature_path(output).is_file()
+    monkeypatch.setenv("FORENSE_SIGN_PUB", str(pub))
+    with Case.open(demo_case) as case:
+        assert signing.verify_file(output)
+        entry = [e for e in case.custody.entries() if e.action == "report_signed"][-1]
+        assert case.custody.verify() == []
+    details = entry.details
+    assert details["signature_file"] == "signed.html.sig" and details["algorithm"] == "ed25519"
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", details["key_fingerprint"])
+    assert "BEGIN PRIVATE KEY" not in str(details)  # the key never enters the case
