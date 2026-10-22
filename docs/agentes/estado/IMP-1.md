@@ -1,16 +1,18 @@
 # IMP-1 — Motor forense
 
 ## Hecho (últimas 24 h)
-- h-002-volatility-pista (sesión 3): H-002 (ALTO) dispositioned como falso positivo de capa de visualización,
-  misma clase que H-001/H-003. Conteo por bytes en árbol Y blob de HEAD: el extra correcto entre corchetes está
-  íntegro (es.json=3, en.json=3, update.py=1; forma corrupta=0 en todos) y `git log -S` prueba que la secuencia
-  corrupta nunca existió en código (solo en el propio documento del hallazgo, 4c81a9e).
-  - Guardas nuevas: test_upgrade_keeps_the_volatility_extra (tests/test_notify_update.py): `forense update` con
-    Volatility 3 presente construye el spec del extra entre corchetes + URL de la rama (comportamiento real de
-    upgrade con run inyectado, sin red). test_memory_extra_spec_is_byte_intact (tests/test_i18n.py): pin por
-    bytes de las 3 claves en es/en y del f-string de update.py. Los literales se construyen por partes para que
-    ninguna capa de texto pueda comerse la secuencia corchete+m en el propio test.
-  - Suite: 297 passed, 1 skipped; ruff limpio.
+- h-007-verificar-relativo (sesión 3): H-007 (MEDIO, el de mayor impacto forense según TEST) resuelto.
+  - forense/core/case.py: las evidencias DENTRO del caso se guardan ahora relativas a su raíz (como ya hacía
+    analyses.output_dir); nuevo Case.disk_path() re-basa al abrir: relativo → raíz; absoluto in situ → tal cual
+    (casos legados); absoluto con evidence/ o analyses/ → primero la copia de ESTA carpeta (caso copiado o movido),
+    si no la registrada. Verificar, análisis, triaje y delete_analysis usan disk_path. Custodia anota details.path
+    cuando un legado absoluto se re-basa (auditable).
+  - Efecto: una copia (cp/rsync) de un caso verifica sus PROPIOS ficheros — manipularla da [FAIL] aunque el
+    original siga intacto, y un caso movido deja de dar verify.missing.
+  - tests/test_core.py: +4 (copia manipulada FAIL/original OK, movido OK, legado re-basado, externa absoluta).
+    Suite: 310 passed, 1 skipped; ruff limpio.
+- h-002 (antes en esta sesión): H-002 ALTO dispositioned como falso positivo de visualización (por bytes, en
+  paralelo también por TEST en 32c7751); guardas: test_upgrade_keeps_the_volatility_extra + byte-pin en test_i18n.
 
 ## En curso
 - (nada)
@@ -19,12 +21,12 @@
 - artifact-bits (qmgr.db): sigue sin muestra real en tests/data; qmgr.db es ESE y no se sintetiza con honestidad.
 
 ## Peticiones a otras zonas
-- TEST: ya cerró H-001/H-002/H-003 por bytes (32c7751) en paralelo; mis 2 guardas (commit "test: guard the pip
-  [memory] extra...") quedan como red de regreso en la suite. Verificar que conforma mantenerlas.
-- PUL: el ejemplo de `conclusiones --archivo` del README (línea 228 aprox.) debería mostrar la creación previa
-  del archivo (parte UX de H-006, la parte de código es mía).
+- TEST: verificar h-007 (4 tests nuevos) y h-002 (guardas); cerrar hallazgos si conforma.
+- PUL: README es/en — documentar cómo mover/archivar un caso (portable copiando la carpeta; parte de H-007) y
+  que el ejemplo de `conclusiones --archivo` muestre la creación previa del fichero (H-006, parte UX).
 - DIR/humano: muestra real de qmgr.db (origen + licencia como SRUDB.dat) para artifact-bits.
 
 ## Propuestas para el roadmap
 - ampliar logfile: reconstruir la tabla de atributos abiertos (0x1C/0x1D) para nombrar operaciones contextuales.
-- Tras h-007/h-004 (esta sesión, en cola): sigma-redos e intel-misp-opencti siguen en ROADMAP para mí.
+- En cola para próximas tandas: h-004 (predicado de descubrimiento en sueltos), h-005 (aviso de hash duplicado),
+  h-006 (FileNotFoundError de conclusiones), h-009 (alias es/en de exportar), sigma-redos, intel-misp-opencti.
