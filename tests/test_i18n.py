@@ -35,6 +35,21 @@ def test_every_static_key_used_in_code_exists():
     assert missing == []
 
 
+def test_memory_extra_spec_is_byte_intact():
+    """The pip extra for Volatility keeps its brackets in both catalogs and in update.py (H-002).
+
+    The literal is built by parts because the sequence "bracket + m" has already been eaten by
+    text-display layers between the analyst and the disk (see hallazgos H-001, H-002, H-003).
+    """
+    spec = "forense-framework[" + "m" + "emory]"
+    for lang in ("es", "en"):
+        cat = catalog(lang)
+        for key in ("doctor.volatility_hint", "error.memory_vol_missing", "module.memory.opt.vol_path"):
+            assert spec in cat[key], (lang, key, cat[key])
+    source = (ROOT / "update.py").read_text(encoding="utf-8")
+    assert f"{spec} @ {{url}}" in source
+
+
 def test_every_finding_code_is_translated():
     source = _source()
     finding_codes = set(re.findall(r"""finding\(\s*["']([a-z_]+\.[a-z_]+)["']""", source))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from types import SimpleNamespace
@@ -117,6 +118,18 @@ def test_update_check_and_upgrade(monkeypatch):
         with pytest.raises(ForenseError) as exc:
             update.upgrade(update.UpdateInfo("0.1.0", "99.1.0", "dev", mode))
         assert exc.value.code == code
+
+
+def test_upgrade_keeps_the_volatility_extra(monkeypatch):
+    """With Volatility 3 installed, the upgrade reinstalls the [memory] extra instead of a bare URL (H-002)."""
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: object() if name == "volatility3" else None)
+    calls = []
+    info = update.UpdateInfo("0.1.0", "99.1.0", "dev", "pip")
+    command = update.upgrade(info, run=lambda cmd, check: calls.append(cmd) or SimpleNamespace(returncode=0))
+    # built by parts: this sequence has been "eaten" twice by text layers between the analyst and the disk
+    extra = "forense-framework[" + "m" + "emory]"
+    assert command[-1] == f"{extra} @ https://github.com/{update.REPOSITORY}/archive/refs/heads/dev.zip"
+    assert command[:4] == [sys.executable, "-m", "pip", "install"]
 
 
 def test_cli_update(monkeypatch, capsys):
