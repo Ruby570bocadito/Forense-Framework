@@ -18,6 +18,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
   </form>
 </div>
+{% with page_name = 'findings' %}{% include "_saved_filters.html" %}{% endwith %}
 {% if findings %}
 <form id="bulk-review" method="post" action="{{ url_for('bulk_review', slug=slug, **filter_args) }}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

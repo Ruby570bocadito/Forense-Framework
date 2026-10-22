@@ -1,0 +1,23 @@
+{# Saved filters bar: chips to re-apply a saved filter, each with a delete button,
+   plus a mini-form to save the current filters under a name. No JavaScript, CSP clean. #}
+{% if saved or filter_args %}
+<div class="saved-bar">
+  {% if saved %}<span class="muted small">{{ _('web.filters_title') }}</span>
+  {% for f in saved %}
+  <a class="chip" href="{{ url_for(f.page, slug=slug, **f.args) }}">{{ f.name }}</a>
+  <form method="post" action="{{ url_for('delete_filter', slug=slug, filter_id=f.id) }}" class="chip-del">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" aria-label="{{ _('web.filters_delete_title', name=f.name) }}">×</button>
+  </form>
+  {% endfor %}
+  {% endif %}
+  <form method="post" action="{{ url_for('save_filter', slug=slug) }}" class="chip-save">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="page" value="{{ page_name }}">
+    <input type="hidden" name="query" value="{{ filter_args | urlencode }}">
+    <input name="name" placeholder="{{ _('web.filters_name') }}" maxlength="80"
+           aria-label="{{ _('web.filters_name') }}" {{ 'disabled' if not filter_args else '' }}>
+    <button class="secondary small" type="submit" {{ 'disabled' if not filter_args else '' }}>{{ _('web.filters_save') }}</button>
+  </form>
+</div>
+{% endif %}

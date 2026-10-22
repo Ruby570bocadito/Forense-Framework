@@ -140,6 +140,14 @@ button.small, .button.small { padding: 3px 9px; font-size: 12px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
 .tabs a { padding: 4px 10px; border-radius: 14px; background: var(--soft); color: var(--ink); font-size: 12.5px; }
 .tabs a.active { background: var(--accent); color: var(--accent-ink); }
+.saved-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; }
+.chip { padding: 4px 12px; border-radius: 14px; background: var(--accent-soft); color: var(--accent); font-size: 12.5px; }
+.chip:hover { filter: brightness(1.05); text-decoration: none; }
+.chip-del { display: inline-flex; }
+.chip-del button { padding: 3px 8px; border-radius: 14px; border-color: var(--line); background: transparent; color: var(--muted); font-size: 12px; font-weight: 400; }
+.chip-del button:hover { color: var(--bad); border-color: var(--bad); }
+.chip-save { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.chip-save input[name="name"] { width: 170px; }
 .pager { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
 .module-options { display: none; }
 .module-options.active { display: block; }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import re
 import time
 
@@ -311,3 +312,68 @@ def test_reports_page_shows_hashes(client, workspace):
     path.write_text(path.read_text(encoding="utf-8") + "<!-- tampered -->", encoding="utf-8")
     page = client.get("/c/case1/reports").get_data(as_text=True)
     assert "Changed after generation" in page
+
+
+def test_saved_filters_flow(client, workspace):
+    token = _token(client, "/c/case1/findings?severity=high")
+    response = client.post("/c/case1/filters/save", data={
+        "csrf_token": token, "page": "findings", "name": "  Altos   pendientes ",
+        "query": "severity=high&status=needs_review&page=9&evil=<x>"})
+    assert response.status_code == 302
+    page = client.get("/c/case1/findings").get_data(as_text=True)
+    assert "Altos pendientes" in page  # name trimmed
+    assert 'href="/c/case1/findings?severity=high&amp;status=needs_review"' in page  # allowlisted keys only
+    assert "page=9" not in page and "evil" not in page
+    with Case.open(workspace / "case1") as case:
+        data = json.loads((case.root / "ui" / "saved_filters.json").read_text(encoding="utf-8"))
+    entry = data["filters"][0]
+    assert entry["query"] == "severity=high&status=needs_review" and entry["actor"] == ""
+    assert client.get("/c/case1/findings?severity=high&status=needs_review").status_code == 200
+    fid = re.search(r'action="/c/case1/filters/([0-9a-f]{8})/delete"', page).group(1)
+    assert client.post(f"/c/case1/filters/{fid}/delete", data={"csrf_token": token}).status_code == 302
+    assert "Altos pendientes" not in client.get("/c/case1/findings").get_data(as_text=True)
+    data = json.loads((workspace / "case1" / "ui" / "saved_filters.json").read_text(encoding="utf-8"))
+    assert data["filters"] == []  # the store file survives, now empty
+
+
+def test_saved_filters_guards(client, workspace):
+    token = _token(client, "/c/case1/findings?lang=en")
+    assert client.post("/c/case1/filters/save", data={"page": "findings", "name": "x",
+                                                      "query": "severity=high"}).status_code == 400  # no CSRF
+    page = client.post("/c/case1/filters/save", data={"csrf_token": token, "page": "findings",
+                                                      "name": "  ", "query": "severity=high"}, follow_redirects=True)
+    assert "Type a name to save the filter." in page.get_data(as_text=True)
+    page = client.post("/c/case1/filters/save", data={"csrf_token": token, "page": "findings",
+                                                      "name": "Todo", "query": ""}, follow_redirects=True)
+    assert "no active filters to save." in page.get_data(as_text=True)
+    assert client.post("/c/case1/filters/save", data={"csrf_token": token, "page": "bogus",
+                                                      "name": "x", "query": "severity=high"}).status_code == 404
+    assert client.post("/c/case1/filters/not-an-id/delete", data={"csrf_token": token}).status_code == 404
+
+
+def test_saved_filters_timeline_names_escaped_and_limit(client, workspace):
+    token = _token(client, "/c/case1/timeline?lang=en&severity=medium")
+    page = client.post("/c/case1/filters/save", data={"csrf_token": token, "page": "timeline",
+                                                      "name": "<b>Med</b>", "query": "severity=medium"},
+                       follow_redirects=True).get_data(as_text=True)
+    assert "&lt;b&gt;Med&lt;/b&gt;" in page  # chip names are escaped like every other value
+    assert "/c/case1/timeline?severity=medium" in page
+    from forense.web import filters as filters_store
+
+    with Case.open(workspace / "case1") as case:
+        for i in range(filters_store.MAX_FILTERS - 1):
+            filters_store.save(case.root, "timeline", f"f{i}", "severity=low", "t")
+        assert len(filters_store.load(case.root)) == filters_store.MAX_FILTERS
+    page = client.post("/c/case1/filters/save", data={"csrf_token": token, "page": "timeline",
+                                                      "name": "one too many", "query": "severity=low"},
+                       follow_redirects=True).get_data(as_text=True)
+    assert "Up to 20 saved filters" in page
+
+
+def test_saved_filters_store_tolerates_damage(tmp_path):
+    from forense.web import filters as filters_store
+
+    (tmp_path / "ui").mkdir()
+    (tmp_path / "ui" / "saved_filters.json").write_text("{broken", encoding="utf-8")
+    assert filters_store.load(tmp_path) == []
+    assert filters_store.save(tmp_path, "findings", "ok", "severity=low", "t")["query"] == "severity=low"

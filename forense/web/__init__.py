@@ -53,6 +53,7 @@ from forense.presentation import (
     severity_label,
     status_label,
 )
+from forense.web import filters as filters_store
 from forense.web.jobs import JobManager
 
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,99}$")
@@ -447,7 +448,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             return render_template("findings.html", slug=slug, case=case.info, severity=severity, status=status,
                                    technique=technique, findings=rows, total=total, page=page,
                                    pages=max(1, math.ceil(total / PAGE_SIZE)), filter_args=filter_args,
-                                   progress=case.review_progress())
+                                   progress=case.review_progress(),
+                                   saved=filters_store.parsed(filters_store.load(case.root), "findings"))
 
     @app.post("/c/<slug>/findings/<int:finding_id>/review")
     def review_finding(slug: str, finding_id: int):
@@ -492,6 +494,31 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
               "warn" if failed else "info")
         return redirect(_back(url_for("findings", slug=slug, **request.args)))
 
+    @app.post("/c/<slug>/filters/save")
+    def save_filter(slug: str):
+        """Save the current findings/timeline filters under a name, for one-click reuse."""
+        page = request.form.get("page", "")
+        if page not in filters_store.PAGES:  # only our own forms post here; anything else is forged
+            abort(404)
+        with open_case(slug) as case:
+            try:
+                filters_store.save(case.root, page, request.form.get("name", ""),
+                                   request.form.get("query", ""), actor())
+            except ForenseError as exc:  # user input problem: warn and return, not an error page
+                flash(exc.message(g.lang), "warn")
+            else:
+                flash(t("web.filters_saved", name=request.form.get("name", "").strip()[:80]), "info")
+        return redirect(_back(url_for(page if page in filters_store.PAGES else "findings", slug=slug)))
+
+    @app.post("/c/<slug>/filters/<filter_id>/delete")
+    def delete_filter(slug: str, filter_id: str):
+        if not re.fullmatch(r"[0-9a-f]{8}", filter_id):
+            abort(404)
+        with open_case(slug) as case:
+            filters_store.delete(case.root, filter_id)
+        flash(t("web.filters_deleted"), "info")
+        return redirect(_back(url_for("findings", slug=slug)))
+
     @app.post("/c/<slug>/events/<int:event_id>/bookmark")
     def bookmark_event(slug: str, event_id: int):
         with open_case(slug) as case:
@@ -523,7 +550,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             chart = _timeline_chart(case, slug, filters, filter_args) if events.total else ""
             return render_template("timeline.html", slug=slug, case=case.info, events=events, page=page,
                                    pages=max(1, math.ceil(events.total / PAGE_SIZE)), sources=case.event_sources(),
-                                   args=request.args, filter_args=filter_args, chart=chart)
+                                   args=request.args, filter_args=filter_args, chart=chart,
+                                   saved=filters_store.parsed(filters_store.load(case.root), "timeline"))
 
     def _timeline_chart(case: Case, slug: str, filters: dict, filter_args: dict):
         """Events over time for the current filters; each bar narrows the timeline to its interval."""
