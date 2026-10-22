@@ -20,15 +20,18 @@
   por IMP-2 (b1edf5b: solo extrae _GLOBS a constante en pdf.py, subprocess intacto) y e2e de TEST
   (a34af70, solo tests/e2e/). Gates re-certificados sobre la base final: ruff limpio; pytest
   299 passed / 1 skipped.
+- Lote entrado durante mi bloqueo de push, revisado: banda web-auth-warning de IMP-2 (93599b8)
+  limpia y complementaria, sin duplicar el aviso CLI; ci-pdf-job de PUL (4b5f6e5) limpio (Chrome
+  preinstalado del runner, sin secretos, acciones versionadas); web-labels-analyses (9f88327) solo
+  plantillas con test; ronda 2 de TEST (34f530d) solo en tests/e2e/. Gates sobre main empujada:
+  ruff limpio; pytest 304 passed / 1 skipped.
 
 ## En curso
 - Nada.
 
 ## Bloqueado
-- Push: el token provisto por el operador fue rechazado por GitHub (inválido/revocado o sin
-  alcance de escritura). Mis 5 commits siguen locales, rebasados sobre 3901f6a, sin --force;
-  parches y bundle exportados al espacio de descargas como plan B para que el operador los
-  aplique y empuje con sus propias credenciales.
+- Nada. El operador empujó mis 5 commits (los parches del plan B quedan archivados en el espacio
+  de descargas, ya innecesarios).
 
 ## Detectado, no corregido (motivo y siguiente paso)
 - Sin cambios: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del PDF
