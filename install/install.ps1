@@ -36,7 +36,7 @@ param(
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 $Repo = "Ruby570bocadito/Forense-Framework"
-$Refs = if ($Ref) { @($Ref) } else { @("main", "claude/inspiring-cray-xn35zk") }
+$Refs = if ($Ref) { @($Ref) } else { @("main") }
 $Spanish = (Get-Culture).TwoLetterISOLanguageName -eq "es"
 
 function Say([string]$es, [string]$en) { Write-Host ("==> " + $(if ($Spanish) { $es } else { $en })) -ForegroundColor Cyan }

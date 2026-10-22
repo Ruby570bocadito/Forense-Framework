@@ -71,7 +71,7 @@ if [ -z "$SOURCE" ]; then
     if [ -n "$HERE" ] && [ -f "$HERE/../pyproject.toml" ]; then
         SOURCE="$(cd "$HERE/.." && pwd)"
     else
-        for ref in ${REF:-main claude/inspiring-cray-xn35zk}; do
+        for ref in ${REF:-main}; do
             url="https://github.com/$REPO/archive/refs/heads/$ref.zip"
             if command -v curl >/dev/null 2>&1 && curl -fsIL "$url" >/dev/null 2>&1; then SOURCE="$url"; break; fi
             if command -v wget >/dev/null 2>&1 && wget -q --spider "$url"; then SOURCE="$url"; break; fi
