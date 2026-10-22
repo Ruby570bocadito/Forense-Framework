@@ -27,6 +27,7 @@ _MAC = ("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Chromium.app/Contents/MacOS/Chromium")
 _NAMES = ("msedge", "microsoft-edge", "google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
+_GLOBS = ("/opt/pw-browsers/chromium*/chrome-linux/chrome", "/opt/google/chrome/chrome")
 
 
 def find_browser() -> Optional[str]:
@@ -40,7 +41,7 @@ def find_browser() -> Optional[str]:
         found = shutil.which(name)
         if found:
             return found
-    for pattern in ("/opt/pw-browsers/chromium*/chrome-linux/chrome", "/opt/google/chrome/chrome"):
+    for pattern in _GLOBS:
         for path in sorted(Path("/").glob(pattern.lstrip("/")), reverse=True):
             return str(path)
     return None

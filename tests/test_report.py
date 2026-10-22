@@ -6,6 +6,7 @@ import os
 import re
 import stat
 import sys
+from pathlib import Path
 
 import pytest
 from conftest import make_signing_key
@@ -49,18 +50,27 @@ def test_report_without_findings_hides_optional_sections(case, evidence_dir, tmp
     assert "Resumen ejecutivo" in html and "Índice" in html
 
 
-def _fake_browser(tmp_path):
-    """A stand-in for Edge/Chrome that writes a minimal PDF where --print-to-pdf asks."""
-    script = tmp_path / "fake-browser"
-    script.write_text(f"#!{sys.executable}\n"
-                      "import sys\n"
-                      "out = next(a.split('=', 1)[1] for a in sys.argv if a.startswith('--print-to-pdf='))\n"
-                      "open(out, 'wb').write(b'%PDF-1.4\\n%fake\\n')\n", encoding="utf-8")
-    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+def _fake_browser(folder: Path) -> Path:
+    """A stand-in for Edge/Chrome that writes a minimal PDF where --print-to-pdf asks.
+
+    Cross-platform: a shebang script on POSIX, a .bat wrapper around the same Python
+    implementation on Windows, so the PDF path is exercised on both CI systems.
+    """
+    impl = folder / "fake-browser-impl.py"
+    impl.write_text("import sys\n"
+                    "out = next(a.split('=', 1)[1] for a in sys.argv if a.startswith('--print-to-pdf='))\n"
+                    "open(out, 'wb').write(b'%PDF-1.4\\n%fake\\n')\n", encoding="utf-8")
+    if os.name == "nt":
+        script = folder / "fake-browser.bat"
+        script.write_text(f'@echo off\r\n"{sys.executable}" "{impl}" %*\r\n', encoding="ascii")
+    else:
+        script = folder / "fake-browser"
+        script.write_text(f"#!{sys.executable}\nimport runpy\nrunpy.run_path({str(impl)!r}, run_name='__main__')\n",
+                          encoding="utf-8")
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
     return script
 
 
-@pytest.mark.skipif(os.name == "nt", reason="shebang script")
 def test_cli_report_pdf_is_hashed_into_the_custody(demo_case, tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("FORENSE_BROWSER", str(_fake_browser(tmp_path)))
     target = tmp_path / "out" / "informe.pdf"
@@ -86,6 +96,45 @@ def test_pdf_errors_are_reported(tmp_path, monkeypatch, capsys):
     capsys.readouterr()
     assert main(["-c", str(case), "report", "--pdf"]) == EXIT_ERROR
     assert "PDF" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name == "nt", reason="orphan child keeps the pipes open past the kill")
+def test_pdf_timeout_is_reported(tmp_path, monkeypatch):
+    slow = tmp_path / "fake-slow.py"
+    slow.write_text("import time\ntime.sleep(3)\n", encoding="utf-8")
+    browser = tmp_path / "fake-slow"
+    browser.write_text(f"#!{sys.executable}\nimport runpy\nrunpy.run_path({str(slow)!r}, run_name='__main__')\n",
+                       encoding="utf-8")
+    browser.chmod(browser.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("FORENSE_BROWSER", str(browser))
+    html = tmp_path / "r.html"
+    html.write_text("<p>x</p>", encoding="utf-8")
+    with pytest.raises(Exception) as info:
+        html_to_pdf(html, timeout=1)
+    assert getattr(info.value, "code", "") == "error.pdf_failed"
+
+
+def test_no_browser_error_and_path_lookup(tmp_path, monkeypatch):
+    from forense.core.errors import ForenseError
+    from forense.report import pdf
+
+    html = tmp_path / "r.html"
+    html.write_text("<p>x</p>", encoding="utf-8")
+    monkeypatch.delenv("FORENSE_BROWSER", raising=False)
+    monkeypatch.setattr(pdf, "_WINDOWS", ())
+    monkeypatch.setattr(pdf, "_MAC", ())
+    monkeypatch.setattr(pdf, "_NAMES", ())
+    monkeypatch.setattr(pdf, "_GLOBS", ())
+    assert pdf.find_browser() is None
+    with pytest.raises(ForenseError) as info:
+        html_to_pdf(html)
+    assert info.value.code == "error.pdf_no_browser"
+
+    fake = tmp_path / "found-chrome"  # a browser discovered through PATH
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setattr(pdf, "_NAMES", ("chromium",))
+    monkeypatch.setattr(pdf.shutil, "which", lambda name: str(fake) if name == "chromium" else None)
+    assert pdf.find_browser() == str(fake)
 
 
 # -- digital signatures of the reports -----------------------------------------------
