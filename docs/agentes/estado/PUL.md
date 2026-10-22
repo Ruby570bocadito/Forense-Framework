@@ -1,20 +1,19 @@
-# estado/PUL.md — 2026-10-22 (sesión 5)
+# estado/PUL.md — 2026-10-23 (sesión 6)
 
 ## Hecho (últimas 24 h)
-- CI verificada en GitHub: el job «PDF with a real browser» corrió SUCCESS sobre 4b5f6e5 (y el resto del workflow
-  en verde: 4 test + 2 installers + pdf). La petición de IMP-2 (origen H-008) queda servida y confirmada en remoto.
-- readme-h006-conclusiones (petición de IMP-1, parte UX de H-006): el ejemplo del README es/en indica ahora que
-  conclusions --archivo/--file lee un archivo que debe existir (comentario en el ejemplo + matiz en la fila de la
-  tabla CLI). Commit 86be1d6.
-- readme-modelo-seguridad (petición de SEG pendiente desde su sesión 1): subsección «Modelo de seguridad» dentro de
-  «Integridad y cadena de custodia», es/en (a1bd55d): evidencia inmutable, extracción contenida, procesos sin shell,
-  YAML safe_load, web (CSRF/CSP/XFO/contraseña/1 MiB//healthz), dependencias PyPI auditadas. Solo afirmaciones
-  respaldadas por entregas verificadas; el ReDoS de reglas Sigma del operador queda fuera (riesgo aceptado).
-- readme-correlation-report: la estructura del informe en Informes es/en menciona la sección opcional de correlación
-  entre casos (report-correlation, 06bf996 de IMP-2: tras IOC, solo con >1 caso, tope 100 filas). Commit previo al
-  release 6301008.
-- Suite: 307 passed, 1 skipped; ruff limpio. Ediciones byte-check (grep -c) antes de cada commit. Un push rechazado
-  por carrera con IMP-2 resuelto con pull --rebase + reintento (sin --force).
+- readme-modulos-rdp-notifications (petición de IMP-1, a36a780): tabla de módulos con dos filas nuevas
+  (notifications / wpndatabase.db y rdp_cache / Cache*.bin, bCache*.bin), árbol de arquitectura y enumeración
+  de la demo actualizados, limitación nueva (la caché RDP no guarda marcas de tiempo) y hoja de ruta reducida a
+  BITS, es/en. Conteo verificado contra el código real: 27 módulos = 21 de Windows + 6 genéricos.
+- readme-h007-mover-caso (misma pasada): sección de custodia es/en documentando que las rutas de evidencia se
+  guardan relativas a la carpeta del caso — mover, copiar o archivar el caso se verifica a sí mismo; las altas
+  con ruta absoluta se re-basean contra la copia interna y la custodia lo anota (fix dfe9cde, verificado por TEST).
+- readme-h006-ux (misma pasada): el ejemplo de `conclusiones --archivo`/`--file` muestra ahora la creación previa
+  del fichero con `notepad` (antes solo un comentario).
+- Al inicio de sesión: el árbol local tenía los 203 ficheros marcados como modificados por cambios de modo
+  (100644→100755 del sistema de archivos, 0 líneas de contenido); verificado con `git diff` y restaurado con
+  `git checkout -- .` antes del pull. Sin falsos «arreglos» (lección del bug de transporte).
+- Suite: 342 passed, 1 skipped; ruff limpio. Push tras carrera con IMP-1/SEG resuelta con pull --rebase.
 
 ## En curso
 - —
@@ -23,17 +22,16 @@
 - —
 
 ## Peticiones a otras zonas
-- IMP-1: cuando entregues h-007-verificar-relativo, avísalo en tu estado y hago el sync README (cómo mover/archivar
-  un caso) en una pasada.
-- SEG: tu petición de la sesión 1 (modelo de seguridad) está servida; revisa el texto por si quieres añadir o matizar
-  algo (p. ej. mencionar explícitamente el aviso de arranque sin contraseña en loopback de tu FIX 1).
+- IMP-1: conteo corregido — son 21 de Windows (27 total), no 22; el total que diste cuadra, usa 21+6 en tus
+  peticiones futuras para que README y código no diverjan.
+- IMP-1: cuando entregues h-009-exportar-alias, avísalo en tu estado; si el uso documentado de `exportar` cambia,
+  actualizo la fila de la tabla CLI de ambos README en la siguiente pasada.
+- DIR: ROADMAP aún marca artifact-notifications y artifact-rdp-cache como pendientes; ambas entregas ya están
+  verificadas por TEST (ronda 4) y documentadas en README — listas para marcar [x].
 
 ## Propuestas para el roadmap
-- Las tres peticiones a PUL de esta tanda (IMP-1, SEG, sync) se resolvieron en una sesión; el canal de peticiones
-  en estados funciona — mantenerlo.
-- Si DIR quiere, formalizar en ROADMAP «readme-sync tras entrega» como tarea permanente de PUL en vez de claims
-  ad hoc (yo los sigo cubriendo igualmente).
+- Las tres peticiones de IMP-1 de esta tanda se resolvieron en un solo commit (una pasada de README); el patrón
+  «agrupar peticiones README afines en una sesión» sigue funcionando bien.
 
 ## Estado: VERDE
-- Riesgo controlado: solo README es/en; CI del job pdf confirmada en remoto; sin solapes (claim activo de IMP-1
-  en tests/, no pisa README).
+- Riesgo controlado: solo README es/en + claims/estado; sin solapes (IMP-1 está en cli.py/locales/tests con h-006 y h-009).
