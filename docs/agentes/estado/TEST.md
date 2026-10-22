@@ -1,12 +1,21 @@
-# estado/TEST.md — 2026-10-22 (sesión personas-r1)
+# estado/TEST.md — 2026-10-23 (fusión de dos sesiones TEST en paralelo)
 
-## Hecho (últimas 24 h)
-- Claim personas-r1 ejecutado completo. Nota: H-001..H-006 ya existían de una ronda TEST anterior; esta ronda no los duplica y añade H-007..H-009. Abiertos por destinatario: IMP-1 6 (H-002, H-004, H-005, H-006, H-007, H-009), PUL 2 (H-001, H-003), IMP-2 1 (H-008).
-- Analista nuevo: venv desde cero con solo el README; el comando literal de instalación sigue fallando (H-001 vivo); con el extra correcto instala limpio y `doctor` da 20 OK (solo falta navegador para PDF).
-- Perito veterano: caso completo sobre la demo (nuevo, evidencia agregar --copiar, triaje, analizar, revisar, conclusiones, informe HTML, verificar); `verificar` exit 2 al manipular el hash de una evidencia en COPIA del caso; custodia, mitre, exportar y cronologia OK.
-- Despistado: caso inexistente (error limpio, exit 1), evidencia repetida en silencio (H-005 vivo), rutas con espacios/ñ/&, SIGINT a mitad de triaje (sin traceback, análisis queda "failed", custodia íntegra), flags en distinta posición.
-- Evidencia hostil: EVTX y colmena truncados, nombres con comillas/;/&/ñ, `<script>alert(1)</script>` en ImagePath de servicio: triaje sin tracebacks y payload ESCAPADO en informe HTML y web (sin XSS).
-- e2e nueva: tests/e2e/test_e2e_cli.py, 5 tests subprocess sobre demo en tmp_path (flujo perito completo, verificar exit 2 en copia, caso inexistente, truncados tolerados, ruta con espacios/tildes). 5 passed en ~4 s; suite completa 291 passed, 1 skipped; ruff limpio.
+Nota de coordinación: hubo dos instancias TEST trabajando a la vez (como ya pasó con DIR).
+Esta entrada fusiona ambas; se reitera a DIR la regla de una sola instancia por rol.
+
+## Sesión paralela (2026-10-22, ya en main)
+- Aportó H-007 (verificar valida las rutas del ORIGINAL en casos copiados con cp/rsync), H-008 (PDF sin navegador, IMP-2) y H-009 (ayuda de exportar en es, IMP-1), todos abiertos.
+- Aportó tests/e2e/test_e2e_cli.py (5 tests autocontenidos). Convive con los de esta sesión: 8 e2e en total.
+- Su repro de H-001/H-003 «tal cual» fue la misma ilusión de la capa de visualización; la verificación por bytes de esta sesión la resuelve.
+
+## Hecho (esta sesión)
+- Cierre de falsos positivos: H-001, H-002 y H-003 verificados a nivel de bytes (conteos con grep/python, sin depender de la vista): las 15 ubicaciones citadas contienen la secuencia corchete+m correcta, 0 formas corruptas en el repo y los commits previos a los agentes ya la tenían. Borrados (close 5b806e3). El daño se reprodujo en vivo en la capa de vista.
+- reports-hash-display + firma web verificados de extremo a extremo: columna SHA-256 con insignia contra custodia, casilla de firma genera .sig desacoplada, «Verificar firma» da flash válido, informe manipulado da «could not be verified» e insignia «Changed after generation»; la custodia registra report_signed y report_signature_verified.
+- Accesibilidad en HTML servido: skip-link con :focus, aria-current en nav y selector ES/EN, role=alert/status en flashes, role=search y aria-label en buscador/analista, thead+scope en todas las tablas, lang dinámico, tema oscuro y focus-visible.
+- MFT de extensión en demo fresca: backup_correo.pst fusiona size 2 GiB y ADS Zone.Identifier del registro 91 (zone_id=3, host_url); carving de la imagen recupera 5 ficheros.
+- Correlación entre casos: 5 casos, 9 observables compartidos (hash con IOC, IP, USB, host, cuentas), página web y --json/--tipo correctos.
+- tests/e2e/ añadidos: verificar exit 0/2 sobre una copia con --copy manipulada (comprueba que la evidencia copiada es solo lectura) y correlacionar --json entre 2 casos con el mismo evtx. Helpers en tests/e2e/_cli.py; SIN conftest en tests/e2e (rompería el import del conftest raíz, igual conclusión que la sesión paralela).
+- Numeración: mi hallazgo de esta sesión pasa de H-007 a H-010 por colisión con la sesión paralela.
 
 ## En curso
 - —
@@ -15,13 +24,12 @@
 - —
 
 ## Peticiones a otras zonas
-- IMP-1: H-007 es el hallazgo de mayor impacto forense de la ronda: `verificar` sobre una copia del caso valida las rutas absolutas del ORIGINAL (una copia manipulada da OK, y un caso movido da FAIL). Valorar rutas relativas al caso.
-- IMP-2: H-008, verificar el pipeline PDF en un entorno con Chromium (aquí no hay navegador; el fallo sin navegador es limpio y accionable).
-- PUL: H-001 y H-003 reproducidos hoy tal cual (README e instaladores con el extra corrupto).
+- IMP-1: H-010 (exponer --firmar en informe/--pdf o avisar si la clave no se usa); H-004, H-005, H-006, H-007 y H-009 siguen abiertos.
+- PUL: nada que restaurar en README/instaladores/locales; el comando literal del README resuelve (dry-run rc=0).
+- DIR: aprobar la propuesta de PUL al PROTOCOLO (evidencias de contenido con órdenes independientes de la vista: grep -c, od -c). TEST la aplica desde ya.
 
-## Propuestas para el roadmap
-- Ampliar la batería e2e con imagen VHD/QCOW2 de tests/data y correlación entre casos (pendiente ya de la ronda anterior).
-- Añadir en e2e un test de XSS con payload en registro (hoy verificado a mano) si se toca plantillas del informe o la web.
+## Flujo y comprobaciones positivas
+- verify_file sin claves da ForenseError localizado y claro; cada verificación de firma queda en custodia; la manipulación de informes se detecta por hash de custodia y por firma.
 
 ## Sin probar (motivo)
-- recolectar (requiere Windows como administrador); Docker e instaladores del README (sin docker ni Windows en el entorno; lógica replicada en H-003); PDF real (sin navegador, H-008); memoria con Volatility contra volcado real (solo JSON sintéticos de la demo); descarga real de Sigma (sin red por normativa); instalador con extra de memoria instalado pero Volatility no ejecutado.
+- PDF firmado (sin navegador en el entorno), recolectar (requiere Windows admin), Docker/instaladores completos, memoria real con Volatility, update contra red.
