@@ -85,6 +85,53 @@ def test_builtin_rules_load_and_cli(capsys):
     assert "unsupported" in capsys.readouterr().out
 
 
+# -- ReDoS guard on |re patterns (sigma-redos) -----------------------------------------------
+@pytest.mark.parametrize("evil", [
+    r"(a+)+b",                # nested quantifier, the canonical freeze
+    r"^(a|aa)+$",             # overlapping alternation inside a quantified group
+    r"(?:a*)+b",              # quantifier nested in a non-capturing group
+    r"(a?)+b",                # empty-able loop
+    r"(x(?:a|aa)y)+",         # alternation at any depth counts
+    r"(a(b+))+c",             # quantifier at inner depth too
+    r"(a)\1+",                # quantified backreference
+    r"(a{1,3}){2,}b",         # open {n,} loop over a branching body
+    r"a{1,99999}",            # counted repeat out of bounds
+    "a" * 1025,               # over the length limit
+])
+def test_sigma_redos_patterns_rejected(evil):
+    with pytest.raises(SigmaError):
+        rule({"s": {"Cmd|re": evil}, "condition": "s"})
+
+
+@pytest.mark.parametrize("safe, text, expected", [
+    (r"^powershell.*-e\s", "PowerShell -e AAA", False),  # no |i: case sensitive, as any other regex
+    (r"[\w.-]+@[\w.-]+\.\w+", "a.b@x.co", True),
+    (r"(ab)+c", "ababc", True),
+    (r"a{2,10}b", "aaaaab", True),
+    (r"(?:[\w.]-)*x", "a.-x", True),
+    (r"(?i)mimikatz", "MimiKatz", True),
+    (r"\d{1,3}(\.\d{1,3}){3}", "10.0.0.1", True),
+    (r"(?:[A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}", "00:1A:2B:3C:4D:5E", True),
+    (r"(?i)^powershell.*-e\s", "PowerShell -e AAA", True),
+])
+def test_sigma_redos_safe_patterns_still_match(safe, text, expected):
+    compiled = rule({"s": {"Cmd|re": safe}, "condition": "s"})
+    assert compiled.matches({"Cmd": text}) is expected
+
+
+def test_sigma_redos_hostile_rule_becomes_load_error(tmp_path):
+    (tmp_path / "evil.yml").write_text(
+        "title: evil\nid: e1\nlevel: high\nlogsource:\n  product: windows\n  service: security\n"
+        "detection:\n  s:\n    CommandLine|re: '(a+)+$'\n  condition: s\n", encoding="utf-8")
+    (tmp_path / "good.yml").write_text(
+        "title: good\nid: g1\nlevel: high\nlogsource:\n  product: windows\n  service: security\n"
+        "detection:\n  s:\n    CommandLine|contains: 'whoami'\n  condition: s\n", encoding="utf-8")
+    ruleset, errors = SigmaRuleSet.load([tmp_path])
+    assert len(errors) == 1 and "evil.yml" in errors[0][0] and "catastrophic" in errors[0][1]
+    assert [r.title for r in ruleset.rules] == ["good"]  # the rest of the pack keeps working
+    assert ruleset.match("Security", 4688, {"CommandLine": "whoami /priv"})
+
+
 def test_sigma_download_extraction(tmp_path):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
