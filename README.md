@@ -523,14 +523,21 @@ caso/
 ```
 forense/
 ├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones
-├── parsers/     regf (+ logs de transacciones), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM, shell items,
-│                Jump Lists, Volatility
+├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM,
+│                Defender, shell items, Jump Lists, Volatility
 ├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
 ├── sigma/       motor Sigma y reglas integradas
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, tasks, wmi, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py recolección en vivo
+├── automation.py  auto y vigilar (playbooks)
+├── notify.py      notificaciones al terminar la automatización
+├── update.py      forense update: busca e instala una versión nueva
+├── doctor.py      forense doctor: diagnóstico de la instalación
+├── i18n.py        textos es/en
+├── charts.py      gráficos SVG para web e informe (sin JavaScript)
+├── presentation.py  salida compartida de CLI, web e informe
 ├── report/      informe HTML (Jinja2)
 ├── web/         interfaz Flask (plantillas, estáticos, tareas en segundo plano)
 ├── demo/        escenario de demostración y generadores de artefactos sintéticos
@@ -599,7 +606,7 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 - Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache
 - Firma digital de informes
-- Correlación entre casos e importación de inteligencia desde MISP/OpenCTI
+- Importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
 
 ## Desarrollo

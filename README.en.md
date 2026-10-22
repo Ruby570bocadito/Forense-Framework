@@ -518,14 +518,21 @@ case/
 ```
 forense/
 ├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports
-├── parsers/     regf (+ transaction logs), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM, shell items, Jump Lists,
-│                Volatility
+├── parsers/     regf (+ transaction logs and deleted cells), lnk, $I, $MFT, $UsnJrnl, ShimCache, EVTX, SRUM,
+│                Defender, shell items, Jump Lists, Volatility
 ├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor
 ├── sigma/       Sigma engine and built-in rules
 ├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, tasks, wmi, psreadline, wintimeline, setupapi, memory)
+│                usnjrnl, tasks, wmi, defender, psreadline, wintimeline, setupapi, memory)
 │                generic/ (image, inventory, ioc, hashset, yara, carving)
 ├── collector.py live collection
+├── automation.py  auto and watch (playbooks)
+├── notify.py      notifications when automated analysis finishes
+├── update.py      forense update: check for and install a newer version
+├── doctor.py      forense doctor: installation diagnostics
+├── i18n.py        es/en texts
+├── charts.py      server-side SVG charts for web and report (no JavaScript)
+├── presentation.py  output rendering shared by CLI, web and report
 ├── report/      HTML report (Jinja2)
 ├── web/         Flask interface (templates, static files, background jobs)
 ├── demo/        demo scenario and synthetic artifact builders
@@ -593,7 +600,7 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 - More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache
 - Digital signature of reports
-- Cross-case correlation and intelligence import from MISP/OpenCTI
+- Intelligence import from MISP/OpenCTI
 - Linux and macOS as analysed systems
 
 ## Development
