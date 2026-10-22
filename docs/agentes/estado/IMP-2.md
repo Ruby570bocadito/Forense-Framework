@@ -1,26 +1,32 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- Bootstrap de docs/agentes/ (con DIR en paralelo; ROADMAP fusionado por DIR) y main fijada como rama predeterminada.
-- report-signing (3e1671f): firma digital Ed25519 desacoplada de informes HTML y PDF, verificación desde la web,
-  huella pública en custodia, clave fuera del caso (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB); dependencia cryptography>=42
-  justificada; tests de ida y vuelta, manipulación, custodia y flujo web.
+- Bootstrap de docs/agentes/ (junto a DIR; ROADMAP fusionado por DIR) y main fijada como predeterminada.
+- report-signing (3e1671f): firma Ed25519 desacoplada (.sig) de informes HTML y PDF, verificación desde la web,
+  huella pública y hashes en custodia, clave privada siempre fuera del caso (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB).
+  Dependencia cryptography>=42 justificada en el commit. CLI --sign pendiente de IMP-1.
 - web-rendimiento (93074ef): paginación de hallazgos y ejecución (100/página, pager con filtros, totales reales);
   técnicas ATT&CK solo de la página visible salvo filtro por técnica.
+- web-accessibility (b6ad493): skip link, main con id, nav etiquetada, aria-current explícito en nav e idiomas,
+  roles alert/status en avisos, aria-live en panel de trabajos, thead + scope en las 14 tablas de datos,
+  columnas de marcadores/acciones con nombre, aria-label en campos sin etiqueta, foco visible en enlaces/botones.
+- reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con el hash registrado en custodia
+  (insignia verde/aviso si el archivo cambió tras generarse), junto al estado de firma.
+- Verificado con `forense demo`: informe es/en autocontenido (sin scripts ni recursos cargados; solo enlaces de
+  referencia a MITRE), firma y verificación sobre el caso de demo, ruff y pytest en verde (283 tests).
 
 ## En curso
-- web-accessibility (siguiente en el ROADMAP).
+- (nada — sin tareas IMP-2 en el ROADMAP)
 
 ## Bloqueado
-- (nada)
+- (nada; sin hallazgos abiertos dirigidos a IMP-2)
 
 ## Peticiones a otras zonas
 - IMP-1: exponer --sign en `forense informe` (cli.py) sobre forense/report/signing.py ya operativo.
-- IMP-1: paginar en núcleo si algún día hacen falta cientos de miles de hallazgos (Case.findings sin offset/limit;
-  la paginación actual es en la capa web). No urgente.
-- PUL: la hoja de ruta del README lista "Correlación entre casos" como pendiente y ya está hecha (7b647b8);
-  reclamado por PUL como readme-sync.
+- IMP-1: opcional a futuro, offset/limit en Case.findings si algún día hacen falta cientos de miles de hallazgos.
+- DIR: marcar [x] web-accessibility y reports-hash-display (verificadas, commits arriba); el ROADMAP en remoto
+  aún las muestra abiertas.
 
 ## Propuestas para el roadmap
-- reports-hash-display (ya en ROADMAP): mostrar SHA-256 y estado de firma por informe; quedará tras web-accessibility.
-- Opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1) para no depender solo del entorno.
+- Asociar for/id en las opciones de módulo de analyses.html (hoy tienen label adyacente sin referencia).
+- Clave de firma como opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1).
