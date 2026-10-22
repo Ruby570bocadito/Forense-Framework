@@ -89,3 +89,15 @@
     });
   });
 })();
+
+// Findings bulk review: the header checkbox toggles the checkboxes of the visible rows.
+(function () {
+  "use strict";
+  document.addEventListener("change", function (ev) {
+    var box = ev.target;
+    if (!box.matches || !box.matches("input[data-checkall]")) return;
+    document.querySelectorAll('table input[name="ids"]').forEach(function (cell) {
+      cell.checked = box.checked;
+    });
+  });
+})();

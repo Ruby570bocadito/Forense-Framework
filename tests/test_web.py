@@ -90,6 +90,66 @@ def test_invalid_option_is_flashed(client):
     assert "hash_list" in response.get_data(as_text=True)
 
 
+def test_bulk_review_flow(tmp_path):
+    from forense.cli import EXIT_OK, main
+
+    root = tmp_path / "ws"
+    assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
+    app = create_app(root)
+    app.config["TESTING"] = True
+    client = app.test_client()
+
+    page = client.get("/c/case_demo/findings").get_data(as_text=True)
+    assert 'id="bulk-review"' in page and 'form="bulk-review"' in page
+    assert "data-checkall" in page and 'aria-label="Select all visible findings"' in page
+    token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
+    ids = re.findall(r'name="ids" value="(\d+)"', page)[:2]
+    assert len(ids) == 2
+
+    response = client.post("/c/case_demo/findings/bulk-review",
+                           data={"csrf_token": token, "ids": ids, "status": "false_positive", "note": "bulk test"},
+                           follow_redirects=True)
+    html = response.get_data(as_text=True)
+    assert "Bulk review applied to 2 findings" in html
+    with Case.open(root / "case_demo") as case:
+        for finding_id in map(int, ids):
+            finding = next(f for f in case.findings() if f["id"] == finding_id)
+            assert finding["review"]["status"] == "false_positive" and finding["review"]["note"] == "bulk test"
+            history = case.review_history("finding", finding_id)
+            assert history and history[-1]["status"] == "false_positive"  # one custody entry per finding
+
+
+def test_bulk_review_edges(tmp_path):
+    from forense.cli import EXIT_OK, main
+
+    root = tmp_path / "ws"
+    assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
+    app = create_app(root)
+    app.config["TESTING"] = True
+    client = app.test_client()
+    page = client.get("/c/case_demo/findings").get_data(as_text=True)
+    token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
+    first_id = re.findall(r'name="ids" value="(\d+)"', page)[0]
+    url = "/c/case_demo/findings/bulk-review"
+
+    assert client.post(url, data={"ids": first_id, "status": "confirmed"}).status_code == 400  # no CSRF
+
+    response = client.post(url, data={"csrf_token": token, "ids": first_id, "status": "hostile"},
+                           follow_redirects=True)
+    assert "Invalid review status" in response.get_data(as_text=True)  # invalid status fails loudly
+
+    response = client.post(url, data={"csrf_token": token, "status": "confirmed"}, follow_redirects=True)
+    assert "No findings selected" in response.get_data(as_text=True)
+
+    response = client.post(url, data={"csrf_token": token, "ids": [first_id, "999999"], "status": "confirmed"},
+                           follow_redirects=True)
+    html = response.get_data(as_text=True)
+    assert "1 findings updated; 1 skipped" in html
+    with Case.open(root / "case_demo") as case:
+        finding = next(f for f in case.findings() if f["id"] == int(first_id))
+        assert finding["review"]["status"] == "confirmed"
+
+
 def test_create_case_and_export(client, workspace):
     token = _token(client, "/")
     response = client.post("/cases", data={"csrf_token": token, "slug": "case2", "name": "Second",

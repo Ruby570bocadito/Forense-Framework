@@ -34,7 +34,7 @@ from werkzeug.exceptions import NotFound
 
 from forense import __version__
 from forense.core.case import Case
-from forense.core.errors import ForenseError
+from forense.core.errors import CaseError, ForenseError
 from forense.core.utils import normalize_ts, range_end, stamped_path
 from forense.i18n import SUPPORTED, detect_language, label, normalize, set_language, t
 from forense.modules.base import SEVERITIES, available_modules, get_module
@@ -55,6 +55,7 @@ from forense.web.jobs import JobManager
 
 _SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,99}$")
 PAGE_SIZE = 100
+_BULK_LIMIT = 1000  # hard cap of findings per bulk review request
 
 
 def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
@@ -425,6 +426,42 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             case.review_finding(finding_id, request.form.get("status", ""), request.form.get("note", ""), actor())
         flash(t("web.review_saved"), "info")
         return redirect(_back(url_for("findings", slug=slug)) + f"#f{finding_id}")
+
+    @app.post("/c/<slug>/findings/bulk-review")
+    def bulk_review(slug: str):
+        """Apply one review status (and optional note) to several findings at once.
+
+        Every finding is still reviewed individually through Case.review_finding, so the
+        custody trail keeps one entry per finding, with actor and UTC timestamp.
+        """
+        from forense.core.review import FINDING_STATUSES, normalize_status
+
+        ids: list[int] = []
+        for raw in request.form.getlist("ids"):
+            if raw.isascii() and raw.isdigit() and len(raw) < 12:
+                value = int(raw)
+                if value not in ids:
+                    ids.append(value)
+        ids = ids[:_BULK_LIMIT]
+        status = request.form.get("status", "")
+        note = request.form.get("note", "").strip()
+        # Fail loudly on an invalid status instead of silently skipping the whole batch.
+        if normalize_status(status) not in FINDING_STATUSES:
+            raise CaseError("error.review_status", status=status, allowed=", ".join(FINDING_STATUSES))
+        if not ids:
+            flash(t("web.bulk_none"), "warn")
+            return redirect(_back(url_for("findings", slug=slug)))
+        done = failed = 0
+        with open_case(slug) as case:
+            for finding_id in ids:
+                try:
+                    case.review_finding(finding_id, status, note, actor())
+                    done += 1
+                except CaseError:  # a finding deleted between render and submit must not sink the batch
+                    failed += 1
+        flash(t("web.bulk_partial", done=done, failed=failed) if failed else t("web.bulk_done", done=done),
+              "warn" if failed else "info")
+        return redirect(_back(url_for("findings", slug=slug, **request.args)))
 
     @app.post("/c/<slug>/events/<int:event_id>/bookmark")
     def bookmark_event(slug: str, event_id: int):

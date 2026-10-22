@@ -19,10 +19,21 @@
   </form>
 </div>
 {% if findings %}
+<form id="bulk-review" method="post" action="{{ url_for('bulk_review', slug=slug, **filter_args) }}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label style="display:flex; gap:6px; align-items:center">{{ _('report.review_status') }}
+    <select name="status">
+      {% for st in ['confirmed', 'false_positive', 'needs_review'] %}<option value="{{ st }}">{{ _('review.' + st) }}</option>{% endfor %}
+    </select>
+  </label>
+  <input name="note" placeholder="{{ _('review.note') }}" aria-label="{{ _('review.note') }}">
+  <button class="secondary small" type="submit">{{ _('web.bulk_apply') }}</button>
+</form>
 <div class="table-wrap"><table>
-  <thead><tr><th scope="col">#</th><th scope="col">{{ _('field.severity') }}</th><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('report.finding') }}</th><th scope="col">{{ _('report.review_status') }}</th></tr></thead>
+  <thead><tr><th scope="col" style="width:32px"><input type="checkbox" data-checkall style="width:auto" aria-label="{{ _('web.bulk_select_all') }}"></th><th scope="col">#</th><th scope="col">{{ _('field.severity') }}</th><th scope="col">{{ _('field.timestamp') }} (UTC)</th><th scope="col">{{ _('report.finding') }}</th><th scope="col">{{ _('report.review_status') }}</th></tr></thead>
   {% for f in findings %}
   <tr id="f{{ f.id }}" class="{{ 'dimmed' if f.review.status == 'false_positive' }}">
+    <td><input type="checkbox" name="ids" value="{{ f.id }}" form="bulk-review" style="width:auto" aria-label="{{ _('web.bulk_select', id=f.id) }}"></td>
     <td class="mono">{{ f.id }}</td>
     <td>{{ sevbadge(f.severity) }}</td>
     <td class="mono">{{ f.timestamp | ts }}</td>
