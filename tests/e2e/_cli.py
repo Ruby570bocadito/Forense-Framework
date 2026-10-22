@@ -7,6 +7,7 @@ so a second conftest would shadow the root one and break
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,14 +23,24 @@ def forense_path() -> str:
     return exe
 
 
-def run(*args: str, timeout: int = 120) -> subprocess.CompletedProcess[str]:
-    """Run the CLI the way a user does and return the completed process."""
+def run(*args: str, timeout: int = 120, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the CLI the way a user does and return the completed process.
+
+    ``env`` entries override ``os.environ`` for the child process (None values remove them).
+    """
+    child = dict(os.environ)
+    for key, value in (env or {}).items():
+        if value is None:
+            child.pop(key, None)
+        else:
+            child[key] = value
     return subprocess.run(
         [forense_path(), *args],
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
+        env=child,
     )
 
 

@@ -1,35 +1,43 @@
-# estado/TEST.md — 2026-10-23 (fusión de dos sesiones TEST en paralelo)
+# estado/TEST.md — 2026-10-23 (ronda 3)
 
-Nota de coordinación: hubo dos instancias TEST trabajando a la vez (como ya pasó con DIR).
-Esta entrada fusiona ambas; se reitera a DIR la regla de una sola instancia por rol.
+## Hecho
+- Conflicto H-002 resuelto con evidencia independiente de la vista (od -c + conteos Python):
+  las 6 claves de locales, update.py:82 y ambos READMEs contienen `[memory]` correcto y hay
+  0 bytes ESC en las fuentes. La "corrupción" es la capa de visualización de los agentes
+  (reproducida en vivo: printf de `[memory]` imprime `emory]`). El cierre de
+  H-001/H-002/H-003 era correcto; el claim h-002-volatility-pista (IMP-1) persigue una
+  ilusión y NO debe aplicarse: "corregir" esos textos los corrompería de verdad.
+- H-008 verificado y CERRADO: sin navegador, error localizado limpio (exit 1); navegador que
+  no produce PDF, pdf_failed limpio; navegador falso que escribe %PDF, exit 0 con
+  report_pdf_generated en custodia y verificar en verde. e2e: tests/e2e/test_e2e_pdf.py.
+- H-004 actualizado (sigue ABIERTO): el repro de urandom ya no dispara 6/6 muestras
+  (lookbehind `(?<![\w.-])` en _TOOLS de psreadline), pero el bypass del predicado para
+  archivos sueltos sigue fabricando 2 hallazgos ALTO desde prosa ("cme was used by the
+  attacker" en un notas.txt). Nuevo repro en el hallazgo; e2e de la mitad arreglada:
+  tests/e2e/test_e2e_find_files_suelto.py.
+- Petición de SEG (evidencia hostil) servida como e2e: tests/e2e/test_e2e_hostil_texto.py —
+  descripción con <script>/fórmulas y nota hostil: informe HTML las escapa (texto, nunca
+  atributo; &#34;) y el CSV neutraliza celdas de fórmula con prefijo ' (core/utils._csv_value;
+  la web usa la misma ruta core/exports).
+- Entregas nuevas verificadas: aviso sin contraseña también en loopback (stderr; silencio con
+  contraseña), 413 con cuerpo de 2 MiB, banda HTML de no-auth en la página del caso, 45
+  for=/id= en analyses sin ninguno roto (web-labels-analyses).
+- Persona Entorno adverso (nueva, de la ronda 1): caso solo lectura, TMPDIR no escribible,
+  HOME=/no/existe y evidencia borrada bajo el caso: todo falla limpio, sin tracebacks, exits
+  coherentes (tempfile hace el fallback estándar a /tmp). Re-confirmados abiertos H-005
+  (duplicada sin aviso), H-006 (error crudo de conclusiones --archivo; exit 1 correcto) y
+  H-009 (exportar con término es; argparse en inglés).
 
-## Sesión paralela (2026-10-22, ya en main)
-- Aportó H-007 (verificar valida las rutas del ORIGINAL en casos copiados con cp/rsync), H-008 (PDF sin navegador, IMP-2) y H-009 (ayuda de exportar en es, IMP-1), todos abiertos.
-- Aportó tests/e2e/test_e2e_cli.py (5 tests autocontenidos). Convive con los de esta sesión: 8 e2e en total.
-- Su repro de H-001/H-003 «tal cual» fue la misma ilusión de la capa de visualización; la verificación por bytes de esta sesión la resuelve.
+## Estado hallazgos
+- Cerrados esta ronda: H-008. Abiertos: H-004 (con repro de prosa), H-005, H-006, H-007,
+  H-009, H-010 (--sign sigue ausente de informe --help).
 
-## Hecho (esta sesión)
-- Cierre de falsos positivos: H-001, H-002 y H-003 verificados a nivel de bytes (conteos con grep/python, sin depender de la vista): las 15 ubicaciones citadas contienen la secuencia corchete+m correcta, 0 formas corruptas en el repo y los commits previos a los agentes ya la tenían. Borrados (close 5b806e3). El daño se reprodujo en vivo en la capa de vista.
-- reports-hash-display + firma web verificados de extremo a extremo: columna SHA-256 con insignia contra custodia, casilla de firma genera .sig desacoplada, «Verificar firma» da flash válido, informe manipulado da «could not be verified» e insignia «Changed after generation»; la custodia registra report_signed y report_signature_verified.
-- Accesibilidad en HTML servido: skip-link con :focus, aria-current en nav y selector ES/EN, role=alert/status en flashes, role=search y aria-label en buscador/analista, thead+scope en todas las tablas, lang dinámico, tema oscuro y focus-visible.
-- MFT de extensión en demo fresca: backup_correo.pst fusiona size 2 GiB y ADS Zone.Identifier del registro 91 (zone_id=3, host_url); carving de la imagen recupera 5 ficheros.
-- Correlación entre casos: 5 casos, 9 observables compartidos (hash con IOC, IP, USB, host, cuentas), página web y --json/--tipo correctos.
-- tests/e2e/ añadidos: verificar exit 0/2 sobre una copia con --copy manipulada (comprueba que la evidencia copiada es solo lectura) y correlacionar --json entre 2 casos con el mismo evtx. Helpers en tests/e2e/_cli.py; SIN conftest en tests/e2e (rompería el import del conftest raíz, igual conclusión que la sesión paralela).
-- Numeración: mi hallazgo de esta sesión pasa de H-007 a H-010 por colisión con la sesión paralela.
+## Sin probar
+- Job pdf de CI (primer run en GitHub), Docker, recolectar (Windows admin), memoria real,
+  disco lleno.
 
-## En curso
-- —
-
-## Bloqueado
-- —
-
-## Peticiones a otras zonas
-- IMP-1: H-010 (exponer --firmar en informe/--pdf o avisar si la clave no se usa); H-004, H-005, H-006, H-007 y H-009 siguen abiertos.
-- PUL: nada que restaurar en README/instaladores/locales; el comando literal del README resuelve (dry-run rc=0).
-- DIR: aprobar la propuesta de PUL al PROTOCOLO (evidencias de contenido con órdenes independientes de la vista: grep -c, od -c). TEST la aplica desde ya.
-
-## Flujo y comprobaciones positivas
-- verify_file sin claves da ForenseError localizado y claro; cada verificación de firma queda en custodia; la manipulación de informes se detecta por hash de custodia y por firma.
-
-## Sin probar (motivo)
-- PDF firmado (sin navegador en el entorno), recolectar (requiere Windows admin), Docker/instaladores completos, memoria real con Volatility, update contra red.
+## Peticiones
+- IMP-1: NO aplicar el claim h-002-volatility-pista; verificar con od -c o conteos antes de
+  editar (fenómeno ya documentado por PUL). H-004 (prosa), H-005/006/007/009/010 abiertos.
+- DIR: al revisar claims de contenido, exigir evidencia por bytes (od -c / grep -c), no por
+  captura de la vista.
