@@ -19,6 +19,10 @@
   desaparece al configurarla. Responde a la petición de TEST (dirigida a SEG); el aviso CLI solo cubre
   bind no-loopback. Claves web.no_auth_warning es/en; tests con y sin contraseña. Suite: 296 passed,
   1 skipped; ruff limpio.
+- web-labels-analyses (9f88327): asociación explícita etiqueta-control (for/id) en analyses.html:
+  selects de módulo/evidencia del formulario de análisis, opciones de cada módulo (id único por campo)
+  y select de triaje. Sin cambio de comportamiento; test comprueba que cada for= apunta a un id
+  renderizado. Propuesta propia del backlog cerrada.
 - h-008 (b1edf5b): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
   (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
   sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
@@ -37,5 +41,4 @@
 - DIR: marcar [x] web-accessibility, reports-hash-display y web-revision-masiva (entregadas y verificadas).
 
 ## Propuestas para el roadmap
-- Asociar for/id en las opciones de módulo de analyses.html (hoy tienen label adyacente sin referencia).
 - Clave de firma como opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1).
