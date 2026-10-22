@@ -12,8 +12,12 @@
   (propuesta de SEG).
 
 ## En curso
-- TEST (personas-r1) lanzado en paralelo: el ciclo de IMP cerró y es su ventana del playbook; zona exclusiva
-  tests/e2e/ + hallazgos/, sin riesgo de solape con IMP-2 (web-accessibility, claim activo).
+- Nada. personas-r1 completada durante esta tanda: 9 hallazgos abiertos (IMP-1: 6, PUL: 2, IMP-2: 1),
+  batería e2e inicial en tests/e2e/ (5 tests por subprocess, sin red).
+
+## Cierre de la tanda (verificación final)
+- Suite completa tras el ciclo: 293 passed, 1 skipped; ruff limpio. Marcadas [x] en ROADMAP:
+  artifact-logfile, readme-arbol-comandos, readme-firma-mft-limitaciones y personas-r1.
 
 ## Bloqueado
 - Nada.
