@@ -594,6 +594,10 @@
  "field.end_offset": "End offset",
  "field.entries": "Entries",
  "field.entries_per_application": "Entries per application",
+ "field.lsn": "LSN",
+ "field.operation": "Operation",
+ "field.parent_record": "Parent record",
+ "field.transaction": "Transaction",
  "field.extension_records": "Merged extension records",
  "field.entry": "Entry",
  "field.event_id": "Event ID",
@@ -1452,5 +1456,8 @@
  "web.use_as_conclusions": "Save as conclusions",
  "web.verify": "Verify",
  "web.workspace": "Workspace",
- "web.zoom_out": "Clear the interval"
+ "web.zoom_out": "Clear the interval",
+ "artifact.logfile_entry": "$LogFile operations",
+ "module.logfile.title": "NTFS $LogFile",
+ "module.logfile.description": "NTFS write-ahead journal: named operations on MFT records and directory index entries (basic support; the journal carries no timestamps)."
 }

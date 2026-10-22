@@ -104,6 +104,21 @@ def test_mft_module(demo, tmp_path):
     assert all(r["in_use"] for _, r in sink_no_deleted.records) and not sink_no_deleted.events
 
 
+def test_logfile_module(demo, tmp_path):
+    ctx, sink = run("logfile", demo["triage"], tmp_path)
+    rows = records(sink, "logfile_entry")
+    by_name = {r["name"]: r for r in rows}
+    assert by_name["svchost.exe"]["operation"] == "initialize_file_record_segment"
+    assert by_name["svchost.exe"]["record"] == 70 and by_name["svchost.exe"]["parent_record"] == 65
+    added = next(r for r in rows if r["operation"] == "index_entry_add")
+    assert added["name"] == "mimikatz.exe" and added["record"] == 74 and added["parent_record"] == 73
+    assert added["lsn"] < next(r for r in rows if r["operation"] == "index_entry_delete")["lsn"]
+    assert all(r["operation"] != "update_mapping_pairs" for r in rows)  # without a name: counted, not reported
+    stats = ctx.summary["logfile_files"]
+    assert sum(s["records"] for s in stats.values()) == 4
+    assert sum(s["named"] for s in stats.values()) == 3
+
+
 def test_inventory_module(demo, tmp_path):
     ctx, sink = run("inventory", demo["triage"], tmp_path, hashes="md5,sha256")
     files = {r["path"]: r for r in records(sink, "file")}
@@ -198,8 +213,8 @@ def test_evtx_brute_force_followed_by_success(tmp_path):
 
 def test_every_module_is_described():
     names = [m.name for m in available_modules()]
-    windows = {"evtx", "registry", "lnk", "recyclebin", "browsers", "mft", "prefetch", "srum", "shellbags",
-               "jumplists", "memory", "tasks", "psreadline", "wintimeline", "setupapi",
+    windows = {"evtx", "registry", "lnk", "logfile", "recyclebin", "browsers", "mft", "prefetch", "srum",
+               "shellbags", "jumplists", "memory", "tasks", "psreadline", "wintimeline", "setupapi",
                "wmi", "usnjrnl", "defender"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first

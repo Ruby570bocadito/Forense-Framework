@@ -594,6 +594,10 @@
  "field.end_offset": "Fin",
  "field.entries": "Entradas",
  "field.entries_per_application": "Entradas por aplicación",
+ "field.lsn": "LSN",
+ "field.operation": "Operación",
+ "field.parent_record": "Registro padre",
+ "field.transaction": "Transacción",
  "field.extension_records": "Registros de extensión combinados",
  "field.entry": "Entrada",
  "field.event_id": "ID de evento",
@@ -1452,5 +1456,8 @@
  "web.use_as_conclusions": "Guardar como conclusiones",
  "web.verify": "Verificar",
  "web.workspace": "Espacio de trabajo",
- "web.zoom_out": "Quitar el intervalo"
+ "web.zoom_out": "Quitar el intervalo",
+ "artifact.logfile_entry": "Operaciones del $LogFile",
+ "module.logfile.title": "NTFS $LogFile",
+ "module.logfile.description": "Diario transaccional de NTFS: operaciones con nombre propio sobre registros del MFT y entradas de índice de directorios (soporte básico; el diario no guarda marcas de tiempo)."
 }

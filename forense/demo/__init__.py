@@ -52,6 +52,7 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _browsers(c / f"Users/{USER}/AppData")
     _files(c)
     _mft(c / "$MFT")
+    _logfile(c / "$LogFile")
     _prefetch(c / "Windows/Prefetch")
     _usrclass(c / f"Users/{USER}/AppData/Local/Microsoft/Windows/UsrClass.dat")
     _tasks(c / "Windows/System32/Tasks")
@@ -365,6 +366,23 @@ def _mft(path: Path) -> None:
     with open(path, "wb") as fh:
         for number in range(max(records) + 1):
             fh.write(records.get(number, b"\x00" * 1024))
+
+
+def _logfile(path: Path) -> None:
+    """$LogFile of the scenario: the metadata operations behind the $MFT story."""
+    ft = b.to_filetime
+    created = ft(_t(25)) + 1234567
+    image = b.build_mft_record(70, "svchost.exe", 65,
+                               si=(ft(datetime(2019, 12, 7, 9, 10, 0, tzinfo=timezone.utc)),) * 2 + (created,) * 2,
+                               fn=(created,) * 4, size=len(MALWARE))
+    entry = b.build_logfile_index_entry(74, 73, "mimikatz.exe", (ft(_t(57)) + 501,) * 4)
+    records = [
+        b.build_lfs_record(0x1A2B3C, 7, 0x02, 0x00, redo_data=image),
+        b.build_lfs_record(0x1A2B50, 9, 0x0E, 0x00, redo_data=entry),
+        b.build_lfs_record(0x1A2B64, 9, 0x00, 0x0F, undo_data=entry),
+        b.build_lfs_record(0x1A2B78, 9, 0x09, 0x09, redo_data=b"\x11" * 16),  # mapping pairs: no name
+    ]
+    path.write_bytes(b.build_logfile(records))
 
 
 def _disk_image(path: Path) -> None:
