@@ -1516,5 +1516,14 @@
  "finding.rdp_cache.historic_activity.title": "Historic RDP activity",
  "finding.rdp_cache.historic_activity.description": "The Remote Desktop client bitmap cache holds {tiles} tiles ({file}): this machine rendered another computer's desktop over RDP (lateral movement or remote administration). The extracted tiles show fragments of that screen.",
  "module.rdp_cache.title": "RDP bitmap cache",
- "module.rdp_cache.description": "Remote-desktop screen tiles kept by the RDP client (Cache*.bin / bCache*.bin): evidence of outbound RDP sessions; every tile is extracted as a BMP. The container carries no timestamps."
+ "module.rdp_cache.description": "Remote-desktop screen tiles kept by the RDP client (Cache*.bin / bCache*.bin): evidence of outbound RDP sessions; every tile is extracted as a BMP. The container carries no timestamps.",
+ "cli.cmd.intel": "Import threat intelligence: converts a MISP JSON export into a watchlist for the ioc module (and, through it, for correlation)",
+ "cli.opt.intel_input": "MISP JSON export (one event or a set of events)",
+ "cli.opt.intel_output": "Resulting watchlist (default: EXPORT.watchlist.txt next to the export)",
+ "cli.intel_written": "Watchlist written: {path} ({indicators} indicators from {events} events; {duplicates} duplicates dropped, {skipped} attributes of non-importable type)",
+ "error.intel_input_missing": "Threat intelligence export not found: {path}",
+ "error.intel_misp_invalid": "The file is not a valid MISP JSON export: {path}",
+ "error.intel_misp_too_large": "The export exceeds the maximum size of {limit} MB: {path}",
+ "error.intel_misp_empty": "The MISP export contains no usable indicators: {path}",
+ "error.intel_output_is_input": "The output cannot be the input file itself: {path}"
 }

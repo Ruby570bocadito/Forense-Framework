@@ -592,6 +592,24 @@ def cmd_sigma(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_intel(args: argparse.Namespace) -> int:
+    from forense.core.intel import import_misp, write_watchlist
+
+    source = Path(args.path)
+    result = import_misp(source)
+    if args.output:
+        out = Path(args.output)
+        if out.resolve() == source.resolve():
+            raise ForenseError("error.intel_output_is_input", path=str(source))
+    else:
+        out = source.with_name(f"{source.stem}.watchlist.txt")
+    write_watchlist(result, out)
+    _out(t("cli.intel_written", path=str(out.resolve()), events=result.events,
+           indicators=len(result.indicators), duplicates=result.duplicates,
+           skipped=sum(result.skipped.values())))
+    return EXIT_OK
+
+
 def cmd_correlate(args: argparse.Namespace) -> int:
     import json
 
@@ -942,6 +960,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=("check", "download"), metavar="check|download")
     p.add_argument("path")
     p.add_argument("--min-level", "--nivel", choices=("info", "low", "medium", "high", "critical"))
+
+    p = _add(sub, "intel", "inteligencia", "cli.cmd.intel", cmd_intel)
+    p.add_argument("action", choices=("misp",), metavar="misp")
+    p.add_argument("path", metavar="EXPORT.json", help=t("cli.opt.intel_input"))
+    p.add_argument("-o", "--output", "--salida", metavar="FILE", help=t("cli.opt.intel_output"))
 
     config = get_config()
     p = _add(sub, "web", "", "cli.cmd.web", cmd_web)
