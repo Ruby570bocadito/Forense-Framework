@@ -313,3 +313,36 @@ def test_every_module_is_described():
                "wintimeline", "setupapi", "wmi", "usnjrnl", "defender"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first
+
+
+def _sparse(path: Path, size: int, head: bytes = b"") -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as fh:
+        fh.write(head)
+        fh.truncate(size)  # logical size without materialising the bytes
+    return path
+
+
+def test_oversize_artifacts_never_reach_memory(tmp_path):
+    """The read_capped gate: grown or hostile files cannot turn the read_bytes pattern into pressure."""
+    root = tmp_path / "ev"
+    _sparse(root / "Console" / "psreadline" / "me_host" / "ConsoleHost_history.txt", 64 * 1024 * 1024 + 1)
+    _sparse(root / "ProgramData" / "mplog-20261023-1.log", 256 * 1024 * 1024 + 1)
+    _sparse(root / "Cache0001.bin", 256 * 1024 * 1024 + 1)
+    _sparse(root / "setupapi.dev.log", 256 * 1024 * 1024 + 1)
+    _sparse(root / "Recent" / "huge.lnk", 16 * 1024 * 1024 + 1)
+    _sparse(root / "Windows" / "System32" / "Tasks" / "evil", 1024 * 1024 + 1, head=b"<?xml")
+    _sparse(root / "$Recycle.Bin" / "S-1-5-21-1000" / "$I8F4C2A1", 65537)
+
+    for module, reported in (("psreadline", True), ("defender", True), ("rdp_cache", True),
+                             ("setupapi", True), ("lnk", False), ("tasks", False), ("recyclebin", False)):
+        ctx, sink = run(module, root, tmp_path)
+        assert sink.records == [], module
+        assert (len(ctx.errors) == 1) if reported else (ctx.errors == []), (module, ctx.errors)
+
+    # the reported ones name the file and the limit, so the analyst knows what was refused
+    ctx, _ = run("psreadline", root, tmp_path)
+    assert "FileTooLarge" in ctx.errors[0]["error"] and "limit" in ctx.errors[0]["error"]
+    assert "ConsoleHost_history.txt" in ctx.errors[0]["error"]
+    ctx, _ = run("setupapi", root, tmp_path)
+    assert "setupapi.dev.log" in ctx.errors[0]["error"]

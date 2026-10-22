@@ -17,7 +17,7 @@ from typing import Optional
 
 from forense.core.errors import ModuleError
 from forense.core.timezone import WindowsTimeZone
-from forense.core.utils import find_files, iso, relative_name
+from forense.core.utils import find_files, iso, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, Option, register
 
 _SECTION = re.compile(r"^>>>\s+\[(?P<title>[^\]]*?)\s+-\s+(?P<device>[^\]]+)\]\s*$")
@@ -99,6 +99,8 @@ class SetupApiModule(Module):
     triage = True
     options = (Option("utc_offset", "", "str"), Option("all_devices", False, "bool"))
 
+    MAX_LOG_SIZE = 256 * 1024 * 1024  # real setupapi logs stay far below this; bigger is not a log
+
     def discover(self, target: Path) -> list[Path]:
         return find_files(target, lambda p: p.name.lower().startswith("setupapi.dev") and p.suffix.lower() == ".log")
 
@@ -118,8 +120,8 @@ class SetupApiModule(Module):
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
-                data = path.read_bytes()
-            except OSError as exc:
+                data = read_capped(path, self.MAX_LOG_SIZE)
+            except (OSError, ValueError) as exc:  # FileTooLarge included: reported, never silently dropped
                 ctx.error(rel, exc)
                 continue
             text = data.decode("utf-16", "replace") if data[:2] in (b"\xff\xfe", b"\xfe\xff") \

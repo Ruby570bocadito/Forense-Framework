@@ -178,6 +178,26 @@ def relative_name(path: Path, target: Path) -> str:
         return path.as_posix()
 
 
+class FileTooLarge(ValueError):
+    """A file a module wanted whole is beyond its size cap (see ``read_capped``)."""
+
+
+def read_capped(path: Path, limit: int) -> bytes:
+    """The whole content of a small artifact file, refusing files beyond ``limit`` bytes.
+
+    The central gate for the modules' ``read_bytes()`` pattern: evidence that grew
+    absurdly (or a hostile file posing as an artifact) must not turn into memory
+    pressure. ``FileTooLarge`` is a ``ValueError``, so the usual
+    ``except (OSError, ValueError)`` handlers keep working; ``OSError`` itself
+    (missing file, permissions) propagates unchanged.
+    """
+    path = Path(path)
+    size = path.stat().st_size
+    if size > limit:
+        raise FileTooLarge(f"{path.name}: {size} bytes, limit {limit}")
+    return path.read_bytes()
+
+
 def human_size(num: float) -> str:
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
         if abs(num) < 1024 or unit == "TiB":

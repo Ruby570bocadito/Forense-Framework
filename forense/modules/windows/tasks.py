@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from forense.core.heuristics import autostart_suspicion, tool_category
-from forense.core.utils import find_files, iso, relative_name
+from forense.core.utils import FileTooLarge, find_files, iso, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, register
 
 MAX_SIZE = 1024 * 1024
@@ -103,10 +103,10 @@ class ScheduledTasksModule(Module):
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
-                if path.stat().st_size > MAX_SIZE:
-                    continue
-                task = parse_task(path.read_bytes())
+                task = parse_task(read_capped(path, MAX_SIZE))
                 modified = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+            except FileTooLarge:
+                continue
             except (OSError, ValueError, ET.ParseError) as exc:
                 ctx.error(rel, exc)
                 continue

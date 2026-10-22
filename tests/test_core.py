@@ -15,11 +15,34 @@ from forense.core.errors import CaseError, ModuleError
 from forense.core.hashing import hash_bytes, hash_file, hash_tree
 from forense.core.heuristics import autostart_suspicion, is_suspicious_location, suspicious_command_rules
 from forense.core.signatures import check_extension
-from forense.core.utils import filetime_to_dt, find_files, normalize_ts, parse_datetime, webkit_to_dt
+from forense.core.utils import (
+    FileTooLarge,
+    filetime_to_dt,
+    find_files,
+    normalize_ts,
+    parse_datetime,
+    read_capped,
+    webkit_to_dt,
+)
 from forense.demo.builders import build_png, build_zip, to_filetime
 
 
 # -- utilities ---------------------------------------------------------------------
+def test_read_capped_gate(tmp_path):
+    small = tmp_path / "small.bin"
+    small.write_bytes(b"abc")
+    assert read_capped(small, 10) == b"abc"
+    big = tmp_path / "big.bin"
+    with open(big, "wb") as fh:
+        fh.truncate(11)  # sparse: the logical size is enough, the bytes never hit the disk
+    with pytest.raises(FileTooLarge) as exc:
+        read_capped(big, 10)
+    assert isinstance(exc.value, ValueError)  # the usual except (OSError, ValueError) still catches it
+    assert "11 bytes" in str(exc.value) and "limit 10" in str(exc.value)
+    with pytest.raises(OSError):
+        read_capped(tmp_path / "missing.bin", 10)
+
+
 def test_hashes_of_known_input(tmp_path):
     path = tmp_path / "abc"
     path.write_bytes(b"abc")

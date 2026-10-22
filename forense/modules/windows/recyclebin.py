@@ -5,9 +5,11 @@ from __future__ import annotations
 from pathlib import Path, PureWindowsPath
 
 from forense.core.heuristics import ARCHIVE_EXTENSIONS, EXECUTABLE_EXTENSIONS
-from forense.core.utils import dt_or_none_iso, find_files, relative_name
+from forense.core.utils import FileTooLarge, dt_or_none_iso, find_files, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.recyclebin import RecycleBinError, parse_i_file
+
+_MAX_I_FILE_SIZE = 65536
 
 
 @register
@@ -25,9 +27,9 @@ class RecycleBinModule(Module):
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
-                if path.stat().st_size > 65536:
-                    continue
-                item = parse_i_file(path.read_bytes())
+                item = parse_i_file(read_capped(path, _MAX_I_FILE_SIZE))
+            except FileTooLarge:
+                continue
             except (OSError, RecycleBinError) as exc:
                 ctx.error(rel, exc)
                 continue

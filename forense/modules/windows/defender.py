@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from forense.core.heuristics import is_suspicious_location, strip_device, tool_category
-from forense.core.utils import find_files, relative_name
+from forense.core.utils import find_files, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.defender import decode_text, parse_detection_history, parse_mplog, threat_category
 
@@ -46,9 +46,7 @@ class DefenderModule(Module):
             rel = relative_name(path, ctx.target)
             ctx.progress(rel)
             try:
-                if path.stat().st_size > MAX_SIZE:
-                    raise ValueError("file too large")
-                raw = path.read_bytes()
+                raw = read_capped(path, MAX_SIZE)
             except (OSError, ValueError) as exc:
                 ctx.error(rel, exc)
                 continue

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from forense.core.heuristics import autostart_suspicion, suspicious_command_rules
-from forense.core.utils import dt_or_none_iso, find_files, relative_name, ts_to_iso
+from forense.core.utils import FileTooLarge, dt_or_none_iso, find_files, read_capped, relative_name, ts_to_iso
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.lnk import LnkError, LnkFile, parse_lnk
 
@@ -32,10 +32,10 @@ class LnkModule(Module):
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
-                if path.stat().st_size > MAX_LNK_SIZE:
-                    continue
-                data = path.read_bytes()
+                data = read_capped(path, MAX_LNK_SIZE)
                 st = path.stat()
+            except FileTooLarge:
+                continue
             except OSError as exc:
                 ctx.error(rel, exc)
                 continue

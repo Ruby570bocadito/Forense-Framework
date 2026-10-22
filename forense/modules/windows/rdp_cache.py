@@ -14,11 +14,12 @@ import re
 import struct
 from pathlib import Path
 
-from forense.core.utils import find_files, relative_name
+from forense.core.utils import find_files, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, register
 
 _CACHE_NAME = re.compile(r"^b?cache\d{3,4}\.bin$", re.IGNORECASE)
 FILE_HEADER = 12
+MAX_CACHE_FILE = 256 * 1024 * 1024  # real cache containers are kilobytes; a bigger one is not one
 TILE_HEADER = 8
 INFO_HEADER = 40
 MAX_DIMENSION = 2048
@@ -81,8 +82,8 @@ class RDPCacheModule(Module):
             try:
                 if path.stat().st_size <= FILE_HEADER:
                     continue
-                data = path.read_bytes()
-            except OSError as exc:
+                data = read_capped(path, MAX_CACHE_FILE)
+            except (OSError, ValueError) as exc:  # FileTooLarge included: the container is not a cache
                 ctx.error(rel, exc)
                 continue
             count = 0

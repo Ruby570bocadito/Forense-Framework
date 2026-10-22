@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from forense.core.heuristics import ATTACK_TOOLS, suspicious_command_rules
-from forense.core.utils import find_files, relative_name, user_from_path
+from forense.core.utils import find_files, read_capped, relative_name, user_from_path
 from forense.modules.base import AnalysisContext, Module, register
 
 MAX_SIZE = 64 * 1024 * 1024
@@ -70,9 +70,7 @@ class PsReadLineModule(Module):
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
-                if path.stat().st_size > MAX_SIZE:
-                    raise ValueError("file too large")
-                text = path.read_bytes().decode("utf-8-sig", errors="replace")
+                text = read_capped(path, MAX_SIZE).decode("utf-8-sig", errors="replace")
                 modified = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
             except (OSError, ValueError) as exc:
                 ctx.error(rel, exc)
