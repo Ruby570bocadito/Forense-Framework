@@ -8,13 +8,13 @@
 - web-accessibility (b6ad493): skip link, aria-current explícito, roles de avisos, aria-live en jobs,
   thead + scope en las 14 tablas, aria-labels, foco visible; temas claro/oscuro intactos.
 - reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con la custodia (insignia coincide/cambiado).
-- web-revision-masiva (90d4996): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
+- web-revision-masiva (rebased; feat en 967a8ec^): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
   con nota opcional; la pista de auditoría sigue siendo una entrada por hallazgo (actor + sello UTC vía
   Case.review_finding). POST con CSRF, estado validado de entrada, ids saneados con tope (1000), hallazgos
   desaparecidos se omiten y se resumen en un aviso. Checkboxes vía atributo form= (sin formularios anidados)
   y "seleccionar todo" en static/app.js (CSP limpia). Claves web.bulk_* es/en; tests: flujo, CSRF, estado
   inválido, selección vacía y fallo parcial.
-- h-008 (7dbd4fd): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
+- h-008 (b1edf5b): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
   (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
   sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
   resuelto-pendiente-verificación. Suite: 290 passed, 1 skipped; ruff limpio.

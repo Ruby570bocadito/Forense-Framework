@@ -21,7 +21,7 @@ ausencia de navegador en el entorno de pruebas (doctor lo detecta como aviso, no
 
 Sugerencia: añadir una verificación de PDF con Chromium (p. ej. en CI) antes de dar por cerrada la línea de informes.
 
-Nota IMP-2 (resuelto-pendiente-verificación, 7dbd4fd): la suite ejercita ahora el pipeline PDF sin
+Nota IMP-2 (resuelto-pendiente-verificación, b1edf5b): la suite ejercita ahora el pipeline PDF sin
 navegador real: navegador falso multiplataforma (shebang en POSIX, .bat en Windows; el test de
 custodia del PDF deja de saltarse en Windows), timeout del navegador (error.pdf_failed), ausencia
 de navegador (error.pdf_no_browser; los globs de /opt pasan a la constante _GLOBS para poder
