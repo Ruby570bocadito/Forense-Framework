@@ -109,6 +109,8 @@ table.kv th { background: none; color: var(--muted); font-weight: 500; width: 32
 .sev-critical { background: var(--sev-critical); color: var(--sev-ink-critical); }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--soft); font-size: 11px; }
 .badge.high { background: var(--sev-high); color: var(--sev-ink-high); }
+.badge.ok { background: var(--ok); color: #fff; }
+.hash { font-family: var(--mono); font-size: 11px; word-break: break-all; color: var(--muted); }
 .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--line); background: var(--panel); }
 .flash.error { border-color: var(--bad); color: var(--bad); }
 .flash.info { border-color: var(--accent); }

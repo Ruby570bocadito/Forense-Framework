@@ -17,9 +17,15 @@
 </form>
 {% if files %}
 <div class="table-wrap"><table>
-  <thead><tr><th scope="col">{{ _('field.file') }}</th><th scope="col">{{ _('field.size') }}</th><th scope="col">{{ _('web.report_signature') }}</th></tr></thead>
-  {% for f in files %}<tr><td><a href="{{ url_for('report_file', slug=slug, name=f.name) }}" target="_blank" rel="noopener">{{ f.name }}</a></td><td>{{ f.stat().st_size }} B</td>
-    <td>{% if f.name in signed %}<span class="tag">{{ _('web.report_signed') }}</span>
+  <thead><tr><th scope="col">{{ _('field.file') }}</th><th scope="col">{{ _('field.size') }}</th>
+    <th scope="col">SHA-256</th><th scope="col">{{ _('web.report_signature') }}</th></tr></thead>
+  {% for f in files %}<tr>
+    <td><a href="{{ url_for('report_file', slug=slug, name=f.name) }}" target="_blank" rel="noopener">{{ f.name }}</a></td>
+    <td>{{ f.size }} B</td>
+    <td><div class="hash">{{ f.sha256 }}</div>
+      {% if f.recorded %}{% if f.recorded == f.sha256 %}<span class="badge ok">{{ _('web.report_hash_ok') }}</span>
+      {% else %}<span class="badge high">{{ _('web.report_hash_changed') }}</span>{% endif %}{% endif %}</td>
+    <td>{% if f.signed %}<span class="tag">{{ _('web.report_signed') }}</span>
       <form method="post" class="inline" action="{{ url_for('verify_signature', slug=slug, name=f.name) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.report_verify_signature') }}</button>
       </form>{% endif %}</td></tr>{% endfor %}

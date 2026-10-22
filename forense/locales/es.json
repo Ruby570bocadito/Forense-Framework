@@ -1401,6 +1401,8 @@
  "web.open_matrix": "Ver matriz",
  "web.recent_analyses": "Análisis recientes",
  "web.register_evidence": "Registrar",
+ "web.report_hash_changed": "Cambiado tras generarse",
+ "web.report_hash_ok": "Coincide con la custodia",
  "web.report_help": "Informe HTML autocontenido, imprimible a PDF. Su hash se registra en la cadena de custodia.",
  "web.report_language": "Idioma del informe",
  "web.report_pdf": "Generar también en PDF",

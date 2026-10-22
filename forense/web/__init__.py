@@ -517,10 +517,20 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                        key=lambda p: p.stat().st_mtime, reverse=True) if directory.exists() else []
         signed = {p.name[:-4] for p in directory.glob("*.sig")} if directory.exists() else set()
         with open_case(slug) as case:
+            from forense.core.hashing import hash_file
             from forense.report.pdf import find_browser
             from forense.report.signing import signing_key_path
 
-            return render_template("reports.html", slug=slug, case=case.info, files=files, signed=signed,
+            recorded: dict[str, str] = {}
+            for entry in case.custody.entries():
+                if entry.action in ("report_generated", "report_pdf_generated"):
+                    name = Path(str(entry.details.get("file", "")).replace("\\", "/")).name
+                    if name:
+                        recorded[name] = str(entry.details.get("sha256", ""))
+            items = [{"path": f, "name": f.name, "size": f.stat().st_size,
+                      "sha256": hash_file(f, ("sha256",))["sha256"], "recorded": recorded.get(f.name),
+                      "signed": f.name in signed} for f in files]
+            return render_template("reports.html", slug=slug, case=case.info, files=items, signed=signed,
                                    jobs=jobs.active(slug), pdf_available=bool(find_browser()),
                                    sign_available=bool(signing_key_path()))
 

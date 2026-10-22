@@ -202,3 +202,19 @@ def test_flash_messages_have_roles(client):
     response = client.post("/c/case1/analyses", data={"csrf_token": token, "module": "hashset", "evidence": "EV-001"},
                            follow_redirects=True)
     assert 'role="alert"' in response.get_data(as_text=True)  # error flash is announced assertively
+
+
+def test_reports_page_shows_hashes(client, workspace):
+    token = _token(client, "/c/case1/reports")
+    client.post("/c/case1/reports", data={"csrf_token": token, "language": "en"})
+    assert _wait(client)["status"] == "done"
+    page = client.get("/c/case1/reports").get_data(as_text=True)
+    name = re.search(r'href="/c/case1/reports/([^"]+\.html)"', page).group(1)
+    path = workspace / "case1" / "reports" / name
+    import hashlib
+
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    assert digest in page and "Matches the chain of custody" in page
+    path.write_text(path.read_text(encoding="utf-8") + "<!-- tampered -->", encoding="utf-8")
+    page = client.get("/c/case1/reports").get_data(as_text=True)
+    assert "Changed after generation" in page

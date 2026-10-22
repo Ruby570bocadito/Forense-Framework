@@ -1401,6 +1401,8 @@
  "web.open_matrix": "Open matrix",
  "web.recent_analyses": "Recent analyses",
  "web.register_evidence": "Register",
+ "web.report_hash_changed": "Changed after generation",
+ "web.report_hash_ok": "Matches the chain of custody",
  "web.report_help": "Self-contained HTML report, printable to PDF. Its hash is recorded in the chain of custody.",
  "web.report_language": "Report language",
  "web.report_pdf": "Also generate a PDF",
