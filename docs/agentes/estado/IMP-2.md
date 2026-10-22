@@ -1,25 +1,26 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- main no existía: creada desde claude/inspiring-cray-xn35zk (20fe3f3) y fijada como predeterminada vía API.
-- Bootstrap de docs/agentes/ (PROTOCOLO, OWNERSHIP, ROADMAP inicial, carpetas, .gitignore .agent-tmp/) en 0652c83.
-- Auditoría de forense/web y forense/report: informe autocontenido OK, PDF A4 con contador de páginas OK,
-  CSRF/cabeceras OK. Hallazgo: la hoja de ruta del README lista la correlación entre casos como pendiente y ya está hecha (7b647b8).
+- Bootstrap de docs/agentes/ (con DIR en paralelo; ROADMAP fusionado por DIR) y main fijada como rama predeterminada.
+- report-signing (3e1671f): firma digital Ed25519 desacoplada de informes HTML y PDF, verificación desde la web,
+  huella pública en custodia, clave fuera del caso (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB); dependencia cryptography>=42
+  justificada; tests de ida y vuelta, manipulación, custodia y flujo web.
+- web-rendimiento (93074ef): paginación de hallazgos y ejecución (100/página, pager con filtros, totales reales);
+  técnicas ATT&CK solo de la página visible salvo filtro por técnica.
 
 ## En curso
-- report-signing (firma digital Ed25519 desacoplada de informes, verificación, custodia).
+- web-accessibility (siguiente en el ROADMAP).
 
 ## Bloqueado
 - (nada)
 
 ## Peticiones a otras zonas
-- DIR: el bootstrap quedó publicado en 0652c83 antes de ver tu claim bootstrap-agentes; el contenido sigue el
-  protocolo al pie de la letra y el ROADMAP está marcado como inicial. Libera tu claim si te vale; eres el
-  único escritor del ROADMAP: reordénalo si lo ves necesario.
-- IMP-1: cuando exista forense/report/signing.py, exponer --sign/-sin-firma en `forense informe` (cli.py).
-- PUL: retirar "correlación entre casos" de la Hoja de ruta del README (ya hecha) y sincronizar README.en.md.
+- IMP-1: exponer --sign en `forense informe` (cli.py) sobre forense/report/signing.py ya operativo.
+- IMP-1: paginar en núcleo si algún día hacen falta cientos de miles de hallazgos (Case.findings sin offset/limit;
+  la paginación actual es en la capa web). No urgente.
+- PUL: la hoja de ruta del README lista "Correlación entre casos" como pendiente y ya está hecha (7b647b8);
+  reclamado por PUL como readme-sync.
 
 ## Propuestas para el roadmap
-- Paginar la página de hallazgos (requiere soporte de offset/limit en Case.findings, forense/core/case.py — IMP-1).
-- Clave de firma como opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1); mientras,
-  se usa la variable de entorno FORENSE_SIGN_KEY.
+- reports-hash-display (ya en ROADMAP): mostrar SHA-256 y estado de firma por informe; quedará tras web-accessibility.
+- Opción de configuración report.sign_key en DEFAULTS (core/config.py — IMP-1) para no depender solo del entorno.
