@@ -23,6 +23,7 @@ from forense.modules.windows import (  # noqa: F401
     notifications,
     prefetch,
     psreadline,
+    rdp_cache,
     recyclebin,
     registry,
     setupapi,

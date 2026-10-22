@@ -1487,5 +1487,14 @@
  "field.notifications": "Notifications",
  "field.per_app": "Per application",
  "module.notifications.title": "Windows notifications",
- "module.notifications.description": "Action Center database (wpndatabase.db): which apps notified, when each toast arrived and the text it showed (title and body)."
+ "module.notifications.description": "Action Center database (wpndatabase.db): which apps notified, when each toast arrived and the text it showed (title and body).",
+ "artifact.rdp_tile": "RDP cache tiles",
+ "field.bpp": "Bits per pixel",
+ "field.height": "Height",
+ "field.tile": "Tile",
+ "field.width": "Width",
+ "finding.rdp_cache.historic_activity.title": "Historic RDP activity",
+ "finding.rdp_cache.historic_activity.description": "The Remote Desktop client bitmap cache holds {tiles} tiles ({file}): this machine rendered another computer's desktop over RDP (lateral movement or remote administration). The extracted tiles show fragments of that screen.",
+ "module.rdp_cache.title": "RDP bitmap cache",
+ "module.rdp_cache.description": "Remote-desktop screen tiles kept by the RDP client (Cache*.bin / bCache*.bin): evidence of outbound RDP sessions; every tile is extracted as a BMP. The container carries no timestamps."
 }

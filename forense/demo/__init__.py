@@ -59,6 +59,7 @@ def generate_demo(dest: Path) -> dict[str, Path]:
     _psreadline(c / f"Users/{USER}/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt")
     _wintimeline(c / f"Users/{USER}/AppData/Local/ConnectedDevicesPlatform/L.{USER}/ActivitiesCache.db")
     _notifications(c / f"Users/{USER}/AppData/Local/Microsoft/Windows/Notifications/wpndatabase.db")
+    _rdp_cache(c / f"Users/{USER}/AppData/Local/Microsoft/Terminal Server Client/Cache/Cache0001.bin")
     _setupapi(c / "Windows/inf/setupapi.dev.log")
     _wmi_repository(c / "Windows/System32/wbem/Repository/OBJECTS.DATA")
     _usn_journal(c / "$Extend/$J")
@@ -659,6 +660,11 @@ def _notifications(path: Path) -> None:
          _t(3), _t(1443)),
         (defender, "Acción recomendada", "Se detectó una amenaza durante un análisis rápido", _t(59), _t(1499)),
     ])
+
+
+def _rdp_cache(path: Path) -> None:
+    """Bitmap cache of the outbound RDP session: the workstation was used to jump to another host."""
+    b.build_rdp_cache(path, [(64, 64, 16), (64, 64, 16), (96, 96, 32), (64, 64, 16)])
 
 
 def _setupapi(path: Path) -> None:

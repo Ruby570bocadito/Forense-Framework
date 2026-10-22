@@ -117,6 +117,7 @@ BY_CODE: dict[str, tuple[str, ...]] = {
     "memory.unexpected_parent": ("T1036.005",),
     "mft.downloaded_executable": ("T1105",), "mft.timestomping": ("T1070.006",),
     "prefetch.remote_access": ("T1219",), "psreadline.suspicious_command": ("T1059.001",),
+    "rdp_cache.historic_activity": ("T1021.001",),
     "registry.appinit_dlls": ("T1546.010",), "registry.guest_enabled": ("T1078.001",),
     "registry.ifeo_debugger": ("T1546.012",), "registry.suspicious_autorun": ("T1547.001",),
     "registry.deleted_service": ("T1070.009", "T1543.003"), "registry.deleted_task": ("T1070.009", "T1053.005"),

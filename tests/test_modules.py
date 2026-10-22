@@ -162,6 +162,39 @@ def test_notifications_payload_variants(tmp_path):
     assert len([e for e in sink.events if e["type"] == "notification"]) == 3
 
 
+def test_rdp_cache_module(demo, tmp_path):
+    ctx, sink = run("rdp_cache", demo["triage"], tmp_path)
+    rows = records(sink, "rdp_tile")
+    assert len(rows) == 4 and all(r["file"].endswith("Cache0001.bin") for r in rows)
+    assert [r["width"] for r in rows] == [64, 64, 96, 64] and rows[2]["bpp"] == 32
+    assert all(len(r["key"]) == 16 for r in rows) and rows[0]["offset"] == 12
+    found = codes(sink)
+    assert found["rdp_cache.historic_activity"][0]["severity"] == "low"
+    assert found["rdp_cache.historic_activity"][0]["params"]["tiles"] == 4
+    assert len(ctx.artifacts) == 4 and all(a.endswith(".bmp") for a in ctx.artifacts)
+    bmp = ctx.output_dir / ctx.artifacts[0]
+    assert bmp.read_bytes()[:2] == b"BM" and bmp.stat().st_size > 14 + 40
+    assert ctx.summary["tiles"] == 4 and list(ctx.summary["cache_files"]) == ["C/Users/maria/AppData/Local/"
+                                                                             "Microsoft/Terminal Server Client/"
+                                                                             "Cache/Cache0001.bin"]
+
+
+def test_rdp_cache_tolerates_corruption(tmp_path):
+    db = tmp_path / "Cache0001.bin"
+    b.build_rdp_cache(db, [(64, 64, 16), (64, 64, 16), (64, 64, 16)])
+    good = db.read_bytes()
+    tile = 8 + 4 + 40 + (((64 * 16 + 31) // 32) * 4) * 64
+    db.write_bytes(good[:12 + tile + tile // 2])  # second tile cut in half: only the first survives
+    ctx, sink = run("rdp_cache", db, tmp_path)
+    assert len(records(sink, "rdp_tile")) == 1 and ctx.summary["tiles"] == 1 and not ctx.errors
+    db.write_bytes(b"Cache0001.bin header" + bytes(12) + b"\xff" * 300)  # header + garbage: no valid tile
+    ctx, sink = run("rdp_cache", db, tmp_path)
+    assert sink.records == [] and sink.findings == [] and not ctx.errors
+    db.write_bytes(b"\x00" * 12)  # empty container: no tiles either
+    ctx, sink = run("rdp_cache", db, tmp_path)
+    assert sink.records == [] and ctx.summary["tiles"] == 0
+
+
 def test_logfile_module(demo, tmp_path):
     ctx, sink = run("logfile", demo["triage"], tmp_path)
     rows = records(sink, "logfile_entry")
@@ -271,8 +304,8 @@ def test_evtx_brute_force_followed_by_success(tmp_path):
 
 def test_every_module_is_described():
     names = [m.name for m in available_modules()]
-    windows = {"evtx", "registry", "lnk", "logfile", "recyclebin", "browsers", "mft", "prefetch", "srum",
-               "shellbags", "jumplists", "memory", "notifications", "tasks", "psreadline", "wintimeline",
-               "setupapi", "wmi", "usnjrnl", "defender"}
+    windows = {"evtx", "registry", "lnk", "logfile", "recyclebin", "browsers", "mft", "prefetch", "rdp_cache",
+               "srum", "shellbags", "jumplists", "memory", "notifications", "tasks", "psreadline",
+               "wintimeline", "setupapi", "wmi", "usnjrnl", "defender"}
     assert windows <= set(names) and {"inventory", "carving", "ioc", "hashset"} <= set(names)
     assert set(names[:len(windows)]) == windows and names[:len(windows)] == sorted(windows)  # Windows first

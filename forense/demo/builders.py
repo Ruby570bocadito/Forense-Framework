@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import html
 import io
+import random
 import sqlite3
 import struct
 import uuid
@@ -557,6 +558,24 @@ def build_wpndatabase(path: Path, notifications: list[tuple[str, str, str, datet
                       handlers[aumid], f"toast-{i}"))
     conn.commit()
     conn.close()
+    return path
+
+
+def build_rdp_cache(path: Path, tiles: list[tuple[int, int, int]], rng_seed: int = 27015) -> Path:
+    """RDP bitmap cache container: ``tiles`` of (width, height, bit_count) filled with patterned pixels."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rng = random.Random(rng_seed)
+    header = struct.pack("<III", 0x00090004, len(tiles), 0)
+    body = bytearray(header)
+    for width, height, bit_count in tiles:
+        info = struct.pack("<IiiHHIIiiII", 40, width, height, 1, bit_count, 0,
+                           width * height * (bit_count // 8), 0, 0, 0, 0)
+        body += struct.pack("<IIHH", rng.randrange(1 << 32), rng.randrange(1 << 32), width, height)
+        body += info
+        row = ((width * bit_count + 31) // 32) * 4
+        for _ in range(height):
+            body += bytes(rng.randrange(0, 0xFF) for _ in range(row))
+    path.write_bytes(bytes(body))
     return path
 
 

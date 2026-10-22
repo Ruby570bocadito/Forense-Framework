@@ -1487,5 +1487,14 @@
  "field.notifications": "Notificaciones",
  "field.per_app": "Por aplicación",
  "module.notifications.title": "Notificaciones de Windows",
- "module.notifications.description": "Centro de notificaciones (wpndatabase.db): aplicaciones que avisaron, momento de llegada y texto mostrado en cada toast (título y cuerpo)."
+ "module.notifications.description": "Centro de notificaciones (wpndatabase.db): aplicaciones que avisaron, momento de llegada y texto mostrado en cada toast (título y cuerpo).",
+ "artifact.rdp_tile": "Tiles de la caché RDP",
+ "field.bpp": "Bits por píxel",
+ "field.height": "Alto",
+ "field.tile": "Tile",
+ "field.width": "Ancho",
+ "finding.rdp_cache.historic_activity.title": "Actividad RDP histórica",
+ "finding.rdp_cache.historic_activity.description": "La caché de mapas de bits del cliente de Escritorio remoto contiene {tiles} tiles ({file}): este equipo mostró el escritorio de otro equipo por RDP (movimiento lateral o administración remota). Los tiles extraídos muestran fragmentos de esa pantalla.",
+ "module.rdp_cache.title": "Caché RDP (Bitmap Cache)",
+ "module.rdp_cache.description": "Tiles del escritorio remoto guardados por el cliente RDP (Cache*.bin / bCache*.bin): evidencia de sesiones RDP salientes; cada tile se extrae como BMP. El contenedor no lleva marcas de tiempo."
 }
