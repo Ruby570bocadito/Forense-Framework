@@ -303,6 +303,16 @@ def _mft_resident_attr(attr_type: int, content: bytes, attr_name: str = "") -> b
     return attr.ljust(length, b"\x00")
 
 
+def _stamp_usa(buf: bytearray, usa_offset: int, usa_count: int) -> None:
+    """Stamp the update sequence: tails get the USN, the array keeps the real values."""
+    usn = b"\x01\x00"
+    buf[usa_offset:usa_offset + 2] = usn
+    for i in range(1, usa_count):
+        end = i * 512 - 2
+        buf[usa_offset + i * 2:usa_offset + i * 2 + 2] = buf[end:end + 2]
+        buf[end:end + 2] = usn
+
+
 def _mft_record_bytes(record: int, sequence: int, flags: int, attrs: bytes, *, base_ref: int = 0,
                       record_size: int = 1024) -> bytes:
     """Assemble an MFT FILE record (header, attributes) and apply the update sequence array."""
@@ -312,13 +322,7 @@ def _mft_record_bytes(record: int, sequence: int, flags: int, attrs: bytes, *, b
                          first_attr + len(attrs), record_size, base_ref, 0, 0, record)
     buf = bytearray(header.ljust(first_attr, b"\x00") + attrs)
     buf = buf.ljust(record_size, b"\x00")
-    # Update sequence array: store the real sector tails and stamp the USN.
-    usn = b"\x01\x00"
-    buf[usa_offset:usa_offset + 2] = usn
-    for i in range(1, usa_count):
-        end = i * 512 - 2
-        buf[usa_offset + i * 2:usa_offset + i * 2 + 2] = buf[end:end + 2]
-        buf[end:end + 2] = usn
+    _stamp_usa(buf, usa_offset, usa_count)
     return bytes(buf)
 
 
@@ -379,6 +383,85 @@ def build_mft_extension_record(record: int, base: int, *, base_sequence: int = 1
     attrs += struct.pack("<I", 0xFFFFFFFF) + b"\x00" * 4
     return _mft_record_bytes(record, sequence, 0x1 if in_use else 0, attrs,
                              base_ref=(base_sequence << 48) | base)
+
+
+# --------------------------------------------------------------------------
+# $LogFile
+# --------------------------------------------------------------------------
+def build_file_name_value(parent: int, name: str, times: tuple) -> bytes:
+    """A $FILE_NAME value (DUPLICATED_INFORMATION plus the name), as stored in index entries."""
+    raw_name = name.encode("utf-16-le")
+    return struct.pack("<QQQQQQQIIBB", (1 << 48) | parent, *times, 0, 0, 0x20, 0, len(name), 1) + raw_name
+
+
+def build_logfile_index_entry(file_ref: int, parent: int, name: str, times: tuple) -> bytes:
+    """A directory INDEX_ENTRY: file reference plus the $FILE_NAME value of the entry."""
+    value = build_file_name_value(parent, name, times)
+    entry_len = (16 + len(value) + 7) & ~7
+    entry = struct.pack("<QHHHH", file_ref, entry_len, len(value), 0, 0) + value
+    return entry.ljust(entry_len, b"\x00")
+
+
+def build_lfs_record(lsn: int, transaction_id: int, redo_op: int, undo_op: int,
+                     redo_data: bytes = b"", undo_data: bytes = b"") -> bytes:
+    """One LFS client record: 48-byte header, NTFS_LOG_RECORD header and redo/undo data."""
+    redo_off = 0x28 if redo_data else 0
+    undo_off = ((0x28 + len(redo_data) + 7) & ~7) if undo_data else 0
+    body_len = (max(undo_off + len(undo_data), 0x28) + 7) & ~7
+    body = bytearray(body_len)
+    struct.pack_into("<HHHHHH", body, 0, redo_op, undo_op, redo_off, len(redo_data), undo_off, len(undo_data))
+    body[0x28:0x28 + len(redo_data)] = redo_data
+    body[undo_off:undo_off + len(undo_data)] = undo_data
+    header = struct.pack("<QQQIHHIIH6x", lsn, max(lsn - 1, 0), max(lsn - 1, 0), len(body), 1, 0, 1,
+                         transaction_id, 0)
+    return header + bytes(body)
+
+
+def _logfile_restart_page() -> bytes:
+    buf = bytearray(4096)
+    struct.pack_into("<4sHH", buf, 0, b"RSTR", 0x28, 9)
+    struct.pack_into("<II", buf, 16, 4096, 4096)  # system page size, log page size
+    struct.pack_into("<H", buf, 24, 0x40)  # restart area offset
+    struct.pack_into("<hh", buf, 26, 1, 1)  # minor, major version
+    struct.pack_into("<QH", buf, 0x40, 0x1A2B3C, 1)  # current LSN, log clients
+    struct.pack_into("<HHH", buf, 0x4A, 0xFFFF, 0, 0)  # free list, in-use list, flags
+    struct.pack_into("<I", buf, 0x50, 0)  # sequence number bits
+    struct.pack_into("<HH", buf, 0x54, 0x30, 0x30)  # restart area length, client array offset
+    struct.pack_into("<Q", buf, 0x58, 0x200000)  # log file size
+    struct.pack_into("<I", buf, 0x60, 0x30)  # last LSN data length
+    struct.pack_into("<HH", buf, 0x64, 0x30, 0x40)  # record header length, log page data offset
+    struct.pack_into("<I", buf, 0x68, 1)  # revision number
+    struct.pack_into("<QQ", buf, 0x70, 1, 1)  # client: oldest LSN, client restart LSN
+    _stamp_usa(buf, 0x28, 9)
+    return bytes(buf)
+
+
+def _logfile_record_page(records: list[bytes], next_offset: int) -> bytes:
+    buf = bytearray(4096)
+    struct.pack_into("<4sHH", buf, 0, b"RCRD", 0x28, 9)
+    struct.pack_into("<I", buf, 16, 1)  # flags: a record ends on this page
+    struct.pack_into("<HHH", buf, 20, 1, 1, next_offset)  # page count, page position, next record offset
+    off = 0x40
+    for record in records:
+        buf[off:off + len(record)] = record
+        off += len(record)
+    _stamp_usa(buf, 0x28, 9)
+    return bytes(buf)
+
+
+def build_logfile(records: Sequence[bytes]) -> bytes:
+    """A $LogFile: two restart pages plus 4096-byte record pages packed with LFS records."""
+    pages: list[bytes] = []
+    batch: list[bytes] = []
+    used = 0x40
+    for record in records:
+        if used + len(record) > 4096:
+            pages.append(_logfile_record_page(batch, used))
+            batch, used = [], 0x40
+        batch.append(record)
+        used += len(record)
+    pages.append(_logfile_record_page(batch, used))
+    return b"".join([_logfile_restart_page(), _logfile_restart_page()] + pages)
 
 
 # --------------------------------------------------------------------------

@@ -88,7 +88,7 @@ class MftEntry:
         return indicators
 
 
-def _apply_fixups(buf: bytearray) -> bool:
+def apply_fixups(buf: bytearray) -> bool:
     usa_offset, usa_count = struct.unpack_from("<HH", buf, 4)
     if usa_count < 2 or usa_offset + usa_count * 2 > len(buf):
         return False
@@ -109,7 +109,7 @@ def parse_record(raw: bytes, record_number: int) -> Optional[MftEntry]:
     if raw[:4] != b"FILE":
         return None
     buf = bytearray(raw)
-    fixup_ok = _apply_fixups(buf)
+    fixup_ok = apply_fixups(buf)
     sequence, _links, first_attr, flags = struct.unpack_from("<HHHH", buf, 16)
     base_ref = struct.unpack_from("<Q", buf, 32)[0]
     entry = MftEntry(record_number, sequence, bool(flags & 0x1), bool(flags & 0x2), base_ref & 0xFFFFFFFFFFFF,

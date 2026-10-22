@@ -9,6 +9,16 @@ import pytest
 from forense.demo import builders as b
 from forense.parsers.evtx import iter_events, normalize
 from forense.parsers.lnk import LnkError, find_embedded_lnks, parse_lnk
+from forense.parsers.logfile import (
+    LogFileError,
+    file_name_from_content,
+    file_record_from_data,
+    index_entry_file_name,
+    iter_records,
+    open_logfile,
+    operation_name,
+    parse_restart,
+)
 from forense.parsers.mft import (
     MftReader,
     PathResolver,
@@ -191,6 +201,68 @@ def test_mft_attribute_list_corrupt_content():
     plain = parse_record(b.build_mft_record(40, "a.txt", 5, si=t, fn=t), 40)
     merged = merge_extensions(plain, [junk] if junk else [])
     assert merged.size == 0 and merged.ads == []
+
+
+# -- $LogFile ---------------------------------------------------------------------------
+def test_logfile_names_from_operations(tmp_path):
+    t = _times(T)
+    image = b.build_mft_record(70, "tool.exe", 65, si=t, fn=t, size=512)
+    entry = b.build_logfile_index_entry(0x4A, 73, "mimikatz.exe", t)
+    ops = [b.build_lfs_record(0x1A2B3C, 7, 0x02, 0x00, redo_data=image),
+           b.build_lfs_record(0x1A2B50, 9, 0x0E, 0x00, redo_data=entry),
+           b.build_lfs_record(0x1A2B64, 9, 0x00, 0x0F, undo_data=entry),
+           b.build_lfs_record(0x1A2B78, 9, 0x13, 0x00, redo_data=b.build_file_name_value(73, "renamed.txt", t))]
+    path = tmp_path / "$LogFile"
+    path.write_bytes(b.build_logfile(ops))
+    fh, info = open_logfile(path)
+    try:
+        records = list(iter_records(fh, info))
+    finally:
+        fh.close()
+    assert info.page_size == 4096 and info.clients == 1
+    assert [r.lsn for r in records] == [0x1A2B3C, 0x1A2B50, 0x1A2B64, 0x1A2B78]
+    assert (records[0].redo_op, records[0].undo_op) == (0x02, 0x00)
+    rec = file_record_from_data(records[0].redo_data)
+    assert rec is not None and rec.fixup_ok  # the image keeps its update sequence
+    assert rec.name == "tool.exe" and rec.record == 70 and rec.parent_record == 65
+    assert index_entry_file_name(records[1].redo_data) == (0x4A, 73, "mimikatz.exe")
+    assert index_entry_file_name(records[2].undo_data) == (0x4A, 73, "mimikatz.exe")  # deletes ride on undo
+    assert file_name_from_content(records[3].redo_data) == (73, "renamed.txt")
+    assert operation_name(0x02) == "initialize_file_record_segment"
+    assert operation_name(0x99).startswith("unknown_")
+
+
+def test_logfile_corrupt_content(tmp_path):
+    with pytest.raises(LogFileError):
+        parse_restart(b"\x00" * 8192)
+    with pytest.raises(LogFileError):
+        parse_restart(b"JUNK" * 2048)
+    ops = [b.build_lfs_record(1, 1, 0x02, 0x00, redo_data=b.build_mft_record(5, "a.txt", 5, si=_times(T), fn=_times(T)))]
+    good = b.build_logfile(ops)
+    # restart page 0 with a broken fixup: page 1 (its copy) is used
+    broken = bytearray(good)
+    broken[510:512] = b"\x99\x99"
+    info = parse_restart(bytes(broken))
+    assert info.page_size == 4096
+    # a page that is not a record page is skipped; the records survive on the next page
+    hole = good[:8192] + b"\xAA" * 4096 + good[8192:]
+    path = tmp_path / "$LogFile"
+    path.write_bytes(hole)
+    fh, info = open_logfile(path)
+    try:
+        records = list(iter_records(fh, info))
+    finally:
+        fh.close()
+    assert [r.lsn for r in records] == [1]
+    # a NextRecordOffset beyond the page does not go past its end
+    padded = bytearray(good)
+    struct.pack_into("<H", padded, 8192 + 24, 0xFFFF)
+    path.write_bytes(bytes(padded))
+    fh, info = open_logfile(path)
+    try:
+        assert [r.lsn for r in iter_records(fh, info)] == [1]
+    finally:
+        fh.close()
 
 
 # -- ShimCache ------------------------------------------------------------------------------
