@@ -150,6 +150,15 @@ def test_bulk_review_edges(tmp_path):
         assert finding["review"]["status"] == "confirmed"
 
 
+def test_analyses_labels_are_associated(client):
+    page = client.get("/c/case1/analyses").get_data(as_text=True)
+    fors = re.findall(r'<label for="([^"]+)"', page)
+    assert {"module-select", "evidence-run", "evidence-triage"} <= set(fors)
+    assert any(f.startswith("opt_") for f in fors)  # module option fields are labelled too
+    ids = set(re.findall(r'id="([^"]+)"', page))
+    assert all(f in ids for f in fors)  # every for= points to a rendered control
+
+
 def test_create_case_and_export(client, workspace):
     token = _token(client, "/")
     response = client.post("/cases", data={"csrf_token": token, "slug": "case2", "name": "Second",
