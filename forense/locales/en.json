@@ -1513,6 +1513,7 @@
  "field.height": "Height",
  "field.tile": "Tile",
  "field.width": "Width",
+ "field.attribute": "Attribute",
  "finding.rdp_cache.historic_activity.title": "Historic RDP activity",
  "finding.rdp_cache.historic_activity.description": "The Remote Desktop client bitmap cache holds {tiles} tiles ({file}): this machine rendered another computer's desktop over RDP (lateral movement or remote administration). The extracted tiles show fragments of that screen.",
  "module.rdp_cache.title": "RDP bitmap cache",

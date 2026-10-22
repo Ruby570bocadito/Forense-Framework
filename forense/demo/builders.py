@@ -405,18 +405,34 @@ def build_logfile_index_entry(file_ref: int, parent: int, name: str, times: tupl
 
 
 def build_lfs_record(lsn: int, transaction_id: int, redo_op: int, undo_op: int,
-                     redo_data: bytes = b"", undo_data: bytes = b"") -> bytes:
-    """One LFS client record: 48-byte header, NTFS_LOG_RECORD header and redo/undo data."""
+                     redo_data: bytes = b"", undo_data: bytes = b"", target_attribute: int = 0) -> bytes:
+    """One LFS client record: 48-byte header, NTFS_LOG_RECORD header and redo/undo data.
+
+    ``target_attribute`` is the open attribute table index (a byte offset) that
+    attribute-level operations use to point at their context.
+    """
     redo_off = 0x28 if redo_data else 0
     undo_off = ((0x28 + len(redo_data) + 7) & ~7) if undo_data else 0
     body_len = (max(undo_off + len(undo_data), 0x28) + 7) & ~7
     body = bytearray(body_len)
-    struct.pack_into("<HHHHHH", body, 0, redo_op, undo_op, redo_off, len(redo_data), undo_off, len(undo_data))
+    struct.pack_into("<HHHHHHH", body, 0, redo_op, undo_op, redo_off, len(redo_data), undo_off,
+                     len(undo_data), target_attribute)
     body[0x28:0x28 + len(redo_data)] = redo_data
     body[undo_off:undo_off + len(undo_data)] = undo_data
     header = struct.pack("<QQQIHHIIH6x", lsn, max(lsn - 1, 0), max(lsn - 1, 0), len(body), 1, 0, 1,
                          transaction_id, 0)
     return header + bytes(body)
+
+
+def build_open_attribute(file_record: int, type_code: int = 0x80, sequence: int = 1) -> bytes:
+    """A logged OPEN_ATTRIBUTE_ENTRY (format 1.0+): the $LogFile context for attribute updates.
+
+    Layout: allocated flag (0xFFFFFFFF) at 0x00, bytes per index buffer at 0x04, attribute
+    type at 0x08, a reserved gap at 0x0C and the file reference at 0x10.
+    """
+    entry = bytearray(0x28)
+    struct.pack_into("<IIIIQ", entry, 0, 0xFFFFFFFF, 0, type_code, 0, (sequence << 48) | file_record)
+    return bytes(entry)
 
 
 def _logfile_restart_page() -> bytes:

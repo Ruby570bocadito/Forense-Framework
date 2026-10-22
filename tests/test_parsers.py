@@ -11,10 +11,16 @@ from forense.parsers.evtx import iter_events, normalize
 from forense.parsers.lnk import LnkError, find_embedded_lnks, parse_lnk
 from forense.parsers.logfile import (
     LogFileError,
+    LogRecord,
+    OpenAttributes,
+    attribute_display,
+    attribute_name_from_data,
+    attribute_type_name,
     file_name_from_content,
     file_record_from_data,
     index_entry_file_name,
     iter_records,
+    open_attribute_from_data,
     open_logfile,
     operation_name,
     parse_restart,
@@ -263,6 +269,69 @@ def test_logfile_corrupt_content(tmp_path):
         assert [r.lsn for r in iter_records(fh, info)] == [1]
     finally:
         fh.close()
+
+
+def test_logfile_open_attributes_incremental(tmp_path):
+    """An OpenNonresidentAttribute (0x1C) gives the mapping pairs update that follows its context."""
+    t = _times(T)
+    image = b.build_mft_record(70, "tool.exe", 65, si=t, fn=t, size=512)
+    ops = [
+        b.build_lfs_record(0x1A2B3C, 7, 0x02, 0x00, redo_data=image),
+        b.build_lfs_record(0x1A2B46, 8, 0x1C, 0x00, redo_data=b.build_open_attribute(70, 0x80),
+                           undo_data="J".encode("utf-16-le"), target_attribute=0x28),
+        b.build_lfs_record(0x1A2B50, 9, 0x09, 0x09, redo_data=b"\x11" * 16, target_attribute=0x28),
+    ]
+    path = tmp_path / "$LogFile"
+    path.write_bytes(b.build_logfile(ops))
+    fh, info = open_logfile(path)
+    try:
+        records = list(iter_records(fh, info))
+    finally:
+        fh.close()
+    assert records[1].redo_op == 0x1C and records[2].target_attribute == 0x28
+    table = OpenAttributes()
+    for record in records:
+        table.update(record)
+    entry = table.lookup(0x28)
+    assert entry is not None and entry.reference == 70 and entry.type_code == 0x80 and entry.name == "J"
+    assert attribute_display(entry) == "$DATA (J)"
+    assert table.lookup(0x50) is None  # an index that was never opened
+    assert attribute_name_from_data(records[1].undo_data) == "J"
+    assert attribute_name_from_data(b"") == ""
+    assert attribute_name_from_data("\x01\x00".encode("utf-16-le")) == ""  # control bytes are not a name
+    assert attribute_type_name(0x80) == "$DATA" and attribute_type_name(0x777).startswith("type_")
+    # a free slot and a short blob are not entries
+    assert open_attribute_from_data(b"\x00" * 0x28) is None
+    assert open_attribute_from_data(b"\xFF" * 8) is None
+
+
+def test_logfile_open_attribute_dumps_and_corruption():
+    """Checkpoint dumps answer by byte offset; a broken 0x1C only clears the incremental table."""
+    dump = b"\x00" * 0x28 + b.build_open_attribute(74, 0xA0)  # slot 0x00 free, 0x28 = $INDEX_ALLOCATION
+    names = struct.pack("<HH", 0x28, 6) + "J".encode("utf-16-le") + b"\x00\x00" + struct.pack("<HH", 0, 0)
+    table = OpenAttributes()
+    table.update(LogRecord(1, 1, 0, 0x1D, 0x00, dump, b""))
+    table.update(LogRecord(2, 1, 0, 0x1E, 0x00, names, b""))
+    entry = table.lookup(0x28)
+    assert entry is not None and entry.reference == 74 and entry.name == "J"  # name rides on the names dump
+    assert attribute_display(entry) == "$INDEX_ALLOCATION (J)"
+    assert table.lookup(0x00) is None  # the free slot is not an attribute
+    assert table.lookup(0x50) is None  # beyond the dump
+    # a broken OpenNonresidentAttribute invalidates the incremental entries, but the last
+    # checkpoint dump remains the best known state (as in the reference restart analysis)
+    table.update(LogRecord(3, 1, 0, 0x1C, 0x00, b"\xFF" * 8, b"", target_attribute=0x28))
+    entry = table.lookup(0x28)
+    assert entry is not None and entry.reference == 74
+    # a valid 0x1C entry wins over the dump from that point on
+    table.update(LogRecord(4, 1, 0, 0x1C, 0x00, b.build_open_attribute(90, 0x90), b"", target_attribute=0x28))
+    entry = table.lookup(0x28)
+    assert entry is not None and entry.reference == 90 and entry.name == ""  # unnamed: no dump name lookup
+    # hostile names dumps never break the walk
+    hostile = OpenAttributes()
+    hostile.update(LogRecord(1, 1, 0, 0x1E, 0x00, struct.pack("<HH", 0x28, 0xFFFF) + b"\x01\x00", b""))
+    hostile.update(LogRecord(2, 1, 0, 0x1D, 0x00, dump, b""))
+    entry = hostile.lookup(0x28)
+    assert entry is not None and entry.name == ""
 
 
 # -- ShimCache ------------------------------------------------------------------------------

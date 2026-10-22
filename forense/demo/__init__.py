@@ -380,9 +380,13 @@ def _logfile(path: Path) -> None:
     entry = b.build_logfile_index_entry(74, 73, "mimikatz.exe", (ft(_t(57)) + 501,) * 4)
     records = [
         b.build_lfs_record(0x1A2B3C, 7, 0x02, 0x00, redo_data=image),
+        # the $DATA stream of svchost.exe (record 70) is opened for update: the mapping
+        # pairs change that follows can be attributed to it through the open attribute table
+        b.build_lfs_record(0x1A2B46, 8, 0x1C, 0x00, redo_data=b.build_open_attribute(70, 0x80),
+                           target_attribute=0x28),
         b.build_lfs_record(0x1A2B50, 9, 0x0E, 0x00, redo_data=entry),
         b.build_lfs_record(0x1A2B64, 9, 0x00, 0x0F, undo_data=entry),
-        b.build_lfs_record(0x1A2B78, 9, 0x09, 0x09, redo_data=b"\x11" * 16),  # mapping pairs: no name
+        b.build_lfs_record(0x1A2B78, 9, 0x09, 0x09, redo_data=b"\x11" * 16, target_attribute=0x28),
     ]
     path.write_bytes(b.build_logfile(records))
 

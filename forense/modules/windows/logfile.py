@@ -1,10 +1,15 @@
-"""NTFS $LogFile: metadata operations of the file system journal (basic support).
+"""NTFS $LogFile: metadata operations of the file system journal.
 
 For every operation that carries a file name in its own data it reports the LSN,
 the transaction, the operation and the name: MFT record initializations (files
 created or reinitialized) and directory index entries added or deleted (files
-that entered or left a directory). The log holds no timestamps, so this
-artifact is a table of operations, not timeline events.
+that entered or left a directory). Attribute-level operations (create/delete
+attribute, value and mapping pairs updates) name no file themselves: their
+context is the open attribute table, which is rebuilt while the log is walked
+so those operations are reported too, with the file (when its name appeared
+earlier in the log) and the attribute they touch in the ``attribute`` field.
+The log holds no timestamps, so this artifact is a table of operations, not
+timeline events.
 """
 
 from __future__ import annotations
@@ -16,6 +21,7 @@ from typing import Optional
 from forense.core.utils import find_files, relative_name
 from forense.modules.base import AnalysisContext, Module, register
 from forense.parsers.logfile import (
+    CONTEXT_OPS,
     NAME_OPS,
     OP_INDEX_ALLOC_ADD,
     OP_INDEX_ALLOC_DELETE,
@@ -26,6 +32,8 @@ from forense.parsers.logfile import (
     OP_NAME_ROOT_UPDATE,
     LogFileError,
     LogRecord,
+    OpenAttributes,
+    attribute_display,
     file_name_from_content,
     file_record_from_data,
     index_entry_file_name,
@@ -62,21 +70,54 @@ class LogFileModule(Module):
         ctx.progress(f"{rel}: records")
         fh, info = open_logfile(path)
         try:
+            table = OpenAttributes()
+            names: dict[int, str] = {}
             for record in iter_records(fh, info):
                 stats["records"] += 1
+                table.update(record)
                 named = self._named(record)
-                if named is None:
+                if named is not None:
+                    stats["named"] += 1
+                    op, file_ref, parent_ref, name = named
+                    if file_ref is not None:
+                        names.setdefault(file_ref, name)
+                    ctx.record("logfile_entry", {
+                        "lsn": record.lsn, "transaction": record.transaction_id, "operation": op,
+                        "record": file_ref if file_ref is not None else "",
+                        "parent_record": parent_ref if parent_ref is not None else "", "name": name,
+                        "attribute": self._attribute(record, table),
+                    })
                     continue
-                stats["named"] += 1
-                op, file_ref, parent_ref, name = named
-                ctx.record("logfile_entry", {
-                    "lsn": record.lsn, "transaction": record.transaction_id, "operation": op,
-                    "record": file_ref if file_ref is not None else "",
-                    "parent_record": parent_ref if parent_ref is not None else "", "name": name,
-                })
+                contextual = self._contextual(record, table, names)
+                if contextual is not None:
+                    stats["contextual"] += 1
+                    op, number, name, attribute = contextual
+                    ctx.record("logfile_entry", {
+                        "lsn": record.lsn, "transaction": record.transaction_id, "operation": op,
+                        "record": number, "parent_record": "", "name": name, "attribute": attribute,
+                    })
         finally:
             fh.close()
         ctx.summary["logfile_files"][rel] = dict(stats)
+
+    @staticmethod
+    def _attribute(record: LogRecord, table: OpenAttributes) -> str:
+        entry = table.lookup(record.target_attribute)
+        return attribute_display(entry) if entry is not None else ""
+
+    def _contextual(self, record: LogRecord, table: OpenAttributes,
+                    names: dict[int, str]) -> Optional[tuple[str, int, str, str]]:
+        """(operation, record number, file name, attribute) when the operation's context is
+        the open attribute table: which file and which attribute the change applies to."""
+        op = record.redo_op if record.redo_op in CONTEXT_OPS else record.undo_op
+        if op not in CONTEXT_OPS:
+            return None
+        entry = table.lookup(record.target_attribute)
+        if entry is None:
+            return None
+        number = entry.reference & 0xFFFFFFFFFFFF
+        display = self._attribute(record, table)
+        return operation_name(op), number, names.get(number, ""), display
 
     def _named(self, record: LogRecord) -> Optional[tuple[str, Optional[int], Optional[int], str]]:
         """(operation, file reference, parent reference, name) when the operation carries a name.

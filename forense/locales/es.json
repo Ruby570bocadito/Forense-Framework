@@ -1513,6 +1513,7 @@
  "field.height": "Alto",
  "field.tile": "Tile",
  "field.width": "Ancho",
+ "field.attribute": "Atributo",
  "finding.rdp_cache.historic_activity.title": "Actividad RDP histórica",
  "finding.rdp_cache.historic_activity.description": "La caché de mapas de bits del cliente de Escritorio remoto contiene {tiles} tiles ({file}): este equipo mostró el escritorio de otro equipo por RDP (movimiento lateral o administración remota). Los tiles extraídos muestran fragmentos de esa pantalla.",
  "module.rdp_cache.title": "Caché RDP (Bitmap Cache)",

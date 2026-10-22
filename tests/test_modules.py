@@ -198,16 +198,20 @@ def test_rdp_cache_tolerates_corruption(tmp_path):
 def test_logfile_module(demo, tmp_path):
     ctx, sink = run("logfile", demo["triage"], tmp_path)
     rows = records(sink, "logfile_entry")
-    by_name = {r["name"]: r for r in rows}
-    assert by_name["svchost.exe"]["operation"] == "initialize_file_record_segment"
-    assert by_name["svchost.exe"]["record"] == 70 and by_name["svchost.exe"]["parent_record"] == 65
+    created = next(r for r in rows if r["operation"] == "initialize_file_record_segment")
+    assert created["record"] == 70 and created["parent_record"] == 65 and created["name"] == "svchost.exe"
     added = next(r for r in rows if r["operation"] == "index_entry_add")
     assert added["name"] == "mimikatz.exe" and added["record"] == 74 and added["parent_record"] == 73
     assert added["lsn"] < next(r for r in rows if r["operation"] == "index_entry_delete")["lsn"]
-    assert all(r["operation"] != "update_mapping_pairs" for r in rows)  # without a name: counted, not reported
+    # the mapping pairs update rides on the open attribute table: the 0x1C record before it
+    # opened the $DATA stream of svchost.exe (record 70)
+    mapping = next(r for r in rows if r["operation"] == "update_mapping_pairs")
+    assert mapping["record"] == 70 and mapping["name"] == "svchost.exe" and mapping["attribute"] == "$DATA"
+    assert all(r["attribute"] == "" for r in rows if r["operation"] != "update_mapping_pairs")
     stats = ctx.summary["logfile_files"]
-    assert sum(s["records"] for s in stats.values()) == 4
-    assert sum(s["named"] for s in stats.values()) == 3
+    assert sum(s["records"] for s in stats.values()) == 5
+    assert sum(s["named"] for s in stats.values()) == 3  # operations carrying the name in their own data
+    assert sum(s["contextual"] for s in stats.values()) == 1  # the mapping pairs update, named via the table
 
 
 def test_inventory_module(demo, tmp_path):
