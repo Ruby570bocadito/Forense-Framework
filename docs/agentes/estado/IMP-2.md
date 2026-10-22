@@ -1,31 +1,35 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- Bootstrap de docs/agentes/ (junto a DIR; ROADMAP fusionado por DIR) y main fijada como predeterminada.
 - report-signing (3e1671f): firma Ed25519 desacoplada (.sig) de informes HTML y PDF, verificación desde la web,
   huella pública y hashes en custodia, clave privada siempre fuera del caso (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB).
   Dependencia cryptography>=42 justificada en el commit. CLI --sign pendiente de IMP-1.
-- web-rendimiento (93074ef): paginación de hallazgos y ejecución (100/página, pager con filtros, totales reales);
-  técnicas ATT&CK solo de la página visible salvo filtro por técnica.
-- web-accessibility (b6ad493): skip link, main con id, nav etiquetada, aria-current explícito en nav e idiomas,
-  roles alert/status en avisos, aria-live en panel de trabajos, thead + scope en las 14 tablas de datos,
-  columnas de marcadores/acciones con nombre, aria-label en campos sin etiqueta, foco visible en enlaces/botones.
-- reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con el hash registrado en custodia
-  (insignia verde/aviso si el archivo cambió tras generarse), junto al estado de firma.
-- Verificado con `forense demo`: informe es/en autocontenido (sin scripts ni recursos cargados; solo enlaces de
-  referencia a MITRE), firma y verificación sobre el caso de demo, ruff y pytest en verde (283 tests).
+- web-rendimiento (93074ef): paginación de hallazgos y ejecución (100/página, pager con filtros, totales reales).
+- web-accessibility (b6ad493): skip link, aria-current explícito, roles de avisos, aria-live en jobs,
+  thead + scope en las 14 tablas, aria-labels, foco visible; temas claro/oscuro intactos.
+- reports-hash-display (9b0912a): SHA-256 de cada informe contrastado con la custodia (insignia coincide/cambiado).
+- web-revision-masiva (90d4996): selección múltiple en la tabla de hallazgos y estado de revisión en bloque
+  con nota opcional; la pista de auditoría sigue siendo una entrada por hallazgo (actor + sello UTC vía
+  Case.review_finding). POST con CSRF, estado validado de entrada, ids saneados con tope (1000), hallazgos
+  desaparecidos se omiten y se resumen en un aviso. Checkboxes vía atributo form= (sin formularios anidados)
+  y "seleccionar todo" en static/app.js (CSP limpia). Claves web.bulk_* es/en; tests: flujo, CSRF, estado
+  inválido, selección vacía y fallo parcial.
+- h-008 (7dbd4fd): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
+  (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
+  sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
+  resuelto-pendiente-verificación. Suite: 290 passed, 1 skipped; ruff limpio.
 
 ## En curso
-- (nada — sin tareas IMP-2 en el ROADMAP)
+- (nada)
 
 ## Bloqueado
-- (nada; sin hallazgos abiertos dirigidos a IMP-2)
+- (nada)
 
 ## Peticiones a otras zonas
+- PUL: job de CI con un Chromium real (p. ej. playwright install chromium) que genere un PDF del caso demo y
+  compruebe que empieza por %PDF — cubre lo que la suite no puede con navegador falso (origen de H-008).
 - IMP-1: exponer --sign en `forense informe` (cli.py) sobre forense/report/signing.py ya operativo.
-- IMP-1: opcional a futuro, offset/limit en Case.findings si algún día hacen falta cientos de miles de hallazgos.
-- DIR: marcar [x] web-accessibility y reports-hash-display (verificadas, commits arriba); el ROADMAP en remoto
-  aún las muestra abiertas.
+- DIR: marcar [x] web-accessibility, reports-hash-display y web-revision-masiva (entregadas y verificadas).
 
 ## Propuestas para el roadmap
 - Asociar for/id en las opciones de módulo de analyses.html (hoy tienen label adyacente sin referencia).
