@@ -191,7 +191,7 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense -c CASO hallazgos [--severidad high] [--estado confirmado]` | `findings` | Hallazgos ordenados por severidad, con su estado de revisión |
 | `forense -c CASO revisar N confirmado\|falso_positivo\|pendiente [-n NOTA]` | `review` | Revisar un hallazgo |
 | `forense -c CASO destacar N [-n NOTA] [--quitar]` | `bookmark` | Marcar un evento de la línea temporal |
-| `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas) |
+| `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas); `--archivo` lee un archivo existente |
 | `forense -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
 | `forense -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
 | `forense -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1 |
@@ -225,6 +225,7 @@ forense -c ./2026-017 analizar hashset EV-002 -o hash_list=C:\intel\malware_sha2
 forense -c ./2026-017 analizar yara EV-002 -o rules=C:\intel\yara
 forense -c ./2026-017 hallazgos --severidad medium
 forense -c ./2026-017 revisar 12 confirmado -n "Coincide con el 4688 del controlador de dominio"
+# redacte antes conclusiones.md: --archivo lo lee como entrada
 forense -c ./2026-017 conclusiones --archivo conclusiones.md
 forense -c ./2026-017 informe --verificar
 ```

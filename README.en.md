@@ -190,7 +190,7 @@ Every command has an English name and a Spanish alias.
 | `forense -c CASE findings [--min-severity high] [--status confirmed]` | `hallazgos` | Findings sorted by severity, with their review status |
 | `forense -c CASE review N confirmed\|false_positive\|needs_review [-n NOTE]` | `revisar` | Review a finding |
 | `forense -c CASE bookmark N [-n NOTE] [--remove]` | `destacar` | Bookmark a timeline event |
-| `forense -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions |
+| `forense -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions; `--file` reads an existing file |
 | `forense -c CASE timeline [--from] [--to] [--search] [--source] [--bookmarked]` | `cronologia` | Super timeline |
 | `forense -c CASE execution [--search X] [--suspicious]` | `ejecucion` | Programs executed according to every source |
 | `forense -c CASE export {analysis N,timeline,findings,execution,stix,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON or STIX 2.1 |
@@ -223,6 +223,7 @@ forense -c ./2026-017 analyze hashset EV-002 -o hash_list=C:\intel\malware_sha25
 forense -c ./2026-017 analyze yara EV-002 -o rules=C:\intel\yara
 forense -c ./2026-017 findings --min-severity medium
 forense -c ./2026-017 review 12 confirmed -n "Matches 4688 on the domain controller"
+# write conclusions.md first: --file reads it as input
 forense -c ./2026-017 conclusions --file conclusions.md
 forense -c ./2026-017 report --verify
 ```
