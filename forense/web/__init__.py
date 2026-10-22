@@ -8,6 +8,7 @@ Basic authentication, and evidence is only ever read.
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import math
 import os
 import re
@@ -15,6 +16,7 @@ import secrets
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -75,6 +77,29 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     _mark_interrupted(app.config["WORKSPACE"])
 
     # -- request lifecycle --------------------------------------------------------
+    @app.before_request
+    def _host_guard() -> Optional[Response]:
+        """Reject DNS-rebinding hosts when running without a password.
+
+        A page the analyst visits can rebind its own domain to 127.0.0.1 and, being
+        then same-origin, read the case and harvest the CSRF token. Basic auth makes
+        this moot (credentials are not replayed cross-origin), so the guard only runs
+        in password-less mode and accepts loopback names and literal IPs (which
+        cannot be rebound); any other DNS name is refused with 403. /healthz stays
+        open (it exposes no data and container probes may use service DNS names).
+        """
+        if app.config["PASSWORD"] or request.path == "/healthz":
+            return None
+        name = urlsplit(f"http://{request.host or ''}").hostname or ""
+        try:
+            ipaddress.ip_address(name)
+            return None  # literal IP: cannot be rebound
+        except ValueError:
+            pass
+        if name in ("localhost", "127.0.0.1", "::1"):
+            return None
+        return Response(t("web.host_forbidden"), 403)
+
     @app.before_request
     def _before() -> Optional[Response]:
         if request.path == "/healthz":  # liveness probe (containers): no data, no authentication

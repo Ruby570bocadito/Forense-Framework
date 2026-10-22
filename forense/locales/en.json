@@ -1403,6 +1403,7 @@
  "web.job_started": "Job started: {description}",
  "web.jobs": "Background jobs",
  "web.listening": "Web interface at {url} (workspace: {workspace}). Ctrl+C to quit.",
+ "web.host_forbidden": "Host not allowed: without a password only local access is accepted (localhost or a literal IP). Set FORENSE_WEB_PASSWORD to access by hostname.",
  "web.new_case": "New case",
  "web.no_activity": "There are no timeline events yet.",
  "web.no_analyses": "No analyses yet.",

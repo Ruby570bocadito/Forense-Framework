@@ -270,3 +270,19 @@ def test_request_bodies_are_size_capped(web):
     token = re.search(r'name="csrf_token" value="([^"]+)"', client.get("/").get_data(as_text=True)).group(1)
     assert client.post("/analyst", data={"csrf_token": token, "analyst": "Wendy"}).status_code in (200, 302)
     assert client.post("/analyst", data={"csrf_token": token, "analyst": "A" * (2 * 1024 * 1024)}).status_code == 413
+
+
+def test_dns_rebinding_hosts_are_rejected_without_password(web):
+    """SEG: without a password only loopback names and literal IPs may be a Host (anti-rebinding)."""
+    client = create_app(web).test_client()
+    for host in ("localhost:8765", "127.0.0.1:8765", "[::1]:8765", "192.168.1.50"):
+        assert client.get("/", headers={"Host": host}).status_code in (200, 302), host
+    for host in ("evil.com", "attacker.example:8765", ""):
+        assert client.get("/", headers={"Host": host}).status_code == 403, host
+
+
+def test_healthz_and_password_skip_host_guard(web):
+    client = create_app(web).test_client()
+    assert client.get("/healthz", headers={"Host": "forense-svc.cluster"}).status_code == 200
+    guarded = create_app(web, password="s3cret").test_client()
+    assert guarded.get("/", headers={"Host": "evil.com"}).status_code == 401  # auth governs, not the guard

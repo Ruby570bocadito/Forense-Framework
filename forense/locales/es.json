@@ -1403,6 +1403,7 @@
  "web.job_started": "Tarea iniciada: {description}",
  "web.jobs": "Tareas en segundo plano",
  "web.listening": "Interfaz web en {url} (espacio de trabajo: {workspace}). Ctrl+C para salir.",
+ "web.host_forbidden": "Host no permitido: sin contraseña solo se acepta acceso local (localhost o una IP literal). Define FORENSE_WEB_PASSWORD para acceder por nombre de host.",
  "web.new_case": "Nuevo caso",
  "web.no_activity": "Todavía no hay eventos en la línea temporal.",
  "web.no_analyses": "Todavía no hay análisis.",
