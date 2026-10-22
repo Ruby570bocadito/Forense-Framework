@@ -26,6 +26,7 @@ Tabla de módulos verificada contra el código: 18 de Windows + 6 genéricos, co
 - [ ] (IMP-1) artifact-notifications — módulo de notificaciones de Windows (wpndatabase.db / NotificationStore): apps emisoras, títulos y cuerpos; entrega completa — forense/modules/, forense/locales/, forense/demo/, tests/
 - [ ] (IMP-2) reports-hash-display — mostrar SHA-256 y estado de firma de cada informe en la página de informes — forense/web/, tests/
 - [ ] (IMP-1) intel-misp-opencti — importación de inteligencia desde MISP (IOCs → lista de vigilancia de `ioc` y correlación); OpenCTI después — forense/core/, forense/locales/, tests/
+- [ ] (IMP-1) refs-rama-heredada — quitar la ref de fallback a la rama heredada en REFS (`claude/inspiring-cray-xn35zk`, línea 26) y dejar solo main — forense/update.py
 - [ ] (PUL) readme-arbol-comandos — verificar árbol de "Arquitectura" contra el árbol real, probar los comandos de instalación (manual, Docker, `forense demo`) y contrastar la tabla de módulos — README.md, README.en.md
 - [ ] (SEG) auditoria-extraccion — revisar path traversal y nombres hostiles al extraer de imágenes (`..`, rutas absolutas, enlaces simbólicos) con test de regresión; fixes mínimos — transversal (claim previo)
 - [ ] (SEG) auditoria-subprocesos-yaml — revisar subprocesos (Volatility, PDF) sin shell y con argumentos controlados, y YAML solo con safe_load (config, Sigma) — transversal (claim previo)
