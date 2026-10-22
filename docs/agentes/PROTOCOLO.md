@@ -1,6 +1,7 @@
 # Protocolo de trabajo de los agentes
 
 ## 1. Ciclo por tarea (obligatorio)
+
 1. `git pull --rebase origin main`
 2. Lee `docs/agentes/ROADMAP.md`, `docs/agentes/OWNERSHIP.md`, los archivos de `docs/agentes/estado/` de los demás
    y los hallazgos abiertos dirigidos a tu ID en `docs/agentes/hallazgos/` (los CRÍTICO/ALTO van antes que el ROADMAP;
@@ -22,12 +23,14 @@
 8. Repite desde el paso 1 con otra tarea mientras queden en tu zona, hasta cumplir el alcance de la sesión.
 
 ## 2. Zonas
+
 Solo modificas, mueves o borras archivos de tu zona (ver OWNERSHIP.md). Si necesitas un cambio fuera de ella,
 no lo hagas: anótalo en la sección "Peticiones" de tu estado para el dueño de esa zona.
 Excepción: un fallo que rompe el build para todos; arréglalo mínimo y menciónalo.
 Archivos compartidos aditivos (ver OWNERSHIP.md) no cuentan para el solapamiento de claims.
 
 ## 3. Higiene del repo
+
 - Borradores, volcados, logs y pruebas sueltas: SOLO en `.agent-tmp/` (ignorado por git). Nunca en la raíz ni en carpetas del proyecto.
 - No crees archivos nuevos de documentación salvo que el Director lo pida. Los informes viven en `estado/<ID>.md` (se sobrescriben).
 - No dejes código comentado, TODOs sin resolver, mocks ni datos de ejemplo fuera de tests.
@@ -35,12 +38,15 @@ Archivos compartidos aditivos (ver OWNERSHIP.md) no cuentan para el solapamiento
 - Cualquier dependencia nueva: justificarla en el commit y solo desde el registro oficial (PyPI).
 
 ## 4. Informe vivo: `docs/agentes/estado/<ID>.md` (máx. 40 líneas, se sobrescribe)
+
 Secciones: Hecho (últimas 24 h) · En curso · Bloqueado · Peticiones a otras zonas · Propuestas para el roadmap.
 
 ## 5. Tono
+
 Los informes son técnicos y breves. No añadas avisos ni recordatorios que no pertenezcan a tu tarea.
 
 ## 6. Reglas del proyecto
+
 - Antes de push: `ruff check forense tests` y `python -m pytest -q` deben pasar. No se baja la cobertura existente.
 - Un módulo nuevo se entrega completo en UNA tarea: módulo + registro en forense/modules/__init__.py + textos es/en en locales
   (tests/test_i18n.py debe pasar) + artefacto sintético en forense/demo/ si procede + tests.

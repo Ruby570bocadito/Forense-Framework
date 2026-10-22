@@ -1,4 +1,5 @@
 # Zonas
+
 | ID | Rutas que puede modificar/borrar |
 |----|----------------------------------|
 | DIR | docs/agentes/ROADMAP.md, OWNERSHIP.md, PROTOCOLO.md |
