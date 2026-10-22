@@ -1,37 +1,39 @@
-# estado/TEST.md — 2026-10-23 (ronda 4)
+# estado/TEST.md — 2026-10-23 (ronda 5)
 
 ## Hecho
-- H-007 verificado y CERRADO (fix dfe9cde de IMP-1): e2e tests/e2e/test_e2e_verify_copia.py —
-  copia con cp -r del caso entero se verifica contra sí misma; manipular un fichero DENTRO de
-  la copia da exit 2 con [FAIL]; el original sigue en exit 0; copia movida a otra ruta sigue
-  resolviendo su evidencia. Lo pide IMP-1 en su estado.
-- Módulos nuevos verificados sobre demo fresca: notifications (4 registros, 4 eventos) y
-  rdp_cache (4 registros, hallazgo LOW "Historic RDP activity", 4 tiles extraídos como BMP con
-  cabecera BM válida en analyses/0009_rdp_cache/).
-- timeline-export-html (IMP-2) verificado de extremo a extremo por HTTP real: POST con CSRF
-  escribe en exports/ anclado a custodia (export_created con sha256 que coincide), documento
-  autónomo (doctype, sin src/href externos, sin JS), y un comando hostil de histórico
-  PowerShell (`<script>alert(1)</script> =cmd...`) llega ESCAPADO al export. Regresión:
-  tests/e2e/test_e2e_timeline_html.py (servidor real en puerto efímero con contraseña).
-- Nota técnica del e2e: el CSRF vive en la sesión; hay que reutilizar la MISMA cookie de la
-  GET que renderizó el token en el POST (mi primer intento falló con 400 por mezclar sesiones).
-- Re-confirmados abiertos: H-005 (duplicada sin aviso), H-006 (errno crudo en conclusiones
-  --archivo), H-009 (argparse en inglés con -L es), H-010 (--sign sigue ausente de informe
-  --help). Coincide con la cola declarada por IMP-1.
-- Suite: 334 passed, 1 skipped; ruff limpio. 2 e2e nuevos esta ronda (9 ficheros e2e).
+- H-005 verificado y CERRADO (fix 1f94986 de IMP-1): repro literal del hallazgo — el 2º registro
+  del mismo EVTX avisa por stderr «Aviso: contenido idéntico a EV-001 (SHA-256 …); el registro
+  continúa» en el idioma de sesión (-L es verificado; en locale C el aviso sale en inglés, que es
+  el comportamiento conocido, no parte de H-005). Exit 0 en todos los casos, stdout limpio para
+  consumo automático, `evidencia listar` muestra las 3 gemelas, y también avisa con directorios
+  duplicados y con copia renombrada (mismo contenido, otra ruta). El primer registro de un caso
+  jamás avisa (sin falsos positivos). Residual para IMP-1/IMP-2: la subida web
+  (POST /c/<slug>/evidence) ignora `ev.duplicate_of` — el flash solo dice «Evidencia EV-00X
+  registrada»; no bloquea el cierre (el hallazgo era del CLI del perito veterano).
+- web-filtros-guardados (IMP-2) verificado por HTTP real: barra oculta en página limpia; guardar
+  exige CSRF; query forjada (cookie=stolen&q=<script> en findings, evilloot=1 en timeline) queda
+  recortada a la allowlist de cada página; nombre hostil `"><script>alert(1)</script>` renderiza
+  escapado en el chip; el chip aplica (GET 200) y su borrado vacía el JSON; tope de 20 con aviso
+  localizado («Up to 20 saved filters» en/Máximo en es); <case>/ui/saved_filters.json sin tocar
+  la custodia (0 filas nuevas); saved_filters.json dañado degrada a «sin chips» con página 200.
+  Regresión: tests/e2e/test_e2e_saved_filters.py (2 tests, servidor real con contraseña).
+- Nota técnica del e2e: el flash viaja en la cookie de sesión que refresca el 302; hay que
+  REEMPLAZAR (no acumular) los cookies de misma clave — werkzeug se queda con el primer valor
+  duplicado, así que mezclar cookies viejas y nuevas silencia los flashes.
+- Re-confirmados abiertos: H-006 (errno crudo, exit 1 correcto — IMP-1 la acaba de reclamar),
+  H-009 (argparse rechaza «hallazgos» con -L es), H-010 (--sign sigue ausente de informe --help).
+- Suite: 344 passed, 1 skipped; ruff limpio. 1 e2e nuevo esta ronda (10 ficheros e2e).
 
 ## Estado hallazgos
-- Cerrados esta ronda: H-007. Abiertos: H-005, H-006, H-009, H-010 (todos IMP-1, en su cola).
+- Cerrados esta ronda: H-005. Abiertos: H-006, H-009, H-010 (todos IMP-1, en su cola).
 
 ## Sin probar
 - Job pdf de CI (GitHub), Docker, recolectar (Windows admin), memoria real con Volatility,
-  disco lleno, wpndatabase/Cache*.bin reales (el demo sintetiza bien, sin muestra real de
-  referencia en tests/data para notificaciones/rdp).
+  disco lleno, muestras reales de wpndatabase/qmgr.db/Cache*.bin.
 
 ## Peticiones
-- IMP-1: H-005/006/009/010 cuando puedas; h-002 guardas vistas (bien).
-- IMP-2: h-008 ya lo cerré en la ronda 3 (12a5c8b); tu estado quedó anticuado.
-- PUL: faltan README de notifications/rdp_cache (petición de IMP-1) y documentar cómo mover/
-  archivar un caso (parte documental de H-007).
-- DIR: recordatorio — los claims se liberan al empujar (claims/ está vacío, correcto); el
-  token sigue pendiente de rotación por el operador (a SEG le fue rechazado).
+- IMP-1: H-006/009/010 cuando puedas (H-006 ya reclamada). Residual de H-005: que la subida web
+  muestre el gemelo duplicado (1 línea con ev.duplicate_of en el mensaje del job).
+- IMP-2: filtros guardados — verificado todo; solo el residual de arriba toca tu superficie web.
+- PUL: pendientes README de notifications/rdp_cache y documentar mover/archivar caso (H-007).
+- DIR: el token sigue pendiente de rotación por el operador.
