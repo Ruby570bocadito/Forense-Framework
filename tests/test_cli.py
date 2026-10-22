@@ -116,6 +116,47 @@ def test_duplicate_evidence_warning(tmp_path, evidence_dir, capsys):
     assert "identical to" not in out and "idéntico" not in out
 
 
+def test_report_sign_option(tmp_path, evidence_dir, capsys, monkeypatch):
+    """`informe --firmar` offers the web's signing path on the CLI (H-010)."""
+    from conftest import make_signing_key
+
+    from forense.core.case import Case
+    from forense.report import signing
+
+    case = str(tmp_path / "case")
+    main(["new", case, "-n", "x", "-i", "y"])
+    main(["evidence", "add", str(evidence_dir), "-c", case])
+    pem, pub = make_signing_key(tmp_path)
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("FORENSE_SIGN_PUB", str(pub))
+    assert main(["-c", case, "informe", "--firmar", "-L", "es"]) == EXIT_OK
+    reports = tmp_path / "case" / "reports"
+    html = sorted(reports.glob("*.html"))[-1]
+    sig = signing.signature_path(html)
+    out = capsys.readouterr().out
+    assert sig.is_file() and sig.name in out and "Informe firmado" in out
+    assert signing.verify_file(html, signing.load_public_key(pub))
+    with Case.open(case) as reopened:
+        assert any(e.action == "report_signed" for e in reopened.custody.entries())
+    html.write_text("<html>tampered</html>", encoding="utf-8")
+    assert not signing.verify_file(html, signing.load_public_key(pub))  # the .sig pins the exact bytes
+
+
+def test_report_without_sign_makes_no_sig(tmp_path, evidence_dir, capsys, monkeypatch):
+    """Without --sign the report stays unsigned, even with a signing key configured (H-010)."""
+    from conftest import make_signing_key
+
+    case = str(tmp_path / "case")
+    main(["new", case, "-n", "x", "-i", "y"])
+    main(["evidence", "add", str(evidence_dir), "-c", case])
+    pem, _ = make_signing_key(tmp_path)
+    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    assert main(["-c", case, "report"]) == EXIT_OK
+    reports = tmp_path / "case" / "reports"
+    assert reports.glob("*.html") and not list(reports.glob("*.sig"))
+    assert "Report signed" not in capsys.readouterr().out
+
+
 def test_modules_listing_and_demo(tmp_path, capsys):
     assert main(["modulos", "-L", "es"]) == EXIT_OK
     out = capsys.readouterr().out

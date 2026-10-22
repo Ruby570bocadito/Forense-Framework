@@ -561,12 +561,19 @@ def cmd_report(args: argparse.Namespace) -> int:
         pdf = args.pdf or (output is not None and output.suffix.lower() == ".pdf")
         if pdf and output is not None and output.suffix.lower() == ".pdf":
             output = output.with_suffix(".html")
-        path = generate_report(case, args.lang, output, args.verify, args.analyst)
+        path = generate_report(case, args.lang, output, args.verify, args.analyst, sign=args.sign)
         _out(t("cli.report_written", path=str(path)))
         if pdf:
             from forense.report.pdf import html_to_pdf
 
-            _out(t("cli.report_written", path=str(html_to_pdf(path, case=case, actor=args.analyst))))
+            pdf_path = html_to_pdf(path, case=case, actor=args.analyst, sign=args.sign)
+            _out(t("cli.report_written", path=str(pdf_path)))
+        if args.sign:  # H-010: the CLI now offers the same signing path as the web
+            from forense.report.signing import signature_path
+
+            _out(t("cli.report_signed", sig=str(signature_path(path))))
+            if pdf:
+                _out(t("cli.report_signed", sig=str(signature_path(pdf_path))))
     return EXIT_OK
 
 
@@ -929,6 +936,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--output", "--salida")
     p.add_argument("--verify", "--verificar", action="store_true", help=t("cli.opt.report_verify"))
     p.add_argument("--pdf", action="store_true", help=t("cli.opt.report_pdf"))
+    p.add_argument("--sign", "--firmar", action="store_true", help=t("cli.opt.report_sign"))
 
     p = _add(sub, "sigma", "", "cli.cmd.sigma", cmd_sigma)
     p.add_argument("action", choices=("check", "download"), metavar="check|download")
