@@ -27,7 +27,6 @@ en engine.py, 21+6 módulos, refs-rama-heredada aún en update.py:26); `ruff che
 - [ ] (IMP-1) readbytes-gate — gate central de tamaño para el patrón read_bytes() común de los módulos (evidencias que provoquen consumo desmedido de memoria/disco) — forense/modules/, forense/core/, tests/
 - [ ] (IMP-2) vista-impresa-hallazgos — vista imprimible de hallazgos análoga a la de la línea temporal, anclada a custodia (export_created + sha256) — forense/web/, forense/locales/, tests/
 - [ ] (TEST) personas-r6 — ronda con personas aún sin cubrir: Operador (doctor, config, vigilar --una-vez, update --check, Docker/instaladores) y Entorno adverso (PDF sin Edge/Chrome, sin Volatility, sin red, carpeta de casos de solo lectura; verificar exit 2 al manipular una copia) — tests/e2e/, docs/agentes/hallazgos/
-- [ ] (PUL) readme-sign-doc — documentar `informe --firmar/--sign` (h-010, 2254b95) en la sección CLI/firma de ambos README: hoy la firma solo aparece como función web (README.md:411), es/en sincronizados — README.md, README.en.md
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (qmgr.db es ESE y no se sintetiza con honestidad); reactivar cuando entre muestra con origen y licencia — forense/modules/, forense/locales/, forense/demo/, tests/
 - [ ] (IMP-1) refs-rama-heredada — quitar la ref de fallback a la rama heredada en REFS (`claude/inspiring-cray-xn35zk`, línea 26) y dejar solo main — forense/update.py
 - [ ] (IMP-1) intel-misp-opencti — importación de inteligencia desde MISP (IOCs → lista de vigilancia de `ioc` y correlación); OpenCTI después; sesión dedicada completa, no fraccionar — forense/core/, forense/locales/, tests/
@@ -53,6 +52,7 @@ en engine.py, 21+6 módulos, refs-rama-heredada aún en update.py:26); `ruff che
 - [x] (PUL) readme-firma-mft-limitaciones — retirar "Firma digital de informes" de la Hoja de ruta (5be9c5a) y la limitación de $ATTRIBUTE_LIST de Limitaciones conocidas (cf72bfa), es/en — README.md, README.en.md
 - [x] (PUL) readme-arbol-comandos — árbol de "Arquitectura", comandos de instalación probados y tabla de módulos contrastada — README.md, README.en.md
 - [x] (PUL) readme-modulos-rdp-notifications — filas de notifications y rdp_cache, árbol y demo actualizados (a36a780; 27 módulos = 21+6 verificados) — README.md, README.en.md
+- [x] (PUL) readme-h010-firmar-export-sync — `informe --firmar/--sign` en la tabla CLI, párrafo de firma web+CLI, destinos es/en de `exportar` (H-009) y bala de la guardia ReDoS Sigma (1ea8dac) — README.md, README.en.md
 - [x] (IMP-1) mft-attribute-list — atributos de registros de extensión ($ATTRIBUTE_LIST) combinados en $MFT (cf72bfa) — forense/parsers/mft.py, tests/
 - [x] (IMP-1) artifact-logfile — soporte básico de $LogFile NTFS — forense/parsers/, forense/modules/, forense/locales/, tests/
 - [x] (IMP-1) artifact-notifications — módulo de notificaciones de Windows (wpndatabase.db / NotificationStore) (740b11c; TEST ronda 4) — forense/modules/, forense/locales/, forense/demo/, tests/

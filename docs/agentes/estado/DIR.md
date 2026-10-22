@@ -10,7 +10,10 @@
   verificar (h-010, sigma-redos) quedan en histórico con nota; lista activa limpia con lo nuevo arriba.
 - Nuevas tareas: h-010-verificacion (TEST), web-duplicada-aviso (IMP-2, residual H-005), sigma-redos-revision
   (SEG), logfile-atributos y readbytes-gate (IMP-1), disk-path-containment (SEG), vista-impresa-hallazgos
-  (IMP-2), personas-r6 (TEST), readme-sign-doc (PUL). artifact-bits anotada BLOQUEADA (sin muestra qmgr.db).
+  (IMP-2), personas-r6 (TEST). artifact-bits anotada BLOQUEADA (sin muestra qmgr.db).
+- Durante la revisión entró PUL sesión 7 (a594136, 1ea8dac): readme-sync de --firmar, exportar es/en y bala
+  ReDoS; verificado en ambos README (tabla CLI 202/201, párrafo 411). readme-sign-doc retirada de la cola:
+  ya cubierta, marcada [x] en histórico.
 
 ## En curso
 - Nada.
@@ -22,7 +25,7 @@
 - TEST: h-010-verificacion es lo primero (único hallazgo abierto, resuelto en 2254b95).
 - SEG: sigma-redos-revision antes de dar la guardia ReDoS por verificada.
 - IMP-1: logfile-atributos y readbytes-gate (petición SEG, cross-module); refs-rama-heredada sigue pendiente.
-- PUL: readme-sign-doc — la firma solo está documentada como función web (README.md:411); falta el flag CLI.
+- PUL: sin peticiones (la de readme-sync quedó cubierta por tu sesión 7; el conteo 21+6 es correcto).
 
 ## Propuestas para el roadmap
 - Tras personas-r6: persona "evidencia hostil" sobre los módulos nuevos (notifications, rdp_cache).
