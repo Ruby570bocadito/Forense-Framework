@@ -1,37 +1,25 @@
 # SEG — informe vivo
 
 ## Hecho (últimas 24 h)
-- Sesión 3: revisado el código nuevo entrado tras mi última sesión (fc6ac5c..90d4996).
-- reports-hash-display (be0cbba, IMP-2): limpio. La comparación con la custodia solo construye un
-  mapa nombre→sha (normaliza \ y /, no abre rutas por el valor guardado), el hash actual usa el
-  hashing en streaming ya endurecido y la plantilla muestra todo autoescapado; el test cubre
-  coincidencia y manipulación posterior.
-- bulk-review (90d4996, IMP-2): limpio. Ids estrictos (dígitos ASCII, <12 caracteres, dedup, tope
-  1000), estado validado antes de mutar (fallo ruidoso), CSRF global aplicado, custodia por
-  hallazgo vía Case.review_finding con actor y UTC, ausentes contados sin hundir el lote.
-- FIX 1 (petición de TEST): `forense web` sin contraseña solo avisaba si el host no era loopback;
-  ahora anuncia el arranque sin autenticación también en 127.0.0.1 (stderr, cli.web_open_notice
-  es/en), conservando el aviso fuerte de red expuesta. Regresión: aviso en loopback, aviso de red
-  intacto y silencio con contraseña.
-- FIX 2: la app no configuraba MAX_CONTENT_LENGTH y ninguna ruta acepta subidas (la evidencia se
-  referencia por ruta del servidor), así que cualquier cuerpo grande era buffering hostil; ahora
-  >1 MiB falla con 413 antes de parsear. Test: cuerpo pequeño pasa, cuerpo de 2 MiB → 413.
-- Lote final de la tanda revisado: cierre DIR (efe4457, mis 3 tareas siguen [x]), H-008 cerrado
-  por IMP-2 (b1edf5b: solo extrae _GLOBS a constante en pdf.py, subprocess intacto) y e2e de TEST
-  (a34af70, solo tests/e2e/). Gates re-certificados sobre la base final: ruff limpio; pytest
-  299 passed / 1 skipped.
-- Lote entrado durante mi bloqueo de push, revisado: banda web-auth-warning de IMP-2 (93599b8)
-  limpia y complementaria, sin duplicar el aviso CLI; ci-pdf-job de PUL (4b5f6e5) limpio (Chrome
-  preinstalado del runner, sin secretos, acciones versionadas); web-labels-analyses (9f88327) solo
-  plantillas con test; ronda 2 de TEST (34f530d) solo en tests/e2e/. Gates sobre main empujada:
-  ruff limpio; pytest 304 passed / 1 skipped.
+- Sesión 4: revisado lo entrado desde mi cierre de la sesión 3 (5be5d96..b9ed4f2).
+- report-correlation (06bf996, IMP-2): limpio. La sección nueva del informe solo reutiliza
+  core/correlation.py, se acota a 100 filas, nunca rompe el informe (except defensivo sobre un
+  bonus) y toda la plantilla queda autoescapada (display, nombres y slugs de casos). El texto
+  mantiene el invariante «indicio, no conclusión». Tests de sección ausente/presente incluidos.
+- h-002 (cd740c5, IMP-1) y readme h-006 (86be1d6, PUL): solo test/README. Nada que objetar.
+- FIX 3 (propuesta SEG de la sesión 3, entregada): guardia anti DNS-rebinding en la web. Sin
+  contraseña, before_request rechaza con 403 todo Host que no sea loopback (localhost,
+  127.0.0.1, ::1) o IP literal (no rebind-eable); /healthz exento (sonda sin datos, nombres DNS
+  de servicio en contenedores); con contraseña no se aplica (Basic no se re-envía entre
+  orígenes). Cierra lectura del caso y robo del token CSRF desde una página maliciosa rebind-eada.
+  Claves web.host_forbidden es/en; tests: hosts permitidos, prohibidos, healthz y modo con clave.
+- Gates sobre la propuesta: ruff limpio; pytest 309 passed / 1 skipped.
 
 ## En curso
 - Nada.
 
 ## Bloqueado
-- Nada. El operador empujó mis 5 commits (los parches del plan B quedan archivados en el espacio
-  de descargas, ya innecesarios).
+- Nada.
 
 ## Detectado, no corregido (motivo y siguiente paso)
 - Sin cambios: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del PDF
@@ -39,18 +27,13 @@
   (aceptado).
 
 ## Peticiones a otras zonas
-- IMP-2: aprobado tu claim web-auth-warning, sin veto — la banda en base.html complementa el aviso
-  CLI. Ojo: la premisa de tu claim («el aviso CLI solo cubre bind no-loopback») quedó anticuada:
-  ese aviso ya lo entregó SEG (FIX 1, pendiente de push), así que rebasa sobre él y no lo dupliques.
-- TEST: atendida tu petición sobre la web sin contraseña (FIX 1); sin autenticación solo es
-  aceptable en loopback y ahora se anuncia en el arranque.
-- PUL: pendiente la de la sesión 1 (documentar el modelo de seguridad en README es/en). Sin urgencia.
+- PUL: para readme-modelo-seguridad, sugiero cubrir: evidencia solo lectura (copia + hash),
+  descubrimiento ≠ conclusión (estados de revisión), UTC, secretos fuera del caso (clave de firma
+  por entorno, webhook por URL), autenticación web opcional + avisos (CLI y banda), guardia de
+  Host, firma Ed25519 de informes y safe_load/sin shell. Lo que aplique al usuario final.
 - IMP-1: find_embedded_lnks es O(cabeceras × rebanado) en blobs con muchas cabeceras LNK;
   rendimiento, no seguridad.
 
 ## Propuestas para el roadmap
-- (DIR) Hardening futuro: validar la cabecera Host contra lista corta (loopback) cuando no haya
-  contraseña; mitiga DNS rebinding desde el navegador del analista. Bajo, no urgente.
-- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (se mantiene).
-- (TEST) e2e "evidencia hostil": escapado del informe con HTML en valores de registro y export CSV
-  en hoja de cálculo.
+- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (se mantiene; ya está en ROADMAP).
+- (TEST) e2e "evidencia hostil" en el informe (HTML en valores de registro) y CSV exportado.
