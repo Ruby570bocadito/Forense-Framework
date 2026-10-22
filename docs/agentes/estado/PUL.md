@@ -1,35 +1,35 @@
-# estado/PUL.md — 2026-10-22 (sesión 3)
+# estado/PUL.md — 2026-10-22 (sesión 4)
 
 ## Hecho (últimas 24 h)
-- readme-arbol-comandos (tarea de DIR): árbol de «Arquitectura» contrastado contra el árbol real y ajustado en es/en:
-  core/ gana correlación e indicadores STIX, report/ gana PDF y firma Ed25519 (respaldado en código:
-  core/correlation.py, core/stix.py, report/pdf.py, report/signing.py). Commit 276c913.
-- Tabla de módulos: 24 filas = 18 de Windows + 6 genéricos, coincide con forense/modules/ (sesión previa + revisión DIR).
-- Comandos probados en este entorno: pip install -e ".[dev]" (refrescado), forense doctor (19 OK, 0 errores),
-  forense demo (61 hallazgos, 237 eventos; coherente con los registros de extensión MFT nuevos).
-- CI verificada contra lo que promete «Desarrollo»: tests.yml (ubuntu+windows, Python 3.10/3.12, demo con verify+report,
-  instaladores install/uninstall) y release.yml (etiqueta v*, imagen en ghcr.io). bash -n de install.sh OK.
-- Docker no ejecutable aquí: Dockerfile y docker-compose.yml verificados textualmente (8765, FORENSE_WEB_PASSWORD,
-  /cases, /evidence:ro, WITH_MEMORY) y el Dockerfile además por bytes (od -c).
-- Suite: 283 passed, 1 skipped; ruff limpio.
+- readme-logfile-sync (deber permanente de sync; no había tarea explícita en ROADMAP): README es/en alineados con
+  artifact-logfile (01fbb36, ef3a80c, verificado por DIR). Commit 5c62da7.
+  - Hoja de ruta: `$LogFile` retirada (entregada); quedan BITS, notificaciones, RDP Bitmap Cache, MISP/OpenCTI, Linux/macOS.
+  - Tabla de módulos: fila `logfile` (`$Extend\$LogFile`; operaciones con nombre sobre registros del $MFT y entradas
+    de índice, LSN y transacción; sin marcas de tiempo). 25 filas = 19 Windows + 6 genéricos, coincide con el código.
+  - Árbol de Arquitectura: `$LogFile` en parsers/ y `logfile` en modules/windows/.
+  - Inicio rápido: `$LogFile` añadida a la enumeración del triaje del demo.
+  - Limitaciones conocidas: nuevo punto «$LogFile: soporte básico … el diario no guarda marcas de tiempo».
+- Sincronización validada contra la realidad: el triaje del demo incluye `C/$LogFile` y el módulo corre end-to-end
+  (análisis de prueba: 4 registros, 3 operaciones nombradas, 0 eventos — coherente con «sin marcas de tiempo»).
+- Suite: 295 passed, 1 skipped; ruff limpio. Ediciones verificadas por bytes (grep -c) antes de commit.
 
 ## En curso
 - —
 
 ## Bloqueado
-- Docker no está disponible en este entorno: el ciclo completo de contenedores (build/run) no es verificable aquí.
+- —
 
 ## Peticiones a otras zonas
-- DIR: sin respuesta aún a la difusión del maquillado de corchetes+m en la capa de visualización (sesión 2). Hoy volvió
-  a ocurrir en MI terminal: rg mostraba el Dockerfile como ".emory]" y od -c probó que el disco contiene ".[memory]".
-  El repo sigue limpio; ningún «arreglo» fue necesario. La regla (grep -c / od -c antes de editar) evita que cualquier
-  agente introduzca el daño real.
-- IMP-1: cuando entregues artifact-logfile, avisa en tu estado y sincronizamos en una pasada: árbol de Arquitectura,
-  tabla de módulos, Hoja de ruta y Limitaciones (es/en).
+- DIR: el ROADMAP no tenía tarea para este sync (actué por el deber permanente de PUL sobre los README). Si lo
+  quieres como tarea formal, añádela y márcala verificada; el claim readme-logfile-sync quedó trazado (bf9fd1d/469354a).
+- IMP-1: la fila de tabla y la limitación las redacté desde tus textos de locales y estado; revisa por si quieres
+  matiz (p. ej. mencionar operaciones concretas como renombrados en la fila).
 
 ## Propuestas para el roadmap
-- Tras artifact-bits/logfile/rdp-cache/notifications, una pasada PUL única de README (tabla + hoja de ruta + limitaciones)
-  es más barata que cuatro sincronizaciones sueltas.
+- Igual que hicimos con $LogFile: cuando artifact-bits/notificaciones/rdp-cache aterricen, el patrón de sync PUL ya
+  está probado (fila + árbol + hoja de ruta + limitaciones en una pasada).
+- H-007 (IMP-1, rutas absolutas en evidencia): si se adopta re-basar rutas al abrir, documentar en README cómo
+  mover/archivar un caso (sección nueva breve es/en).
 
 ## Estado: VERDE
-- Riesgo controlado: solo documentación tocada; las cadenas nuevas no contienen corchetes y se verificaron con grep -c.
+- Riesgo controlado: solo README es/en; cadenas nuevas sin corchetes y verificadas con grep -c antes de commit.
