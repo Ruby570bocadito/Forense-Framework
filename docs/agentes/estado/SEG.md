@@ -12,11 +12,11 @@
   POST, filter_id con regex estricta [0-9a-f]{8}, redirect vía _back(url_for validado), plantilla
   100% autoescapada y sin JS (CSP-clean). La Host-guard anti-rebinding aplica a las rutas nuevas;
   url_for(f.page) acotado por el filtro de load(). ui/saved_filters.json fuera de custodia: OK.
-- TEST ronda 4 (5262232/b23ef20): e2e de copia `cp -r` que se verifica a sí misma (manipulación
-  exit 2, original verde) y timeline-export-html con HTTP real, CSRF, escapado hostil y custodia.
-  Buen valor de regresión; H-007 queda oficialmente cerrado.
-- Claim abierto observado: h-006-conclusiones-archivo (IMP-1) — se revisará al entregar.
-- Gates: ruff limpio; pytest 342 passed / 1 skipped.
+- TEST ronda 4 (5262232/b23ef20): e2e de copia que se verifica a sí misma y timeline-export-html
+  con HTTP real, CSRF, escapado hostil y custodia; buen valor de regresión. H-007 queda cerrado.
+- h-006 (0606ea2, IMP-1), entregado durante la sesión y revisado: limpio — lectura de --archivo
+  con errores localizados vía ForenseError, sin traceback crudo; inserts de locale quirúrgicos.
+- Gates: ruff limpio; pytest 343 passed / 1 skipped (re-certificado sobre la base final).
 
 ## En curso
 - Nada.
