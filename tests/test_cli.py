@@ -80,6 +80,26 @@ def test_conclusions_file_errors_are_localized(tmp_path, capsys):
     assert "Cannot read" in capsys.readouterr().err  # binary content also fails clean, no traceback
 
 
+def test_export_accepts_spanish_targets(tmp_path, evidence_dir, capsys):
+    """The Spanish terms of the export help resolve like the English ones (H-009)."""
+    case = str(tmp_path / "case")
+    main(["new", case, "-n", "x", "-i", "y"])
+    main(["evidence", "add", str(evidence_dir), "-c", case])
+    for target in ("hallazgos", "cronologia", "custodia", "ejecucion"):
+        out = tmp_path / f"{target}.csv"
+        assert main(["-c", case, "-L", "es", "exportar", target, "-o", str(out)]) == EXIT_OK, target
+        assert out.exists()
+    accented = tmp_path / "hallazgos.json"
+    assert main(["-c", case, "exportar", "cronología", "-o", str(accented), "-f", "json"]) == EXIT_OK
+    assert accented.exists()  # accented spellings fold onto the same targets; english names keep working
+    assert main(["-c", case, "exportar", "inventado", "-o", str(tmp_path / "x.csv"), "-L", "es"]) == EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "Destino de exportación no válido: inventado" in err and "hallazgos" in err
+    assert main(["-c", case, "export", "bogus", "-o", str(tmp_path / "x.csv")]) == EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "Unknown export target: bogus" in err and "analysis" in err
+
+
 def test_duplicate_evidence_warning(tmp_path, evidence_dir, capsys):
     """Registering the same content twice announces the twin on stderr, in the session language (H-005)."""
     case = str(tmp_path / "case")

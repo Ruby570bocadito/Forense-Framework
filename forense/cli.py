@@ -14,6 +14,7 @@ import os
 import shutil
 import sqlite3
 import sys
+import unicodedata
 from pathlib import Path
 from typing import Callable, Optional, Sequence
 
@@ -428,9 +429,30 @@ def cmd_timeline(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# Accepted targets of ``export`` in both interface languages (H-009): the Spanish names mirror the
+# subcommand aliases (analisis, cronologia, hallazgos, ejecucion, custodia) and accented spellings are
+# folded by _strip_accents, so "análisis" and "ejecución" also resolve.
+_EXPORT_WHAT = {
+    "analysis": "analysis", "analisis": "analysis",
+    "timeline": "timeline", "cronologia": "timeline",
+    "findings": "findings", "hallazgos": "findings",
+    "execution": "execution", "ejecucion": "execution",
+    "stix": "stix",
+    "custody": "custody", "custodia": "custody",
+}
+
+
+def _strip_accents(text: str) -> str:
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     from forense.core import exports
 
+    what = _EXPORT_WHAT.get(_strip_accents(args.what.strip().lower()))
+    if what is None:  # validated here so the message follows the session language (H-009)
+        raise ForenseError("error.export_what", what=args.what, options=t("cli.export_targets"))
+    args.what = what
     with _open_case(args) as case:
         fmt = "json" if args.what == "stix" else args.format or Path(args.output).suffix.lstrip(".").lower() or "csv"
         if fmt not in exports.FORMATS:
@@ -893,7 +915,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", "--limite", type=int, default=100)
 
     p = _add(sub, "export", "exportar", "cli.cmd.export", cmd_export, [common])
-    p.add_argument("what", choices=("analysis", "timeline", "findings", "execution", "stix", "custody"))
+    p.add_argument("what", metavar="target")  # validated in cmd_export: es/en names accepted (H-009)
     p.add_argument("id", nargs="?", type=int)
     p.add_argument("-o", "--output", "--salida", required=True)
     p.add_argument("-f", "--format", "--formato", choices=("csv", "json"))
