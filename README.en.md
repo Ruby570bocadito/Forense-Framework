@@ -397,8 +397,11 @@ with their SHA-256 in the chain of custody. Structure:
 5. Evidence with hashes and integrity, findings by review status (with their techniques), bookmarked events, program
    execution, chronology, analyses performed (options and results hash), full chain of custody and methodology.
 
-The PDF is A4 with the case ID and "page x / y" in the footer and no table rows split across pages. In the web
-interface, the **Reports** page produces either one in the language you choose.
+The PDF is A4 with the case ID and "page x / y" in the footer and no table rows split across pages; the browser that
+prints it is launched headless with `--no-sandbox`. In the web interface, the **Reports** page produces either one in
+the language you choose and, when the `FORENSE_SIGN_KEY` variable points to the analyst's private key (Ed25519 PEM),
+can **digitally sign** the report: a detached `.sig` signature is stored next to the report and the chain of custody
+records the fingerprint of the public key (`FORENSE_SIGN_PUB`), which can be used to verify it later.
 
 ## Web interface
 
@@ -588,7 +591,6 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
   inconsistent (the recorded hash is that of the copy).
 - **Memory**: Volatility needs the symbols of the exact Windows build (downloaded from Microsoft or given with
   `-o symbols=`). Only Windows dumps are analysed.
-- **$MFT**: attributes of extension records (`$ATTRIBUTE_LIST`) of heavily fragmented files are not merged.
 - **Carving**: only contiguous (non-fragmented) files are recovered. A PDF ends at its first `%%EOF`.
 - **Local times** (network profiles, `setupapi`) are converted to UTC with the time zone rules of the SYSTEM hive of
   the same evidence (daylight saving time included); without it they are kept as local time.
@@ -599,7 +601,6 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 ## Roadmap
 
 - More artifacts: BITS (`qmgr.db`), `$LogFile`, notifications, RDP Bitmap Cache
-- Digital signature of reports
 - Intelligence import from MISP/OpenCTI
 - Linux and macOS as analysed systems
 

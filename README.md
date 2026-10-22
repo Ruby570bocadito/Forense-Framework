@@ -402,8 +402,11 @@ su SHA-256 en la cadena de custodia. Estructura:
    ejecución de programas, cronología, análisis realizados (opciones y hash de resultados), cadena de custodia completa
    y metodología.
 
-El PDF sale en A4 con el ID del caso y «página x / y» en el pie, sin cortar filas entre páginas. En la web, la página
-**Informes** genera cualquiera de los dos en el idioma que elija.
+El PDF sale en A4 con el ID del caso y «página x / y» en el pie, sin cortar filas entre páginas; el navegador que lo
+imprime se lanza en modo headless con `--no-sandbox`. En la web, la página **Informes** genera cualquiera de los dos en
+el idioma que elija y, si la variable `FORENSE_SIGN_KEY` apunta a la clave privada del analista (PEM Ed25519), puede
+**firmar digitalmente** el informe: se guarda una firma desacoplada `.sig` junto al informe y la cadena de custodia
+registra la huella de la clave pública (`FORENSE_SIGN_PUB`), con la que se puede verificar después.
 
 ## Interfaz web
 
@@ -593,7 +596,6 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
   copia puede quedar incoherente (el hash registrado es el de lo copiado).
 - **Memoria**: Volatility necesita los símbolos de la versión exacta de Windows (se descargan de Microsoft o se indican
   con `-o symbols=`). Solo se analizan volcados de Windows.
-- **$MFT**: no combina los atributos de los registros de extensión (`$ATTRIBUTE_LIST`) de archivos muy fragmentados.
 - **Carving**: solo recupera archivos contiguos (no fragmentados). Un PDF termina en su primer `%%EOF`.
 - **Fechas en hora local** (perfiles de red, `setupapi`): se convierten a UTC con las reglas de zona horaria de la
   colmena SYSTEM de la propia evidencia (incluido el horario de verano); sin ella se dejan como hora local.
@@ -605,7 +607,6 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 ## Hoja de ruta
 
 - Más artefactos: BITS (`qmgr.db`), `$LogFile`, notificaciones, RDP Bitmap Cache
-- Firma digital de informes
 - Importación de inteligencia desde MISP/OpenCTI
 - Linux y macOS como sistemas analizados
 
