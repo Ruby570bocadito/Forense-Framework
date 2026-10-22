@@ -394,7 +394,8 @@ with their SHA-256 in the chain of custody. Structure:
 2. **Executive summary**: key figures, incident period, findings-by-severity and activity charts, key findings and
    the incident sequence by ATT&CK tactic.
 3. Analyst conclusions (versioned, with their hash).
-4. ATT&CK techniques observed and indicators of compromise.
+4. ATT&CK techniques observed, indicators of compromise and, when the workspace holds more than one case, the
+   **cross-case correlation** (shared observables, capped at 100 rows).
 5. Evidence with hashes and integrity, findings by review status (with their techniques), bookmarked events, program
    execution, chronology, analyses performed (options and results hash), full chain of custody and methodology.
 

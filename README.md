@@ -398,7 +398,8 @@ su SHA-256 en la cadena de custodia. Estructura:
 2. **Resumen ejecutivo**: cifras clave, periodo del incidente, gráficos de hallazgos por gravedad y de actividad,
    hallazgos principales y la secuencia del incidente por tácticas ATT&CK.
 3. Conclusiones del analista (versionadas, con su hash).
-4. Técnicas ATT&CK observadas e indicadores de compromiso.
+4. Técnicas ATT&CK observadas, indicadores de compromiso y, si el espacio de trabajo tiene más de un caso, la
+   **correlación entre casos** (observables compartidos, con tope de 100 filas).
 5. Evidencias con hashes e integridad, hallazgos por estado de revisión (con sus técnicas), eventos destacados,
    ejecución de programas, cronología, análisis realizados (opciones y hash de resultados), cadena de custodia completa
    y metodología.
