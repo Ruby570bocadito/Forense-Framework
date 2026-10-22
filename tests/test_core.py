@@ -175,6 +175,38 @@ def test_evidence_errors(case, tmp_path):
         case.get_evidence("EV-999")
 
 
+def test_duplicate_evidence_notice(case, evidence_dir):
+    """Identical content is flagged at registration time; the registration proceeds (H-005)."""
+    first = case.add_evidence(evidence_dir / "a.txt")
+    assert first.duplicate_of is None
+    twin = case.add_evidence(evidence_dir / "a.txt", description="registered again on purpose")
+    assert twin.duplicate_of == first.id
+    distinct = case.add_evidence(evidence_dir / "sub" / "b.bin")
+    assert distinct.duplicate_of is None
+    copied_twin = case.add_evidence(evidence_dir / "a.txt", copy=True)
+    assert copied_twin.duplicate_of == first.id  # also detected when the source is re-hashed for the copy
+    # The notice is transient: listing reloads from the database and carries no duplicate mark.
+    listed = {e.id: e for e in case.evidence_list()}
+    assert listed[twin.id].duplicate_of is None
+
+
+def test_duplicate_directory_notice(case, evidence_dir):
+    """A directory registered twice (same layout and content) is also announced (H-005)."""
+    first = case.add_evidence(evidence_dir)
+    twin = case.add_evidence(evidence_dir, copy=True)
+    assert twin.duplicate_of == first.id
+
+
+def test_find_duplicate(case, evidence_dir):
+    first = case.add_evidence(evidence_dir / "a.txt")
+    other = case.add_evidence(evidence_dir / "sub" / "b.bin")
+    assert case.find_duplicate(first.hashes).id == first.id
+    assert case.find_duplicate(other.hashes).id == other.id
+    assert case.find_duplicate({"sha256": "0" * 64}) is None
+    assert case.find_duplicate({"md5": "d41d8cd98f00b204e9800998ecf8427e"}) is None  # no sha256 to compare
+    assert case.find_duplicate({}) is None
+
+
 # -- custody -------------------------------------------------------------------------------
 def test_custody_chain_detects_tampering(case):
     case.custody.append("export_created", "Bob", {"file": "x.csv"})

@@ -64,6 +64,22 @@ def test_errors_are_reported_not_raised(tmp_path, capsys):
     assert "No hay ningún caso" in capsys.readouterr().err
 
 
+def test_duplicate_evidence_warning(tmp_path, evidence_dir, capsys):
+    """Registering the same content twice announces the twin on stderr, in the session language (H-005)."""
+    case = str(tmp_path / "case")
+    main(["new", case, "-n", "x", "-i", "y"])
+    assert main(["evidence", "add", str(evidence_dir / "a.txt"), "-c", case]) == EXIT_OK
+    capsys.readouterr()
+    assert main(["-c", case, "evidence", "add", str(evidence_dir / "a.txt"), "-d", "again"]) == EXIT_OK
+    err = capsys.readouterr().err
+    assert "identical to EV-001" in err and "SHA-256 " in err  # notice names the twin and the digest
+    assert main(["-c", case, "evidencia", "agregar", str(evidence_dir / "a.txt"), "-L", "es"]) == EXIT_OK
+    err = capsys.readouterr().err
+    assert "contenido idéntico a EV-001" in err
+    out = capsys.readouterr().out  # stdout stays a clean machine-readable record (notice goes to stderr)
+    assert "identical to" not in out and "idéntico" not in out
+
+
 def test_modules_listing_and_demo(tmp_path, capsys):
     assert main(["modulos", "-L", "es"]) == EXIT_OK
     out = capsys.readouterr().out

@@ -155,6 +155,9 @@ def cmd_evidence_add(args: argparse.Namespace) -> int:
         _out(t("cli.evidence_added", id=evidence.id, files=evidence.file_count, size=human_size(evidence.size)))
         for algo, value in evidence.hashes.items():
             _out(f"  {algo.upper():7} {value}")
+        if evidence.duplicate_of:  # H-005: the analyst learns it now, not by comparing hashes by hand
+            _err(t("cli.evidence_duplicate", id=evidence.duplicate_of,
+                   hash=evidence.hashes.get("sha256", "")))
     return EXIT_OK
 
 

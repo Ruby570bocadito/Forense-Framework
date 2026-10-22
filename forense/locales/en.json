@@ -145,6 +145,7 @@
  "cli.description": "Forense-Framework: Windows digital forensics with chain of custody.",
  "cli.epilog": "Typical workflow:\n  forense new ./case01 -n \"Intrusion\" -i \"Analyst\"\n  forense -c ./case01 evidence add D:\\triage\\HOST01 --copy\n  forense -c ./case01 triage EV-001\n  forense -c ./case01 findings\n  forense -c ./case01 report --verify\n  forense web -w .\n\nCommands also have Spanish aliases (nuevo, evidencia agregar, triaje, hallazgos, informe...).",
  "cli.evidence_added": "Evidence {id} registered: {files} file(s), {size}",
+ "cli.evidence_duplicate": "Warning: content identical to {id} (SHA-256 {hash}); registration proceeds, it can be legitimate.",
  "cli.exported": "Exported to {path} (logged in the chain of custody).",
  "cli.hashing": "Hashing {path}…",
  "cli.image_derived": "Derived evidence {id} registered with {files} extracted file(s).",

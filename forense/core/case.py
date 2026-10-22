@@ -98,6 +98,10 @@ class Evidence:
     added_by: str
     copied: bool
     derived_from: Optional[str] = None  # evidence id this was extracted from (disk images)
+    # Transient (not persisted, not set by from_row): identical content already registered in the
+    # case, so the analyst knows at registration time instead of comparing hashes by hand (H-005).
+    # Registering the same content twice can be legitimate, hence a notice, never a block.
+    duplicate_of: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Evidence":
@@ -356,6 +360,10 @@ class Case(ReviewMixin):
         except OSError as exc:
             raise CaseError("error.evidence_unreadable", path=str(source), error=str(exc)) from exc
 
+        # Looked up before the INSERT so the new row cannot match itself; a concurrent identical
+        # registration may slip past this check on the web — the notice is best-effort, integrity
+        # never depends on it.
+        duplicate = self.find_duplicate(hashes)
         staging = self._copy_evidence(source, kind, hashes, progress) if copy else None
         if derived_from:
             _make_read_only(source)
@@ -378,6 +386,8 @@ class Case(ReviewMixin):
                 stored_path = str(work_path)
             evidence = Evidence(evidence_id, stored_path, str(source), kind, size, count, hashes,
                                 description.strip(), utc_now(), actor, copy, derived_from)
+            if duplicate is not None:
+                evidence.duplicate_of = duplicate.id
             self.conn.execute(
                 "INSERT INTO evidence (id, path, source, kind, size, file_count, hashes, description, added_at, "
                 "added_by, copied, derived_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -423,6 +433,16 @@ class Case(ReviewMixin):
             raise
         _make_read_only(dest)
         return dest
+
+    def find_duplicate(self, hashes: dict) -> Optional[Evidence]:
+        """First registered evidence with the same SHA-256, if any (H-005: duplicate notice)."""
+        digest = (hashes or {}).get("sha256")
+        if not digest:
+            return None
+        for existing in self.evidence_list():
+            if existing.hashes.get("sha256") == digest:
+                return existing
+        return None
 
     def evidence_list(self) -> list[Evidence]:
         return [Evidence.from_row(r) for r in self.conn.execute("SELECT * FROM evidence ORDER BY id")]

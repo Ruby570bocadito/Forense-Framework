@@ -145,6 +145,7 @@
  "cli.description": "Forense-Framework: análisis forense digital de Windows con cadena de custodia.",
  "cli.epilog": "Flujo típico:\n  forense nuevo ./caso01 -n \"Intrusión\" -i \"Analista\"\n  forense -c ./caso01 evidencia agregar D:\\triage\\HOST01 --copiar\n  forense -c ./caso01 triaje EV-001\n  forense -c ./caso01 hallazgos\n  forense -c ./caso01 informe --verificar\n  forense web -w .\n\nLas órdenes también existen en inglés (new, evidence add, triage, findings, report...).",
  "cli.evidence_added": "Evidencia {id} registrada: {files} archivo(s), {size}",
+ "cli.evidence_duplicate": "Aviso: contenido idéntico a {id} (SHA-256 {hash}); el registro continúa, puede ser legítimo.",
  "cli.exported": "Exportado a {path} (registrado en la cadena de custodia).",
  "cli.hashing": "Calculando hashes de {path}…",
  "cli.image_derived": "Evidencia derivada {id} registrada con {files} fichero(s) extraído(s).",
