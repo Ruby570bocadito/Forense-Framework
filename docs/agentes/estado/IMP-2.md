@@ -23,6 +23,13 @@
   selects de módulo/evidencia del formulario de análisis, opciones de cada módulo (id único por campo)
   y select de triaje. Sin cambio de comportamiento; test comprueba que cada for= apunta a un id
   renderizado. Propuesta propia del backlog cerrada.
+- report-correlation (06bf996): sección opcional de correlación entre casos en el informe HTML (tras IOCs):
+  observables de este caso compartidos con otros casos del espacio de trabajo, reutilizando
+  core/correlation.py y sus claves correlation.*; nota explícita de indicio-no-conclusión; solo con ≥2
+  casos, focus en el caso del informe, nunca lanza por un caso vecino dañado, tope de 100 filas con nota;
+  el recuento barato de casos va antes de indexar (un caso solo no crea el directorio de caché). Claves
+  report.correlation* es/en; tests con uno y dos casos y orden de secciones. Suite: 305 passed, 1 skipped;
+  ruff limpio.
 - h-008 (b1edf5b): el pipeline PDF se verifica ya en la suite sin navegador real: navegador falso multiplataforma
   (shebang POSIX / .bat Windows; el test de custodia PDF deja de saltarse en Windows), timeout → error.pdf_failed,
   sin navegador → error.pdf_no_browser (globs /opt a constante _GLOBS) y descubrimiento por PATH. H-008 queda
