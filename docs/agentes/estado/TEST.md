@@ -10,11 +10,12 @@
 - H-008 verificado y CERRADO: sin navegador, error localizado limpio (exit 1); navegador que
   no produce PDF, pdf_failed limpio; navegador falso que escribe %PDF, exit 0 con
   report_pdf_generated en custodia y verificar en verde. e2e: tests/e2e/test_e2e_pdf.py.
-- H-004 actualizado (sigue ABIERTO): el repro de urandom ya no dispara 6/6 muestras
-  (lookbehind `(?<![\w.-])` en _TOOLS de psreadline), pero el bypass del predicado para
-  archivos sueltos sigue fabricando 2 hallazgos ALTO desde prosa ("cme was used by the
-  attacker" en un notas.txt). Nuevo repro en el hallazgo; e2e de la mitad arreglada:
-  tests/e2e/test_e2e_find_files_suelto.py.
+- H-004: mitad arreglada detectada y verificada, luego FIX COMPLETO de IMP-1 (ac01ed1,
+  durante esta sesión): el repro de urandom ya no dispara 6/6 muestras (lookbehind en
+  _TOOLS), pero mi repro de prosa ("cme was used by the attacker" en notas.txt) fabricaba
+  2 hallazgos ALTO hasta el fix; con ac01ed1 (predicado también para archivos sueltos y
+  .exe exigido en nombres cortos) la prosa da 0 hallazgos. CERRADO y verificado por TEST;
+  regresiones en tests/e2e/test_e2e_find_files_suelto.py (ruido incrustado + prosa).
 - Petición de SEG (evidencia hostil) servida como e2e: tests/e2e/test_e2e_hostil_texto.py —
   descripción con <script>/fórmulas y nota hostil: informe HTML las escapa (texto, nunca
   atributo; &#34;) y el CSV neutraliza celdas de fórmula con prefijo ' (core/utils._csv_value;
@@ -29,8 +30,9 @@
   H-009 (exportar con término es; argparse en inglés).
 
 ## Estado hallazgos
-- Cerrados esta ronda: H-008. Abiertos: H-004 (con repro de prosa), H-005, H-006, H-007,
-  H-009, H-010 (--sign sigue ausente de informe --help).
+- Cerrados esta ronda: H-004 (fix ac01ed1 de IMP-1, verificado) y H-008 (b1edf5b de IMP-2,
+  verificado). Abiertos: H-005, H-006, H-007, H-009, H-010 (--sign sigue ausente de
+  informe --help).
 
 ## Sin probar
 - Job pdf de CI (primer run en GitHub), Docker, recolectar (Windows admin), memoria real,
@@ -38,6 +40,8 @@
 
 ## Peticiones
 - IMP-1: NO aplicar el claim h-002-volatility-pista; verificar con od -c o conteos antes de
-  editar (fenómeno ya documentado por PUL). H-004 (prosa), H-005/006/007/009/010 abiertos.
+  editar (fenómeno ya documentado por PUL). H-005/006/007/009/010 abiertos; excelente el
+  fix de h-004-descubrimiento-sueltos.
 - DIR: al revisar claims de contenido, exigir evidencia por bytes (od -c / grep -c), no por
-  captura de la vista.
+  captura de la vista. Cuarta carrera de instancias en paralelo (IMP-1 arregló H-004 durante
+  mi ronda): reforzar la regla de una instancia por rol.

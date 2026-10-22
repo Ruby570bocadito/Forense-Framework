@@ -27,3 +27,24 @@ def test_triaje_sobre_ruido_con_herramienta_incrustada(tmp_path) -> None:
     rows = conn.execute("select id, severity, code from findings").fetchall()
     conn.close()
     assert rows == [], f"triage fabricated findings out of noise: {rows}"
+
+
+def test_triaje_prosa_con_nombre_de_herramienta(tmp_path) -> None:
+    # Post-fix regression (ac01ed1): the module predicate now also applies to
+    # loose files, so plain prose is not analysed as PowerShell history even
+    # when a line starts with a tool name.
+    notas = tmp_path / "notas.txt"
+    notas.write_text("# informe del analista\n"
+                     "cme was used by the attacker on 2026-09-14\n"
+                     "nmap scan followed\n", encoding="utf-8")
+
+    case = tmp_path / "c2"
+    assert run("new", str(case), "-n", "prosa", "-i", "e2e").returncode == 0
+    assert run("-c", str(case), "evidencia", "agregar", str(notas), "-d", "notas").returncode == 0
+    proc = run("-c", str(case), "triaje", "EV-001", timeout=300)
+    assert proc.returncode == 0, proc.stderr
+
+    conn = sqlite3.connect(case / "forense.db")
+    rows = conn.execute("select id, severity, code from findings").fetchall()
+    conn.close()
+    assert rows == [], f"prose fabricated psreadline findings: {rows}"
