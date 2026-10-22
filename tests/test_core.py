@@ -15,7 +15,7 @@ from forense.core.errors import CaseError, ModuleError
 from forense.core.hashing import hash_bytes, hash_file, hash_tree
 from forense.core.heuristics import autostart_suspicion, is_suspicious_location, suspicious_command_rules
 from forense.core.signatures import check_extension
-from forense.core.utils import filetime_to_dt, normalize_ts, parse_datetime, webkit_to_dt
+from forense.core.utils import filetime_to_dt, find_files, normalize_ts, parse_datetime, webkit_to_dt
 from forense.demo.builders import build_png, build_zip, to_filetime
 
 
@@ -262,6 +262,39 @@ def test_triage_runs_applicable_modules(case, demo):
     assert stats["events"] > 50
     page = case.events(start="2026-09-14T02:00:00", end="2026-09-14T03:00:00", search="svchost")
     assert page.total >= 3 and all("svchost" in (e["details"] + e["path"]).lower() for e in page.rows)
+
+
+def test_find_files_applies_the_predicate_to_loose_files(tmp_path):
+    hit = tmp_path / "ConsoleHost_history.txt"
+    noise = tmp_path / "SYSTEM-basura"
+    hit.write_text("whoami", encoding="utf-8")
+    noise.write_bytes(b"\x00\x01")
+    predicate = lambda p: p.name.lower().endswith("_history.txt")  # noqa: E731 - test-local identity
+    assert find_files(noise, predicate) == []
+    assert find_files(hit, predicate) == [hit]
+    assert find_files(tmp_path, predicate) == [hit]
+
+
+def test_triage_of_random_bytes_fabricates_nothing(case, tmp_path):
+    """Random bytes carrying a bare 3-letter tool name must not yield a HIGH finding (H-004)."""
+    blob = os.urandom(200_000)
+    cut = len(blob) // 2
+    (tmp_path / "SYSTEM-basura").write_bytes(blob[:cut] + b"\x00 cme \xff" + blob[cut:])
+    evidence = case.add_evidence(tmp_path / "SYSTEM-basura")
+    case.triage(evidence.id)
+    assert case.findings() == []
+
+
+def test_psreadline_short_tool_names_need_the_exe_suffix(case, tmp_path):
+    folder = tmp_path / "psreadline"
+    folder.mkdir()
+    history = folder / "ConsoleHost_history.txt"
+    history.write_text("cme 10.0.0.5\ncme.exe 10.0.0.5\nmimikatz 10.0.0.5\n", encoding="utf-8")
+    evidence = case.add_evidence(history)
+    case.triage(evidence.id)
+    rules = sorted(f["params"]["rules"] for f in case.findings() if f["code"] == "psreadline.suspicious_command")
+    # one finding per line: the bare "cme" is not a signal, "cme.exe" is, and mimikatz keeps its heuristic
+    assert rules == ["credential_dumping, tool:mimikatz", "tool:cme"]
 
 
 def test_exports_are_logged(case, evidence_dir, tmp_path):

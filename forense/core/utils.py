@@ -156,10 +156,14 @@ def iter_files(target: Path, on_error: Optional[ErrorHandler] = None) -> Iterato
 
 def find_files(target: Path, predicate: Callable[[Path], bool],
                on_error: Optional[ErrorHandler] = None) -> list[Path]:
-    """Files under ``target`` accepted by ``predicate``. A file target is always accepted."""
+    """Files under ``target`` accepted by ``predicate``. A loose file target must match it too.
+
+    Without this check, pointing a module at an unrelated loose file (or at hostile
+    random bytes) would analyse it regardless of the module's own artifact identity.
+    """
     target = Path(target)
     if target.is_file():
-        return [target]
+        return [target] if predicate(target) else []
     return [path for path in iter_files(target, on_error) if predicate(path)]
 
 

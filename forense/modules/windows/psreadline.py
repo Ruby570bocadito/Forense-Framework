@@ -16,8 +16,21 @@ from forense.core.utils import find_files, relative_name, user_from_path
 from forense.modules.base import AnalysisContext, Module, register
 
 MAX_SIZE = 64 * 1024 * 1024
-_TOOLS = re.compile(r"(?<![\w.-])(" + "|".join(re.escape(n[:-4]) for n in sorted(ATTACK_TOOLS) if n.endswith(".exe"))
-                    + r")(\.exe)?(?![\w-])", re.IGNORECASE)
+
+
+def _tool_pattern(basenames: list[str], require_exe: bool) -> re.Pattern:
+    """One regex for the attack-tool names; empty lists compile to a never-matching pattern."""
+    if not basenames:
+        return re.compile(r"(?!)")
+    suffix = r"\.exe" if require_exe else r"(\.exe)?"
+    return re.compile(r"(?<![\w.-])(" + "|".join(re.escape(n) for n in basenames) + r")"
+                      + suffix + r"(?![\w-])", re.IGNORECASE)
+
+
+# Tool names of three letters or less demand the .exe suffix: a bare "cme" is too weak a signal and
+# binary noise decoded as text often contains it, fabricating HIGH findings (hallazgo H-004).
+_TOOLS = _tool_pattern([n[:-4] for n in sorted(ATTACK_TOOLS) if n.endswith(".exe") and len(n) > 7], False)
+_TOOLS_EXE = _tool_pattern([n[:-4] for n in sorted(ATTACK_TOOLS) if n.endswith(".exe") and len(n) <= 7], True)
 
 
 def parse_history(text: str) -> list[tuple[int, str]]:
@@ -72,7 +85,8 @@ class PsReadLineModule(Module):
                 ctx.record("powershell_command", {"file": rel, "user": user, "host": host, "line": line,
                                                   "position": position, "command": command})
                 rules = suspicious_command_rules(command)
-                tools = sorted({m.group(1).lower() for m in _TOOLS.finditer(command)})
+                tools = sorted({m.group(1).lower() for m in _TOOLS.finditer(command)}
+                               | {m.group(1).lower() for m in _TOOLS_EXE.finditer(command)})
                 if rules or tools:
                     flagged += 1
                     ctx.finding("psreadline.suspicious_command", "high", None, user=user, line=line,
