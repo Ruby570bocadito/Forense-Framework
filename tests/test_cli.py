@@ -64,6 +64,22 @@ def test_errors_are_reported_not_raised(tmp_path, capsys):
     assert "No hay ningún caso" in capsys.readouterr().err
 
 
+def test_conclusions_file_errors_are_localized(tmp_path, capsys):
+    """A missing --archivo of conclusions explains itself instead of a raw traceback (H-006)."""
+    case = str(tmp_path / "case")
+    main(["new", case, "-n", "x", "-i", "y"])
+    assert main(["-c", case, "conclusions", "--file", str(tmp_path / "nope.md")]) == EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "Error: The file" in err and "does not exist" in err and "traceback" not in err.lower()
+    assert main(["-c", case, "conclusiones", "--archivo", str(tmp_path / "nada.md"), "-L", "es"]) == EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "El archivo" in err and "no existe: redáctelo primero" in err and "Error:" in err
+    binary = tmp_path / "blob.bin"
+    binary.write_bytes(b"\xff\xfe\x00binary")
+    assert main(["-c", case, "conclusions", "--file", str(binary)]) == EXIT_ERROR
+    assert "Cannot read" in capsys.readouterr().err  # binary content also fails clean, no traceback
+
+
 def test_duplicate_evidence_warning(tmp_path, evidence_dir, capsys):
     """Registering the same content twice announces the twin on stderr, in the session language (H-005)."""
     case = str(tmp_path / "case")

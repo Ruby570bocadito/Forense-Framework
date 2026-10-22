@@ -378,7 +378,17 @@ def cmd_bookmark(args: argparse.Namespace) -> int:
 
 def cmd_conclusions(args: argparse.Namespace) -> int:
     with _open_case(args) as case:
-        text = Path(args.file).read_text(encoding="utf-8") if args.file else args.text
+        text = args.text
+        if args.file:  # H-006: --archivo is INPUT; say so instead of a raw Python error
+            try:
+                text = Path(args.file).read_text(encoding="utf-8")
+            except FileNotFoundError as exc:
+                raise ForenseError("error.conclusions_file_missing", file=args.file) from exc
+            except UnicodeDecodeError as exc:
+                raise ForenseError("error.conclusions_file_unreadable", file=args.file, error=str(exc)) from exc
+            except OSError as exc:
+                raise ForenseError("error.conclusions_file_unreadable", file=args.file,
+                                   error=exc.strerror or str(exc)) from exc
         if text is not None:
             if not text.strip():
                 raise ForenseError("error.conclusions_empty")
@@ -862,8 +872,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = _add(sub, "conclusions", "conclusiones", "cli.cmd.conclusions", cmd_conclusions, [common])
     group = p.add_mutually_exclusive_group()
-    group.add_argument("--text", "--texto")
-    group.add_argument("--file", "--archivo")
+    group.add_argument("--text", "--texto", help=t("cli.opt.conclusions_text"))
+    group.add_argument("--file", "--archivo", help=t("cli.opt.conclusions_file"))
 
     p = _add(sub, "execution", "ejecucion", "cli.cmd.execution", cmd_execution, [common])
     p.add_argument("--search", "--buscar")
