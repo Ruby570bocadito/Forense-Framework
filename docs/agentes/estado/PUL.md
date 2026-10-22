@@ -1,24 +1,24 @@
-# estado/PUL.md — 2026-10-23
+# estado/PUL.md — 2026-10-23 (sesión 2)
 
 ## Hecho (últimas 24 h)
-- readme-hoja-de-ruta: retirada «Correlación entre casos» de la Hoja de ruta en README.md y README.en.md (queda solo la importación MISP/OpenCTI), como pedía DIR.
-- readme-arbol-comandos: árbol de «Arquitectura» contrastado con el código en ambos README. Corregido: módulo `defender` en modules/windows/, parser Defender y recuperación de celdas borradas en parsers/; añadidos los módulos raíz que faltaban (automation, notify, update, doctor, i18n, charts, presentation). La tabla de módulos coincide con el registro real (18 de Windows + 6 genéricos).
-- Instaladores: eliminado el fallback a `claude/inspiring-cray-xn35zk` en install/install.sh e install/install.ps1 (main es la predeterminada y contiene todo). Sintaxis verificada con bash -n.
-- Comandos del README probados en Linux (Python 3.x): `pip install -e ".[dev]"`, `python -m pytest -q` (270 passed, 1 skipped), `ruff check forense tests` (limpio), `forense doctor` (19 OK, 0 errores), `forense demo` (61 hallazgos, 236 eventos, exit 0).
-- Escaneo de secretos con gitleaks 8.30.1 (binario oficial de su releases) sobre árbol e historial completo (24 commits): 0 hallazgos. Completa el escaneo por patrones que hizo DIR.
-- sesion cerrada: claim readme-sync liberado; 3 commits (1ab1954, a4e1a10, 915e0a6 rebased a e73091f).
+- readme-mft-limitacion: retirada de «Limitaciones conocidas» la línea de $ATTRIBUTE_LIST en $MFT en es/en (implementada en cf72bfa; petición de IMP-1).
+- readme-firma: retirada «Firma digital de informes» de la Hoja de ruta es/en (entregada, release 5be9c5a) y documentada la firma en la sección Informes de ambos README (FORENSE_SIGN_KEY / FORENSE_SIGN_PUB, .sig desacoplada, huella en custodia, verificación posterior).
+- Petición de SEG (--no-sandbox del PDF): documentado en la misma frase del PDF en es/en (report/pdf.py lanza el navegador headless con --no-sandbox).
+- Petición de IMP-1 sobre .gitignore: ya cubierta por el bootstrap de DIR (__pycache__/, *.egg-info/, .pytest_cache/, .ruff_cache/, .venv/); sin cambios necesarios. La petición de IMP-2 (correlación) quedó resuelta en la sesión 1.
+- Baseline tras refrescar dependencias (cryptography nueva de IMP-2): 282 passed, 1 skipped; ruff limpio. Comandos del README re-verificados en la sesión 1.
+- Higiene: docs/agentes/ contiene solo ROADMAP, PROTOCOLO, OWNERSHIP, claims/, estado/ y hallazgos/ ✓; dependencias sincronizadas (cryptography>=42 declarada y justificada) ✓. Claim readme-sync-2 liberado.
 
 ## En curso
 - —
 
 ## Bloqueado
-- Docker no está disponible en este entorno: los comandos `docker compose up` / `docker run` del README no se han podido ejecutar aquí (la CI sí los prueba). Pendiente de verificar por TEST u operador.
+- —
 
 ## Peticiones a otras zonas
-- IMP-1: `forense/update.py` (línea 26, REFS) mantiene `claude/inspiring-cray-xn35zk` como referencia alternativa; con main predeterminada y completa es un resto de la migración de rama. Quitarlo con cambio mínimo (instaladores ya limpiados en mi zona).
+- IMP-1: al exponer `--sign` en la CLI (tarea futura del ROADMAP), actualizar también la frase de firma de la sección Informes en ambos README (hoy la firma solo se ofrece desde la página Informes de la web).
 
 ## Propuestas para el roadmap
-- Ninguna nueva: el ROADMAP de DIR ya cubre lo detectado.
+- Ninguna nueva.
 
 ## Estado: VERDE
-- Riesgos: ninguno añadido. Nota: los README dicen lo mismo en es/en tras los cambios (secciones homologadas 1:1).
+- Riesgos: ninguno añadido. README es/en siguen homologados 1:1 tras los cambios.
