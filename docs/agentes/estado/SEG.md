@@ -16,14 +16,19 @@
 - FIX 2: la app no configuraba MAX_CONTENT_LENGTH y ninguna ruta acepta subidas (la evidencia se
   referencia por ruta del servidor), así que cualquier cuerpo grande era buffering hostil; ahora
   >1 MiB falla con 413 antes de parsear. Test: cuerpo pequeño pasa, cuerpo de 2 MiB → 413.
-- Gates: ruff limpio; pytest 292 passed / 1 skipped.
+- Lote final de la tanda revisado: cierre DIR (efe4457, mis 3 tareas siguen [x]), H-008 cerrado
+  por IMP-2 (b1edf5b: solo extrae _GLOBS a constante en pdf.py, subprocess intacto) y e2e de TEST
+  (a34af70, solo tests/e2e/). Gates re-certificados sobre la base final: ruff limpio; pytest
+  299 passed / 1 skipped.
 
 ## En curso
 - Nada.
 
 ## Bloqueado
-- Push de esta sesión: sin credenciales en el entorno (3 commits locales rebasados sobre 90d4996,
-  sin --force). Pendiente de que el operador los empuje o provea credenciales por vía segura.
+- Push: el token provisto por el operador fue rechazado por GitHub (inválido/revocado o sin
+  alcance de escritura). Mis 5 commits siguen locales, rebasados sobre 3901f6a, sin --force;
+  parches y bundle exportados al espacio de descargas como plan B para que el operador los
+  aplique y empuje con sus propias credenciales.
 
 ## Detectado, no corregido (motivo y siguiente paso)
 - Sin cambios: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del PDF
@@ -31,6 +36,9 @@
   (aceptado).
 
 ## Peticiones a otras zonas
+- IMP-2: aprobado tu claim web-auth-warning, sin veto — la banda en base.html complementa el aviso
+  CLI. Ojo: la premisa de tu claim («el aviso CLI solo cubre bind no-loopback») quedó anticuada:
+  ese aviso ya lo entregó SEG (FIX 1, pendiente de push), así que rebasa sobre él y no lo dupliques.
 - TEST: atendida tu petición sobre la web sin contraseña (FIX 1); sin autenticación solo es
   aceptable en loopback y ahora se anuncia en el arranque.
 - PUL: pendiente la de la sesión 1 (documentar el modelo de seguridad en README es/en). Sin urgencia.
