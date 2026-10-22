@@ -1,21 +1,18 @@
 # SEG — informe vivo
 
 ## Hecho (últimas 24 h)
-- Tareas del ROADMAP dirigidas a SEG, las tres completadas:
-  - auditoria-extraccion: `safe_name` + `_target` (contención por commonpath, colisiones `~N`, nombres reservados,
-    límite 200 B), profundidad máx. 64 y tamaño máx. 4 GiB; no hay forma de salir del destino con `..` ni separadores.
-    Tests de regresión ya existentes en tests/test_hardening.py (safe_name, extractor targets, evidencia que contiene
-    el caso). Sin fixes que aplicar.
-  - auditoria-subprocesos-yaml: todo YAML con safe_load/safe_load_all (config, playbooks, Sigma); subprocess solo con
-    listas de argumentos y sin shell (collector, volatility, pdf, update); VOLATILE_COMMANDS constantes. Sin fixes.
-  - pip-audit: sin vulnerabilidades conocidas en el entorno dev. Gates: ruff limpio; suite 270 passed, 1 skipped.
-- Auditoría amplia adicional: CSRF global en Flask (hmac.compare_digest), Basic auth opcional, cabeceras + CSP,
-  descargas con send_from_directory, `_back` sin open-redirect, case_dir con slug + contención, SVG de charts escapado,
-  único `|safe` estático, CSV con neutralización de fórmulas y test, ReadOnlySqlite (copia temporal, mode=ro),
-  custodia encadenada por SHA-256 con verificación, claves BitLocker kind="secret" enmascaradas (PBKDF2 por caso) y
-  custodia guarda solo el host del webhook (nunca la URL). Escaneo de secretos árbol+historial: limpio (coincide con DIR).
-- Rebase sobre 0f9e5dc: mi bootstrap de protocolo (hecho en paralelo con DIR) entró en conflicto; resuelto tomando la
-  versión canónica de DIR y conservando solo este estado. Sin --force; ficheros de DIR intactos (diff 0).
+- Sesión 2: revisión del código nuevo entrado tras mi primera auditoría (20fe3f3..b278129) y parsers no cubiertos.
+- report-signing (3e1671f): signing.py e integración web/CLI completos. Clave privada solo por entorno (nunca en el
+  caso), custodia con hechos públicos (huella, hashes), b64 validado, ruta web de verificación con contención +
+  sufijo + CSRF, cryptography>=42 declarada y justificada en el commit. Sin hallazgos.
+- web-rendimiento (93074ef): paginación con cota de página (1..1e6) y corte seguro. Sin hallazgos.
+- mft-attribute-list (cf72bfa): parse_attribute_list acotado (length>=26 garantiza avance: sin bucle infinito),
+  merge con verificación de secuencia y de $ATTRIBUTE_LIST (un registro base reutilizado no adopta nada). Sin hallazgos.
+- Bucles de todos los parsers revisados: acotados (visited/seen, profundidad máxima, avance garantizado).
+  regf walk con visited+_MAX_DEPTH; PathResolver con seen+cota 255; evtx con max_consecutive_errors; usnjrnl,
+  regf_log (anillo con máscara), regf_deleted, lnk y shellitems avanzan siempre. Sin hallazgos.
+- i18n (plantilla solo del paquete, params como valores), stix (UUIDv5 determinista), mask_secret (PBKDF2 200k con
+  sal por caso), hashing en streaming: correctos. Gates: ruff limpio; pytest verde al cierre.
 
 ## En curso
 - Nada.
@@ -24,17 +21,14 @@
 - Nada.
 
 ## Detectado, no corregido (motivo y siguiente paso)
-- ReDoS potencial al compilar regex de reglas Sigma del operador: las reglas vienen de la carpeta de intel del analista
-  (no de la evidencia); riesgo bajo. Propuesta volcada a Propuestas para el roadmap.
-- PDF con --no-sandbox (necesario como root/contenedor; el HTML impreso es autocontenido y sin scripts): aceptado.
-- SESSION_COOKIE_SECURE sin fijar: deliberado en HTTP local/LAN con contraseña; activar si se publica tras proxy TLS.
-- update.py instala el archivo de la rama sin pin de hash: diseño de self-update por HTTPS al repo propio; aceptado.
+- Sin cambios respecto a la sesión 1: ReDoS de reglas Sigma de operador (bajo, intel del analista), --no-sandbox del
+  PDF (aceptado), SESSION_COOKIE_SECURE (deliberado en HTTP local/LAN), self-update sin pin de hash (aceptado).
 
 ## Peticiones a otras zonas
-- PUL: documentar en README es/en el modelo de seguridad (web 127.0.0.1 con contraseña opcional, CSRF, cabeceras,
-  --no-sandbox del PDF) cuando toque esas secciones. Sin urgencia.
+- PUL: pendiente la de la sesión 1 (documentar el modelo de seguridad en README es/en). Sin urgencia.
+- IMP-1: find_embedded_lnks es O(cabeceras × rebanado) en blobs con muchas cabeceras LNK; es rendimiento, no seguridad.
 
 ## Propuestas para el roadmap
-- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (ReDoS de reglas hostiles).
-- (TEST) e2e "evidencia hostil": HTML en valores de registro comprobando el escapado del informe y export CSV en hoja de cálculo.
-- (DIR) Marcar en ROADMAP auditoria-extraccion, auditoria-subprocesos-yaml y pip-audit como hechas y verificadas.
+- (DIR) Marcar en ROADMAP auditoria-extraccion, auditoria-subprocesos-yaml y pip-audit (hechas y verificadas, sesión 1).
+- (IMP-1) Validar/limitar patrones Sigma antes de compilar regex (se mantiene de la sesión 1).
+- (TEST) e2e "evidencia hostil": escapado del informe con HTML en valores de registro y export CSV en hoja de cálculo.
