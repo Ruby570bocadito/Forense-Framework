@@ -264,6 +264,26 @@
 </section>
 {% endif %}
 
+{% if shared %}
+<section id="s-correlation" class="major">
+{{ heading("correlation", _("report.correlation"), shared | length) }}
+<p class="muted">{{ _("report.correlation_help") }}</p>
+<table>
+  <thead><tr><th>{{ _("correlation.type") }}</th><th>{{ _("correlation.value") }}</th><th>{{ _("correlation.cases") }}</th><th>{{ _("field.first") }} (UTC)</th></tr></thead>
+  <tbody>
+  {% for s in shared[:100] %}
+  <tr><td><span class="tag">{{ _("correlation.kind." + s.kind) }}</span></td>
+    <td class="mono">{{ s.display }}{% if s.ioc %} <span class="flag">IOC</span>{% endif %}</td>
+    <td>{% for index, o in s.cases %}{% if index.slug == case_slug %}<b>{{ _("report.correlation_this") }}</b>{% else %}{{ index.name }}{% endif %}
+      <span class="muted mono">({{ index.slug }})</span>{% if not loop.last %}, {% endif %}{% endfor %}</td>
+    <td class="mono nowrap">{{ s.first_seen | ts }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if shared | length > 100 %}<p class="muted">{{ _("report.correlation_truncated", total=shared | length) }}</p>{% endif %}
+</section>
+{% endif %}
+
 <section id="s-evidence" class="major">
 {{ heading("evidence", _("nav.evidence"), evidence | length) }}
 <table class="evidence">

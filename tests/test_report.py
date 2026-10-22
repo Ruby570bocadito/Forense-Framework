@@ -42,6 +42,32 @@ def test_report_structure(demo_case, tmp_path):
     assert "<script" not in html  # self-contained and static
 
 
+def test_report_correlation_section(tmp_path):
+    import shutil
+
+    root = tmp_path / "ws"
+    assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
+    case_dir = root / "case_demo"
+
+    with Case.open(case_dir) as case:  # a single case in the workspace: no section
+        html = generate_report(case, "en", tmp_path / "solo.html").read_text(encoding="utf-8")
+    assert 'id="s-correlation"' not in html
+
+    shutil.copytree(case_dir, root / "case_twin")  # twin case shares the demo observables
+    with Case.open(case_dir) as case:
+        html = generate_report(case, "en", tmp_path / "pair.html").read_text(encoding="utf-8")
+    assert 'id="s-correlation"' in html and "Cross-case correlation" in html
+    assert "60A44C3FAE2BE2B0E9160123" in html and "WS-CONTAB01" in html  # USB device and host (display form)
+    assert "198.51.100.23" in html and "This case" in html and "(case_twin)" in html
+    anchors = re.findall(r'<h2 id="([a-z]+)">', html)
+    assert "correlation" in anchors and anchors.index("correlation") == anchors.index("iocs") + 1
+
+    with Case.open(case_dir) as case:
+        generate_report(case, "es", tmp_path / "pair_es.html")
+    es_text = Path(tmp_path / "pair_es.html").read_text(encoding="utf-8")
+    assert "Correlación entre casos" in es_text and "Este caso" in es_text
+
+
 def test_report_without_findings_hides_optional_sections(case, evidence_dir, tmp_path):
     evidence = case.add_evidence(evidence_dir)
     case.run_analysis("inventory", evidence.id)

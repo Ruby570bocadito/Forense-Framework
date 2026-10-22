@@ -60,13 +60,16 @@ def _module_title(name: str, lang: str) -> str:
         return name
 
 
-def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execution: list) -> list[tuple[str, str]]:
+def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execution: list,
+              shared: list = ()) -> list[tuple[str, str]]:
     """Numbered sections of the report (anchor, title); optional ones only when they have content."""
     items = [("summary", "report.executive_summary"), ("conclusions", "report.conclusions")]
     if matrix:
         items.append(("attack", "report.attack"))
     if indicators:
         items.append(("iocs", "report.iocs"))
+    if shared:
+        items.append(("correlation", "report.correlation"))
     items += [("evidence", "nav.evidence"), ("findings", "nav.findings")]
     if bookmarks:
         items.append(("bookmarks", "report.bookmarked_events"))
@@ -75,6 +78,25 @@ def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execut
     items += [("chronology", "report.chronology"), ("analyses", "report.analyses"), ("custody", "nav.custody"),
               ("methodology", "report.methodology")]
     return [(anchor, t(key, lang)) for anchor, key in items]
+
+
+def _correlations(case: Case) -> list:
+    """Observables of this case that also appear in other cases of the same workspace.
+
+    Never raises: a damaged neighbouring case (or a correlation failure) must not block
+    the report. Uses the shared cache, so consecutive reports stay cheap.
+    """
+    from forense.core.correlation import case_dirs, correlate, workspace_indexes
+
+    try:
+        if len(case_dirs(case.root.parent)) < 2:  # cheap check first: no indexing, no cache dir
+            return []
+        indexes = workspace_indexes(case.root.parent)
+    except Exception:  # noqa: BLE001 - the report is the deliverable, correlation is a bonus
+        return []
+    if len(indexes) < 2:
+        return []
+    return correlate(indexes, focus=case.root.name)
 
 
 def _charts(overview: dict, lang: str) -> dict:
@@ -111,6 +133,7 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
     entries = case.custody.entries()
     events = case.events(min_severity="low", limit=max_events)
     overview = case_overview(case)
+    shared = _correlations(case)
     indicators = collect_indicators(case)
     bookmarks = case.events(bookmarked=True, limit=None).rows
     execution = execution_overview(case)[:max_programs]
@@ -125,7 +148,9 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         conclusions=case.conclusions(), progress=case.review_progress(), bookmarks=bookmarks, execution=execution,
         overview=overview, matrix=overview["matrix"], phases=storyline(overview["findings"]),
         indicators=sorted(indicators.values(), key=lambda i: (i["first_seen"] or "9999", i["type"], i["value"])),
-        charts=_charts(overview, lang), sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution),
+        charts=_charts(overview, lang),
+        sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution, shared=shared),
+        shared=shared, case_slug=info.get("slug") or case.root.name,
         logo=Markup(LOGO.read_text(encoding="utf-8")) if LOGO.is_file() else "",
         page_label=re.sub(r"[^A-Za-z0-9 ._-]", "", f"{info.get('id', '')}")[:60],
     )
