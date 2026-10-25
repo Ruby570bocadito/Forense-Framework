@@ -17,6 +17,7 @@ from __future__ import annotations
 import base64
 import fnmatch
 import ipaddress
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -211,9 +212,18 @@ def _to_text(value: Any) -> Optional[str]:
 # backtracking pattern. The checks below are deliberately conservative: a few safe patterns are
 # rejected too, but a rejected rule is a load error, never a hang. Wildcard matching outside
 # ``|re`` does not go through here (it is the linear segment scan of _value_matcher).
+#
+# Budget model (v2, after the SEG review of the first guard): every quantifier multiplies the
+# ways the pattern can split its input and nesting raises that product to a power, so a pattern
+# carries an ambiguity of roughly ``Σ iterations x log2(branching)`` bits. ``_assert_regex_safe``
+# sums those bits over the whole pattern and refuses anything above a small budget: 16 bits are
+# 65k derivations (milliseconds at worst for re), while the exponential families SEG reported
+# ``(a?){25}X`` (25 bits), ``(a{0,2}){15}X`` (24), ``a?x30 + X`` (30)... all land far above it.
+# Unbounded loops over a branching body and alternation inside any quantified group stay
+# outright-rejected: on this boundary a false alarm costs a load error, a miss costs a hang.
 _RE_MAX_LENGTH = 1024  # Sigma rules carry short regexes; longer ones are not worth the risk
 _RE_MAX_REPEAT = 1000  # counted repeats above this bound are rejected outright
-_RE_PATH_BUDGET = 64   # bounded groups may only branch this much in total (IP/MAC-ish patterns)
+_RE_AMBIGUITY_BITS = 16.0  # global ambiguity budget: 2^16 ways to split the input at most
 
 
 def _counted_repeat(pattern: str, i: int) -> Optional[tuple[int, Optional[int]]]:
@@ -245,53 +255,22 @@ def _skip_class(pattern: str, i: int) -> int:
     return min(j + 1, len(pattern))
 
 
-def _body_dangerous(pattern: str, lo: int, hi: int) -> bool:
-    """True when the group body holds a quantifier or an alternation, at any depth.
-
-    A quantifier applied to such a group is the classic catastrophic-backtracking shape
-    (``(a+)+``, ``(?:a|aa)+``, ``(a?)+``, ``(a(b+))+``...). Rejected even when some cases are
-    provably linear: on this boundary, false alarms cost a load error, misses cost a frozen scan.
-    """
-    return _body_paths(pattern, lo, hi) is None
-
-
-def _body_paths(pattern: str, lo: int, hi: int) -> Optional[int]:
-    """Rough number of ways the body can split its input; ``None`` when unbounded.
-
-    Counts each bounded repeat as its window of lengths and every ``|``, ``*`` or ``+`` as
-    unbounded. Adjacent repeats over the same characters make the real figure higher, so the
-    budget in _assert_regex_safe is deliberately small: the estimate under-counts, never over.
-    """
-    paths = 1
-    k = lo
-    while k < hi:
-        ch = pattern[k]
-        if ch == "\\":
-            k += 2
-            continue
-        if ch == "[":
-            k = _skip_class(pattern, k)
-            continue
-        if ch in "|*+":
-            return None
-        if ch == "?":
-            paths *= 2
-        elif ch == "{" and _counted_repeat(pattern, k) is not None:
-            b, e = _counted_repeat(pattern, k)
-            if e is None:
-                return None
-            paths *= e - b + 1
-            k = pattern.find("}", k) + 1
-            continue
-        k += 1
-    return paths
-
-
 def _assert_regex_safe(pattern: str) -> None:
-    """Reject, before compiling, regex shapes that can backtrack catastrophically (sigma-redos)."""
+    """Reject, before compiling, regex shapes that can backtrack catastrophically (sigma-redos).
+
+    Single pass with one accumulator per nesting level. Each level sums the log2-branching of
+    its atoms (the length windows of its bounded quantifiers) and flags whether the body holds
+    an alternation or an unbounded quantifier. A quantified group raises its body's branching
+    to the iteration count, so its bits are ``iterations x body_bits`` (the recursion SEG asked
+    for: the body bits move into the exponent instead of being multiplied once); a plain group
+    folds transparently. Unbounded loops over a branching body — ``(?=a+(a+)+)`` included, the
+    inner loop is caught at its own ``)`` — and alternation inside any quantified group are
+    refused outright, whatever the budget says.
+    """
     if len(pattern) > _RE_MAX_LENGTH:
         raise SigmaError(f"regex too long for |re ({len(pattern)} > {_RE_MAX_LENGTH} chars)")
-    opens: list[int] = []  # index right after each open "(" (the body start)
+    bits_stack = [0.0]   # per nesting level: Σ log2(branching) of the atoms seen so far
+    wild_stack = [False]  # per nesting level: alternation or unbounded quantifier in the body
     i, n = 0, len(pattern)
     while i < n:
         ch = pattern[i]
@@ -304,39 +283,59 @@ def _assert_regex_safe(pattern: str) -> None:
         elif ch == "[":
             i = _skip_class(pattern, i)
         elif ch == "(":
-            # the "?" of (?: (?= (?! (?<= (?P<... is syntax, not a quantifier: the body starts after it
-            opens.append(i + 2 if i + 1 < n and pattern[i + 1] == "?" else i + 1)
+            bits_stack.append(0.0)
+            wild_stack.append(False)
             i += 1
+            # the "?" of (?: (?= (?! (?<= (?P<... is syntax, not a quantifier
+            if i < n and pattern[i] == "?":
+                i += 1
         elif ch == ")":
-            body_start = opens.pop() if opens else None  # unbalanced ")": re.compile rejects it later
-            close = i
+            sub_bits, sub_wild = bits_stack.pop(), wild_stack.pop()
             i += 1
             counted = i < n and pattern[i] == "{" and _counted_repeat(pattern, i) is not None
             if i < n and (pattern[i] in "*+?" or counted):
-                if body_start is not None:
-                    total = _body_paths(pattern, body_start, close)
-                    if total is not None:
-                        if counted:
-                            lo, hi = _counted_repeat(pattern, i)
-                            if hi is None:  # open form {n,}: an unbounded loop over a branching body
-                                total = None if total > 1 else total
-                            else:
-                                total *= max(hi - lo, 0) + 1
-                        elif pattern[i] in "*+":  # same for the unbounded * and + loops
-                            total = None if total > 1 else total
-                    if total is None or total > _RE_PATH_BUDGET:
-                        raise SigmaError("quantified group with a quantifier or alternation inside "
+                if pattern[i] == "?":
+                    iterations = 1  # (…)? matches the group once at most
+                elif counted and _counted_repeat(pattern, i)[1] is not None:
+                    iterations = _counted_repeat(pattern, i)[1]  # the maximum drives the budget
+                else:
+                    iterations = None  # *, + and the open {n,} form are unbounded loops
+                if iterations is None:
+                    if sub_wild or sub_bits > 0:
+                        raise SigmaError("unbounded loop over a branching group "
                                          "(catastrophic backtracking)")
+                elif sub_wild:
+                    raise SigmaError("quantified group with an alternation or unbounded "
+                                     "quantifier inside (catastrophic backtracking)")
+                else:
+                    bits_stack[-1] += iterations * sub_bits
                 i += 1 if pattern[i] in "*+?" else pattern.find("}", i) + 1 - i
+            else:
+                bits_stack[-1] += sub_bits      # a plain group is transparent
+                wild_stack[-1] |= sub_wild      # and its wildness reaches any outer loop
+        elif ch == "|":
+            wild_stack[-1] = True
+            i += 1
         elif ch in "*+?":
-            i += 1  # quantifier on a single character or class: linear, nothing to check
+            if ch == "?":
+                bits_stack[-1] += 1.0  # a? matches a length of 0 or 1: two ways
+            else:
+                wild_stack[-1] = True  # a* / a+ alone stay polynomial, flagged for outer loops
+            i += 1
         elif ch == "{" and _counted_repeat(pattern, i) is not None:
             lo, hi = _counted_repeat(pattern, i)
             if max(lo, hi or 0) > _RE_MAX_REPEAT:
                 raise SigmaError(f"counted repeat {{{lo},{hi}}} exceeds {_RE_MAX_REPEAT}")
+            if hi is None:
+                wild_stack[-1] = True  # {n,}: unbounded single-atom loop
+            else:
+                bits_stack[-1] += math.log2(hi - lo + 1)  # one length window per iteration
             i = pattern.find("}", i) + 1
         else:
             i += 1
+    if bits_stack[-1] > _RE_AMBIGUITY_BITS:
+        raise SigmaError(f"regex ambiguity {bits_stack[-1]:.1f} bits exceeds the "
+                         f"{_RE_AMBIGUITY_BITS:g}-bit budget (catastrophic backtracking)")
 
 
 def _compile_field(field_spec: str, raw_values: Any) -> Predicate:

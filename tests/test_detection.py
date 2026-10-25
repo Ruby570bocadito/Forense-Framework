@@ -97,6 +97,13 @@ def test_builtin_rules_load_and_cli(capsys):
     r"(a{1,3}){2,}b",         # open {n,} loop over a branching body
     r"a{1,99999}",            # counted repeat out of bounds
     "a" * 1025,               # over the length limit
+    r"(a?){25}X",             # SEG session 8: the window is raised to the iterations (25 bits)
+    r"(a{0,2}){15}X",         # bounded window to the 15th power (24 bits)
+    r"(.?){25}X",             # the same shape over a generic dot
+    r"((a?){5}){5}X",         # nesting raises the branching to a power (25 bits)
+    "a?" * 30 + "X",          # adjacent quantified atoms without a group (30 bits)
+    r"([\w]{0,3}){12}X",      # class window to the 12th power (24 bits)
+    r"(?=a+(a+)+)",           # the exponential loop hides inside a lookahead
 ])
 def test_sigma_redos_patterns_rejected(evil):
     with pytest.raises(SigmaError):
