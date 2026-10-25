@@ -351,6 +351,7 @@
  "error.evidence_contains_case": "La evidencia {path} contiene la carpeta del caso: elija una ruta que no incluya el caso",
  "error.evidence_inside_case": "La evidencia no puede estar dentro del directorio del caso: {path}",
  "error.evidence_missing": "No existe la evidencia: {path}",
+ "error.evidence_path_escapes": "La ruta registrada de la evidencia escapa de la carpeta del caso: {path}",
  "error.evidence_unknown": "No existe la evidencia {evidence} en este caso.",
  "error.evidence_unreadable": "No se puede leer la evidencia {path}: {error}",
  "error.evidence_unsupported": "Tipo de evidencia no soportado: {path}",

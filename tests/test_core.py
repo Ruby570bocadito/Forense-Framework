@@ -144,6 +144,23 @@ def test_external_evidence_keeps_its_absolute_path(case, evidence_dir):
     assert case.verify_evidence(evidence.id).ok
 
 
+def test_disk_path_relative_containment(tmp_path):
+    outside = tmp_path / "outside.secret"
+    outside.write_text("sensitive", encoding="utf-8")
+    with Case.create(tmp_path / "case", "Name", "Inv") as case:
+        inside = case.disk_path("evidence/EV-001/img.E01")  # a sane relative entry resolves into the case
+        assert inside.is_absolute() and case.root.resolve() in inside.parents
+        assert case.disk_path("") == case.root.resolve()  # the case root itself stays allowed
+        escapes = [f"../../{outside.name}", f"evidence/EV-001/../../../{outside.name}"]
+        if os.name != "nt":  # a symlink planted inside must not reach outside either
+            (case.root / "link").symlink_to(tmp_path)
+            escapes.append("link/outside.secret")
+        for stored in escapes:
+            with pytest.raises(CaseError) as exc:
+                case.disk_path(stored)
+            assert exc.value.code == "error.evidence_path_escapes"
+
+
 def test_copied_case_verifies_itself_not_the_original(tmp_path, evidence_dir):
     """A copied case verifies the files registered in ITS folder: tampering the copy fails (H-007)."""
     with Case.create(tmp_path / "c1", "C1", "Tester") as case:

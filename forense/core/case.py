@@ -471,7 +471,14 @@ class Case(ReviewMixin):
         """
         path = Path(stored)
         if not path.is_absolute():
-            return self.root / path
+            # A relative registration always lives inside the case folder (add_evidence stores it
+            # that way); anything else is a tampered or foreign row and must never be read (SEG):
+            # resolve (symlinks included) and require containment in the resolved case root.
+            candidate = (self.root / path).resolve()
+            root = self.root.resolve()
+            if candidate != root and root not in candidate.parents:
+                raise CaseError("error.evidence_path_escapes", path=stored)
+            return candidate
         if self.root == path or self.root in path.parents:
             return path
         for candidate in self._internal_candidates(path):

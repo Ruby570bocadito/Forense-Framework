@@ -351,6 +351,7 @@
  "error.evidence_contains_case": "Evidence {path} contains the case folder: choose a path that does not include the case",
  "error.evidence_inside_case": "Evidence cannot be inside the case directory: {path}",
  "error.evidence_missing": "Evidence not found: {path}",
+ "error.evidence_path_escapes": "Registered evidence path escapes the case folder: {path}",
  "error.evidence_unknown": "Evidence {evidence} does not exist in this case.",
  "error.evidence_unreadable": "Cannot read evidence {path}: {error}",
  "error.evidence_unsupported": "Unsupported evidence type: {path}",
