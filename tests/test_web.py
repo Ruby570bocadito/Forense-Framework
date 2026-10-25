@@ -220,6 +220,19 @@ def test_findings_html_export_route(client, workspace):
         assert entry.details["filters"] == {"severity": "high"}
 
 
+def test_jobs_stream_and_cancel_route(client, workspace):
+    token = _token(client, "/c/case1/analyses")
+    stream = client.get("/api/jobs/stream")
+    assert stream.status_code == 200 and stream.mimetype == "text/event-stream"
+    assert stream.headers["Cache-Control"] == "no-store"
+    body = stream.get_data(as_text=True)
+    assert body.count("data: [") == 2  # one snapshot per tick, then the idle close
+    missing = client.post("/c/case1/jobs/no-such-job/cancel", data={"csrf_token": token})
+    assert missing.status_code == 302  # back with a localized flash, never a 500
+    page = client.get("/c/case1/analyses", headers={"Referer": missing.headers["Location"]})
+    assert "no-such-job" not in page.get_data(as_text=True)
+
+
 def test_password_protection(workspace):
     client = create_app(workspace, password="s3cret").test_client()
     assert client.get("/").status_code == 401

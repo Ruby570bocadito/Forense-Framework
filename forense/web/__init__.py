@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import hmac
 import ipaddress
+import json
 import math
 import os
 import re
 import secrets
+import time
 from datetime import timedelta
 from pathlib import Path
 from typing import Optional
@@ -30,6 +32,7 @@ from flask import (
     request,
     send_from_directory,
     session,
+    stream_with_context,
     url_for,
 )
 from werkzeug.exceptions import NotFound
@@ -323,7 +326,9 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             from forense.core.config import get_config
 
             config = get_config()
-            result = run_playbook(case, [evidence_id], load_playbook(playbook), config, who, progress)
+            steps = load_playbook(playbook)
+            progress.metrics(total=len(steps))
+            result = run_playbook(case, [evidence_id], steps, config, who, progress)
             failed = sum(1 for step in result.steps if step.status == "failed")
             return t("web.auto_done", steps=len(result.steps), failed=failed), ("dashboard", {"slug": slug})
 
@@ -345,7 +350,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
         def work(case: Case, progress) -> tuple[str, str]:
             ev = case.add_evidence(Path(path), description, copy, who,
-                                   progress=lambda files, size: progress(f"{files} · {size} B"))
+                                   progress=lambda files, size: progress.metrics(done=files,
+                                                                                 stage=f"{files} · {size} B"))
             message = t("web.evidence_added", id=ev.id)
             if ev.duplicate_of:  # H-005 residual: the web announces the twin just like the CLI does
                 message += " " + t("web.evidence_duplicate", id=ev.duplicate_of,
@@ -397,7 +403,25 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         who = actor()
 
         def work(case: Case, progress) -> tuple[str, str]:
-            results = case.triage(evidence_id, who, progress=progress)
+            from forense.i18n import get_language
+            from forense.image import evidence_kind
+
+            titles = {m.name: m.title(get_language()) for m in available_modules() if m.triage}
+            kind = evidence_kind(case.disk_path(case.get_evidence(evidence_id).path))
+            if kind in ("memory", "volatility"):
+                progress.metrics(total=1)
+            elif kind == "disk_image":
+                progress.metrics(total=1 + len(titles))  # the extraction, then every triage module
+            else:
+                progress.metrics(total=len(titles))
+
+            def checkpoints(name: str) -> None:
+                if name in titles or name in ("image", "memory"):  # triage's own progress points
+                    progress.checkpoint(name, title=titles.get(name, name))
+                else:  # nested text from the extraction or a module: snapshot, not a count
+                    progress(name)
+
+            results = case.triage(evidence_id, who, progress=checkpoints)
             done = sum(1 for _, a, _ in results if a is not None)
             return t("web.triage_done", modules=done), ("findings", {"slug": slug})
 
@@ -728,8 +752,56 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         for job in jobs.list(slug)[:20]:
             item = job.as_dict()
             item["link"] = url_for(job.link[0], **job.link[1]) if job.link else ""
+            item["cancellable"] = job.cancellable()
             result.append(item)
         return jsonify(result)
+
+    @app.route("/api/jobs/stream")
+    def api_jobs_stream():
+        """Server-Sent Events feed of the job queue: one snapshot per second while there
+        is activity. The stream ends when the queue is idle and the client falls back to
+        plain polling of /api/jobs, so idle workspaces hold no connections."""
+        slug = request.args.get("case")
+
+        def stream():
+            def snapshot() -> str:
+                result = []
+                for job in jobs.list(slug)[:20]:
+                    item = job.as_dict()
+                    item["link"] = url_for(job.link[0], **job.link[1]) if job.link else ""
+                    item["cancellable"] = job.cancellable()
+                    result.append(item)
+                return "data: " + json.dumps(result) + "\n\n"
+
+            idle = 0
+            for _ in range(300):  # ~5 minutes per connection; EventSource reconnects on its own
+                yield snapshot()
+                idle = idle + 1 if not jobs.active(slug) else 0
+                if idle >= 2:
+                    return
+                time.sleep(1)
+
+        return Response(stream_with_context(stream()), mimetype="text/event-stream",
+                        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+    @app.post("/c/<slug>/jobs/<job_id>/cancel")
+    def cancel_job(slug: str, job_id: str):
+        """Cancel a background job. Queued ones never start; triage and playbook jobs
+        stop at their next checkpoint, so a running module is never cut in half."""
+        job = jobs.get(job_id)
+        if job is None or job.case != slug:
+            flash(t("web.job_cancel_gone"), "error")
+        else:
+            outcome = jobs.cancel(job_id)
+            if outcome == "queued":
+                flash(t("web.job_cancel_queued"))
+            elif outcome == "requested":
+                flash(t("web.job_cancel_requested"))
+            elif outcome == "unavailable":
+                flash(t("web.job_cancel_unavailable"), "error")
+            else:  # finished between the lookup and the cancel
+                flash(t("web.job_cancel_gone"), "error")
+        return redirect(_back(url_for("analyses", slug=slug)))
 
     return app
 

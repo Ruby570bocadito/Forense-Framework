@@ -50,9 +50,12 @@
       {% for category, message in messages %}<div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}
     {% endwith %}
     {% if slug is defined %}
-    <div id="jobs" class="panel jobs" hidden aria-live="polite" data-url="{{ url_for('api_jobs', case=slug) }}" data-reload="1"
+    <div id="jobs" class="panel jobs" hidden aria-live="polite" data-url="{{ url_for('api_jobs', case=slug) }}"
+         data-stream="{{ url_for('api_jobs_stream', case=slug) }}" data-reload="1"
+         data-cancel-url="{{ url_for('cancel_job', slug=slug, job_id='JOBID') }}" data-csrf="{{ csrf_token }}"
+         data-cancel-label="{{ _('web.cancel_job') }}" data-progress="{{ _('web.job_progress') }}"
          data-open="{{ _('common.open') }}" data-status-queued="{{ _('job.queued') }}" data-status-running="{{ _('job.running') }}"
-         data-status-done="{{ _('job.done') }}" data-status-failed="{{ _('job.failed') }}">
+         data-status-done="{{ _('job.done') }}" data-status-failed="{{ _('job.failed') }}" data-status-cancelled="{{ _('job.cancelled') }}">
       <b>{{ _('web.jobs') }}</b><ul></ul>
     </div>
     {% endif %}

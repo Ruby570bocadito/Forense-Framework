@@ -22,38 +22,74 @@
     });
   });
 
-  // Poll background jobs and reload the page when one finishes.
+  // Background jobs: live queue with progress and cancellation (SSE with polling fallback),
+  // and a page reload when a job finishes.
   var box = document.getElementById("jobs");
   if (!box) return;
   var url = box.dataset.url;
   var known = {};
+  function render(jobs) {
+    var running = false, finishedNow = false;
+    var list = box.querySelector("ul");
+    list.textContent = "";
+    jobs.slice(0, 8).forEach(function (job) {
+      var li = document.createElement("li");
+      var state = box.dataset["status" + job.status.charAt(0).toUpperCase() + job.status.slice(1)] || job.status;
+      li.textContent = "[" + state + "] " + job.description;
+      if (job.status === "running" && (job.stage || job.progress)) {
+        var detail = job.total > 0 ? box.dataset.progress.replace("{done}", job.done).replace("{total}", job.total) + " — " : "";
+        li.appendChild(document.createElement("div")).textContent = detail + (job.stage || job.progress);
+      }
+      if (job.message && job.status !== "running") {
+        li.appendChild(document.createElement("div")).textContent = job.message;
+      }
+      if (job.link && job.status === "done") {
+        var a = document.createElement("a");
+        a.href = job.link; a.textContent = " → " + (box.dataset.open || "open");
+        li.appendChild(a);
+      }
+      if (job.cancellable && (job.status === "queued" || job.status === "running")) {
+        var form = document.createElement("form");
+        form.method = "post";
+        form.action = box.dataset.cancelUrl.replace("JOBID", job.id);
+        form.className = "inline";
+        var csrf = document.createElement("input");
+        csrf.type = "hidden"; csrf.name = "csrf_token"; csrf.value = box.dataset.csrf;
+        form.appendChild(csrf);
+        var cancel = document.createElement("button");
+        cancel.className = "secondary small"; cancel.type = "submit";
+        cancel.textContent = box.dataset.cancelLabel || "Cancel";
+        cancel.setAttribute("aria-label", (box.dataset.cancelLabel || "Cancel") + ": " + job.description);
+        form.appendChild(cancel);
+        li.appendChild(form);
+      }
+      if (job.status === "failed" || job.status === "cancelled") li.className = "bad";
+      list.appendChild(li);
+      if (job.status === "queued" || job.status === "running") running = true;
+      if (known[job.id] && known[job.id] !== job.status && job.status !== "queued" && job.status !== "running") finishedNow = true;
+      known[job.id] = job.status;
+    });
+    box.hidden = jobs.length === 0;
+    if (finishedNow && box.dataset.reload === "1") window.location.reload();
+    return running;
+  }
   function poll() {
+    var again = function (running) { window.setTimeout(poll, running ? 1500 : 6000); };
     fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (jobs) {
-      var running = false, finishedNow = false;
-      var list = box.querySelector("ul");
-      list.textContent = "";
-      jobs.slice(0, 8).forEach(function (job) {
-        var li = document.createElement("li");
-        var state = box.dataset["status" + job.status.charAt(0).toUpperCase() + job.status.slice(1)] || job.status;
-        li.textContent = "[" + state + "] " + job.description + (job.progress && job.status === "running" ? " — " + job.progress : "") +
-          (job.message ? " — " + job.message : "");
-        if (job.link && job.status === "done") {
-          var a = document.createElement("a");
-          a.href = job.link; a.textContent = " → " + (box.dataset.open || "open");
-          li.appendChild(a);
-        }
-        if (job.status === "failed") li.className = "bad";
-        list.appendChild(li);
-        if (job.status === "queued" || job.status === "running") running = true;
-        if (known[job.id] && known[job.id] !== job.status && (job.status === "done" || job.status === "failed")) finishedNow = true;
-        known[job.id] = job.status;
-      });
-      box.hidden = jobs.length === 0;
-      if (finishedNow && box.dataset.reload === "1") window.location.reload();
-      window.setTimeout(poll, running ? 1500 : 6000);
+      again(render(jobs));
     }).catch(function () { window.setTimeout(poll, 8000); });
   }
-  poll();
+  if (box.dataset.stream && window.EventSource) {
+    var source = new EventSource(box.dataset.stream);
+    source.onmessage = function (ev) {
+      var running;
+      try { running = render(JSON.parse(ev.data)); } catch (err) { return; }
+      if (!running) { source.close(); window.setTimeout(poll, 6000); }  // idle: back to a slow poll
+    };
+    source.onerror = function () { source.close(); poll(); };  // stream unavailable: plain polling
+  } else {
+    poll();
+  }
 })();
 
 // Chart tooltips: any element with data-tip (SVG marks included) shows its text next to the pointer.
