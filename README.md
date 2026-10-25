@@ -480,7 +480,7 @@ las comprobaciones de estado de contenedores.
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | Historial, descargas, **ejecutables descargados**, servicios de intercambio y paste |
 | `mft` | `$MFT` | Línea temporal $SI/$FN, entradas borradas, rutas completas, **Zone.Identifier** (URL de descarga), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | Creación, borrado y renombrado de archivos con rutas completas (usando el `$MFT`); herramientas ofensivas, ejecutables creados y borrados, borrado de Prefetch y EVTX, **renombrado masivo (ransomware)** y borrado masivo |
-| `logfile` | `$Extend\$LogFile` | Diario transaccional de NTFS (soporte básico): operaciones con nombre sobre registros del `$MFT` y entradas de índice de directorios, con su LSN y transacción; el diario no guarda marcas de tiempo |
+| `logfile` | `$Extend\$LogFile` | Diario transaccional de NTFS: operaciones con nombre sobre registros del `$MFT`, entradas de índice de directorios y **atributos abiertos** (reconstruye la tabla de atributos del diario para nombrarlas, p. ej. la apertura o actualización de `$DATA`), con su LSN y transacción; el diario no guarda marcas de tiempo |
 | `tasks` | `Windows\System32\Tasks` | Tareas programadas: autor, desencadenadores, cuenta, acciones; **tareas ocultas**, con intérpretes o en ubicaciones sospechosas, como SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **Persistencia WMI** (filtro + consumidor CommandLine/ActiveScript), también suscripciones borradas |
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detecciones (amenaza, recurso, usuario), procesos activos según su registro de rendimiento (prueba de ejecución que sobrevive al borrado de los EVTX) y ficheros consultados con SHA-1/SHA-256 |
@@ -655,9 +655,10 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
   colmena SYSTEM de la propia evidencia (incluido el horario de verano); sin ella se dejan como hora local.
 - **WMI**: el repositorio se analiza por búsqueda de cadenas (como PyWMIPersistenceFinder), no con un parser completo
   del formato CIM.
-- **$LogFile**: soporte básico: operaciones con nombre sobre registros del `$MFT` y entradas de índice de directorios,
-  con su LSN y transacción; el diario no guarda marcas de tiempo, así que estas operaciones no aportan fechas propias
-  a la cronología.
+- **$LogFile**: operaciones con nombre sobre registros del `$MFT`, entradas de índice de directorios y atributos
+  (códigos 0x05–0x09 y 0x0B, nombrados reconstruyendo la tabla de atributos abiertos que el propio diario registra
+  en 0x1C/0x1D); una entrada de esa tabla rota solo invalida la parte incremental. El diario no guarda marcas de
+  tiempo, así que estas operaciones no aportan fechas propias a la cronología.
 - **Caché RDP**: los tiles se extraen como BMP, pero el contenedor no guarda marcas de tiempo: evidencian la
   actividad del escritorio remoto, no cuándo ocurrió.
 - **Heurísticas**: las reglas de detección son indicios para priorizar el trabajo, no veredictos.

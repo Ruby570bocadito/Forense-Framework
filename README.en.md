@@ -474,7 +474,7 @@ password for container health checks.
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | History, downloads, **downloaded executables**, file-sharing and paste services |
 | `mft` | `$MFT` | $SI/$FN timeline, deleted entries, full paths, **Zone.Identifier** (download URL), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
-| `logfile` | `$Extend\$LogFile` | NTFS write-ahead journal (basic support): named operations on `$MFT` records and directory index entries, with LSN and transaction; the journal carries no timestamps |
+| `logfile` | `$Extend\$LogFile` | NTFS write-ahead journal: named operations on `$MFT` records, directory index entries and **open attributes** (the journal's attribute table is reconstructed to name them, e.g. a `$DATA` open or update), with LSN and transaction; the journal carries no timestamps |
 | `tasks` | `Windows\System32\Tasks` | Scheduled tasks: author, triggers, account, actions; **hidden tasks**, tasks running interpreters or binaries from suspicious locations, as SYSTEM |
 | `wmi` | `wbem\Repository\OBJECTS.DATA` | **WMI persistence** (filter + CommandLine/ActiveScript consumer), deleted subscriptions included |
 | `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detections (threat, resource, user), processes active according to its performance log (evidence of execution that survives clearing the EVTX) and files queried with SHA-1/SHA-256 |
@@ -647,8 +647,10 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 - **Local times** (network profiles, `setupapi`) are converted to UTC with the time zone rules of the SYSTEM hive of
   the same evidence (daylight saving time included); without it they are kept as local time.
 - **WMI**: the repository is searched for strings (like PyWMIPersistenceFinder), not parsed as a full CIM database.
-- **$LogFile**: basic support: named operations on `$MFT` records and directory index entries, with LSN and
-  transaction; the journal carries no timestamps, so these operations add no dates of their own to the timeline.
+- **$LogFile**: named operations on `$MFT` records, directory index entries and attributes (opcodes 0x05–0x09 and
+  0x0B, named by reconstructing the open-attribute table the journal itself records in 0x1C/0x1D); a broken table
+  entry only invalidates the incremental part. The journal carries no timestamps, so these operations add no dates
+  of their own to the timeline.
 - **RDP cache**: tiles are extracted as BMP files, but the container carries no timestamps: they evidence remote
   desktop activity, not when it happened.
 - **Heuristics**: detection rules are leads to prioritise work, not verdicts.
