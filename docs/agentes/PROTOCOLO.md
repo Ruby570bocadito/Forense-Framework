@@ -7,6 +7,9 @@
    y los hallazgos abiertos dirigidos a tu ID en `docs/agentes/hallazgos/` (los CRÍTICO/ALTO van antes que el ROADMAP;
    usa el id del hallazgo como slug del claim; al arreglarlo, pon `Estado: resuelto-pendiente-verificación` en el archivo
    e indica el commit; NO lo borres, lo cierra TEST).
+   Para la tarea que elijas, lee también su ficha en `docs/ROADMAP.md` (busca su código, p. ej. "B5", o su slug):
+   ahí están el alcance, la prioridad, las dependencias y el criterio de la versión. Si la ficha y la cola difieren,
+   manda la cola; anota la discrepancia en "Propuestas" de tu estado.
 3. Elige UNA tarea de tu zona. Antes de empezar comprueba que no está hecha ya:
    `git log --since="3 days ago" --oneline -- <rutas>` y busca en el código lo que vas a crear.
    Si ya existe, no lo rehagas: pasa a otra tarea.
@@ -56,3 +59,8 @@ Los informes son técnicos y breves. No añadas avisos ni recordatorios que no p
 - Nunca escribir en la evidencia. Las bases SQLite de terceros se copian a temporal antes de abrirse.
 - Los README (es/en) se mantienen sincronizados y los edita solo PUL.
 - Las pruebas no usan red ni servicios reales: webhooks, descargas de Sigma y símbolos de Volatility se simulan en local.
+- Los slugs de la cola usan el código del roadmap de producto como prefijo: `b5-migraciones`, `c1-bits`, `q1-primera-release`.
+  El commit de cierre lo menciona: `feat(registry): ... (b5-migraciones)`.
+- Principios de `docs/ROADMAP.md` §2 son vinculantes: muestra real con licencia o no hay módulo nuevo; indicios, no veredictos;
+  sin red por defecto; bilingüe desde el primer commit; compatibilidad de casos ≥ 0.4.
+- Una tarea XL no se reclama entera: DIR la divide en la cola antes de que nadie la coja.
