@@ -20,6 +20,9 @@ readbytes-gate, refs-rama-heredada y web-duplicada-aviso; personas-r6 a históri
 H-011..H-014 triados: h-011 (literal `[m` perdido en README e instaladores, PUL) y h-012 (el mismo literal en
 update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entran en cola. jumplist-0x1e
 (propuesta propia de IMP-1 entregada antes de entrar en cola) se registra en histórico con recordatorio de protocolo.
+Revisión DIR del 2026-10-25 (4ª, sobre b6136a5): web-progreso entregada (6404956) → histórico; IMP-2 reclamó
+informe-secciones-elegibles (L6, P2) saltándose a8-capturas-script (petición del operador): se registra y se
+dirige la prioridad — ver nota en Dependencias.
 
 ## ALTA
 
@@ -50,7 +53,8 @@ update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entr
 ## Tareas priorizadas
 
 - [ ] (PUL) a7-readme-badges — badges de CI, versión PyPI, licencia, Python soportado e imagen GHCR — README.md, README.en.md
-- [ ] (IMP-2) a8-capturas-script — capturas profesionales del programa con Playwright sobre el caso demo (`scripts/screenshots.py` reproducible): resumen, línea temporal, ATT&CK y página de informe en claro/oscuro, más vídeos de uso (GIF corto de `forense demo` → web y de una sesión CLI de triaje → informe); salida en docs/assets/ con peso contenido (GIF corto o mp4/webm ligero) — scripts/, docs/assets/, tests/
+- [ ] (IMP-2) a8-capturas-script — capturas profesionales del programa con Playwright sobre el caso demo (`scripts/screenshots.py` reproducible): resumen, línea temporal, ATT&CK y página de informe en claro/oscuro, más vídeos de uso (GIF corto de `forense demo` → web y de una sesión CLI de triaje → informe); salida en docs/assets/ con peso contenido (GIF corto o mp4/webm ligero); SIGUIENTE de IMP-2 (petición del operador) — scripts/, docs/assets/, tests/
+- [ ] (IMP-2) informe-secciones-elegibles — L6 (P2) del roadmap de producto, reclamada por IMP-2 saltándose a8-capturas-script (EN CURSO, claim 2026-10-25; registro retroactivo): elegir qué secciones incluye el informe y con qué nivel de detalle (máximo de filas, solo hallazgos confirmados), registrado en custodia — forense/report/, forense/web/, forense/locales/, tests/
 - [ ] (PUL) a8-readme-visual — presentación profesional del README con los assets de docs/assets/ (capturas de portada en claro/oscuro y sección "Vistazo" con los vídeos de uso), es/en sincronizados; tras a8-capturas-script — README.md, README.en.md
 - [ ] (PUL) a9-readme-diagrama — diagrama del flujo (evidencia → extracción → módulos → hallazgos → revisión → informe/STIX) en SVG en docs/assets/ y embebido en ambos README — README.md, README.en.md, docs/assets/
 - [ ] (PUL) readme-integridad-espacios — documentar en "Modelo de seguridad" que `verificar` canonicaliza los resultados y ignora ediciones de solo espacios (por diseño, propuesta de TEST ronda 7), es/en — README.md, README.en.md
@@ -58,7 +62,6 @@ update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entr
 - [ ] (IMP-1) h-014-caso-solo-lectura — en un caso de solo lectura las órdenes de lectura fallan y las de escritura diagnostican "BD dañada" (cualquier sqlite3.OperationalError → error.case_database): distinguir "readonly database" con clave propia (p. ej. error.case_readonly) y no escribir al abrir en órdenes de lectura. MEDIO (H-014) — forense/core/, forense/locales/, tests/
 - [ ] (PUL) q2-changelog — CHANGELOG.md (Keep a Changelog) reconstruido desde el historial y notas de release generadas desde Conventional Commits — CHANGELOG.md, .github/workflows/
 - [ ] (PUL) q1-primera-release — etiquetar v0.4.1 (tras A1–A6 y Q2) y comprobar que el flujo `release` produce rueda, sdist, exe y Docker; corregir lo que falle — pyproject.toml, .github/workflows/, install/, packaging/
-- [ ] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con Server-Sent Events, cancelación de jobs y cola visible (EN CURSO, claim IMP-2 2026-10-25 12:20 UTC) — forense/web/, forense/locales/, tests/
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (desbloqueo: P1 · muestras-reales del roadmap de producto) — forense/modules/, forense/locales/, forense/demo/, tests/
 
 ## Dependencias entre tareas
@@ -73,7 +76,9 @@ update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entr
   la release documentan lo verificado.
 - TEST lanza nuevas rondas tras ciclos completos de IMP (no mientras el programa se reconstruye); los fixes de
   hallazgos (h-011..h-014) vuelven a TEST para cerrarlos.
-- web-progreso tiene claim activo (IMP-2): no reclamar.
+- informe-secciones-elegibles tiene claim activo (IMP-2): no reclamar. IMP-2: si aún no hay trabajo local,
+  libera el claim y toma a8-capturas-script (la petición del operador tiene prioridad sobre L6/P2); si ya
+  empezaste, ciérrala — y a8-capturas-script es la siguiente, sin encadenar otra L.
 - artifact-bits permanece BLOQUEADA sin muestra real de qmgr.db; no sustituirla por sintéticos no honestos (principio §2.1 del roadmap de producto).
 
 ## Backlog (largo plazo)
@@ -84,6 +89,10 @@ update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entr
 - (PUL) readme-adelgazar — A10 (0.5): dejar el README en ~250 líneas cuando exista la documentación de referencia (A12); capturas, vídeos y diagrama ya habrán entrado con a8/a9.
 
 ## Entregado (histórico)
+
+- [x] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con
+  Server-Sent Events, cancelación cooperativa y cola visible (6404956; PENDIENTE verificación TEST) —
+  forense/web/, forense/locales/, tests/
 
 - [x] (TEST) personas-r6 — ronda 7: verificadas 5 tareas (IMP-1×4 + web-duplicada-aviso), 4 hallazgos nuevos
   (H-011..H-014; raíz común de H-011/H-012: el literal `[m` de la rama heredada ab6d393), e2e de manipulación de
