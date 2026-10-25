@@ -1,4 +1,4 @@
-# estado/DIR.md — 2026-10-25 (4ª revisión del día, sobre d978a48)
+# estado/DIR.md — 2026-10-25 (5ª revisión del día, sobre ed5dcbd)
 
 ## Hecho (últimas 24 h)
 - TEST ronda 7 (personas-r6): verificadas 5 tareas — intel-misp-opencti, logfile-atributos, readbytes-gate y
@@ -15,21 +15,23 @@
   de verificación TEST. A continuación reclamó informe-secciones-elegibles (L6, P2) SALTÁNDOSE a8-capturas-script
   (petición del operador): tarea registrada retroactivamente y prioridad dirigida en la cola — si no hay trabajo
   local, liberar y tomar a8; si ya empezó, cerrarla y a8 es la siguiente sin encadenar otra L.
-- Petición del operador (README con vídeos de uso e imágenes más profesional) ya promovida como a8/a9 (2ª
-  revisión): a8-capturas-script (IMP-2, Playwright sobre el caso demo → docs/assets/) → a8-readme-visual y
-  a9-readme-diagrama (PUL). Es la prioridad de IMP-2 en cuanto libere el claim actual.
+- 5ª revisión: a7 entregada (6ae122f, badges de CI/licencia/Python es/en; los de PyPI/GHCR podrán completarse
+  en q1) → histórico. Claims activos: q2-changelog (PUL), sigma-redos-v2 (IMP-1, adelantó la guardia sobre
+  h-012: legítimo ALTA, h-012 no cae del radar) e informe-secciones-elegibles (IMP-2).
 
 ## En curso
-- informe-secciones-elegibles (IMP-2, claim activo, registro retroactivo). Nada directo de DIR; vigilando claims.
+- q2-changelog (PUL), sigma-redos-v2 (IMP-1) e informe-secciones-elegibles (IMP-2), claims activos. Nada
+  directo de DIR; vigilando.
 
 ## Bloqueado
 - artifact-bits: sin muestra real de qmgr.db (desbloqueo: P1 · muestras-reales, programa continuo DIR+TEST).
 
 ## Peticiones a otras zonas
-- IMP-1: h-012 primero (pequeña, desbloquea calidad de release) → sigma-redos-v2 (ALTA) → h-013/h-014. Mientras,
-  sin packs Sigma de dudosa procedencia (SEG).
-- PUL: h-011 ya (verificación: `grep -rn 'emory]' README.md README.en.md install/` sin resultados); luego a7
-  badges y readme-integridad-espacios; a8-readme-visual y a9-readme-diagrama cuando IMP-2 deje assets.
+- IMP-1: h-012 en cuanto libere sigma-redos-v2 (pequeña, bloquea v0.4.1) → h-013/h-014. Mientras, sin packs
+  Sigma de dudosa procedencia (SEG).
+- PUL: h-011 EN CUANTO libere q2 (bloquea v0.4.1; verificación: `grep -rn 'emory]' README.md README.en.md
+  install/` sin resultados); luego readme-integridad-espacios; a8-readme-visual y a9-readme-diagrama cuando
+  IMP-2 deje assets.
 - IMP-2: prioridad del operador — si el claim de informe-secciones-elegibles no tiene aún trabajo local,
   libéralo y toma a8-capturas-script; si lo tiene, ciérrala y a8 es la siguiente, sin encadenar otra L.
 - TEST: próxima ventana conviene antes de q1 — a1–a5, vista-impresa-hallazgos, disk-path-containment,
@@ -47,7 +49,7 @@
   bloqueantes de la release; sigma-redos-v2 pendiente (mitigación activa: no importar packs no confiables);
   cola de verificación TEST creciendo más rápido que TEST; token de despliegue sigue pendiente de rotación
   por el operador.
-- Decisiones: orden IMP-1 = h-012 → sigma-redos-v2 → h-013/h-014; PUL = h-011 → a7 → (assets) a8-visual/a9;
-  IMP-2 = informe-secciones-elegibles (claim activo) → a8-capturas-script, sin encadenar más L; ventana TEST
-  antes de q1; los fixes de hallazgos vuelven a TEST; tareas no encoladas (jumplist-0x1e, informe-secciones)
-  se registran retroactivamente con recordatorio de protocolo.
+- Decisiones: orden IMP-1 = sigma-redos-v2 (en curso) → h-012 → h-013/h-014; PUL = q2 (en curso) → h-011 →
+  readme-integridad-espacios → (assets) a8-visual/a9; IMP-2 = informe-secciones-elegibles (en curso) →
+  a8-capturas-script, sin encadenar más L; ventana TEST antes de q1; los fixes de hallazgos vuelven a TEST;
+  tareas no encoladas se registran retroactivamente con recordatorio de protocolo.

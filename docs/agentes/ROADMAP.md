@@ -23,6 +23,9 @@ update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entr
 Revisión DIR del 2026-10-25 (4ª, sobre b6136a5): web-progreso entregada (6404956) → histórico; IMP-2 reclamó
 informe-secciones-elegibles (L6, P2) saltándose a8-capturas-script (petición del operador): se registra y se
 dirige la prioridad — ver nota en Dependencias.
+Revisión DIR del 2026-10-25 (5ª, sobre 4c835dc): a7 entregada (6ae122f) → histórico; claims activos: q2-changelog
+(PUL), sigma-redos-v2 (IMP-1) e informe-secciones-elegibles (IMP-2). Recordatorio: h-011 es la siguiente de PUL
+al liberar q2 y h-012 la de IMP-1 tras sigma-redos-v2 — ambas bloquean v0.4.1.
 
 ## ALTA
 
@@ -33,8 +36,8 @@ dirige la prioridad — ver nota en Dependencias.
   presupuesto de ambigüedad global Σ log2(ways) con recursión en grupos cuantificados; el test del paquete builtin
   (15 reglas, 0 errores) es la red contra falsos positivos — forense/sigma/, tests/
 
-  Intel-opencti ya entregada: sigma-redos-v2 es la siguiente grande de IMP-1 (h-012, pequeña, puede colarse antes).
-  Mientras, no importar packs Sigma de dudosa procedencia (SEG).
+  Intel-opencti ya entregada; sigma-redos-v2 EN CURSO (claim IMP-1 2026-10-25). h-012 (pequeña) queda para
+  después de la guardia, antes de q1. Mientras, no importar packs Sigma de dudosa procedencia (SEG).
 
 - [ ] (IMP-1) h-012-update-doctor-memory — el mismo literal `[m` perdido (rama heredada ab6d393) dentro del
   producto: update.py:82 construye `forense-frameworkemory] @ …` (auto-update roto siempre en entornos con
@@ -50,9 +53,10 @@ dirige la prioridad — ver nota en Dependencias.
   `[m` y verificar con `grep -rn 'emory]' README.md README.en.md install/` sin resultados (packaging/ ya está
   limpio). ALTO (H-011); bloquea v0.4.1 — README.md, README.en.md, install/
 
+  SIGUIENTE de PUL en cuanto libere q2-changelog (o antes si puede): la release no sale con la instalación rota.
+
 ## Tareas priorizadas
 
-- [ ] (PUL) a7-readme-badges — badges de CI, versión PyPI, licencia, Python soportado e imagen GHCR — README.md, README.en.md
 - [ ] (IMP-2) a8-capturas-script — capturas profesionales del programa con Playwright sobre el caso demo (`scripts/screenshots.py` reproducible): resumen, línea temporal, ATT&CK y página de informe en claro/oscuro, más vídeos de uso (GIF corto de `forense demo` → web y de una sesión CLI de triaje → informe); salida en docs/assets/ con peso contenido (GIF corto o mp4/webm ligero); SIGUIENTE de IMP-2 (petición del operador) — scripts/, docs/assets/, tests/
 - [ ] (IMP-2) informe-secciones-elegibles — L6 (P2) del roadmap de producto, reclamada por IMP-2 saltándose a8-capturas-script (EN CURSO, claim 2026-10-25; registro retroactivo): elegir qué secciones incluye el informe y con qué nivel de detalle (máximo de filas, solo hallazgos confirmados), registrado en custodia — forense/report/, forense/web/, forense/locales/, tests/
 - [ ] (PUL) a8-readme-visual — presentación profesional del README con los assets de docs/assets/ (capturas de portada en claro/oscuro y sección "Vistazo" con los vídeos de uso), es/en sincronizados; tras a8-capturas-script — README.md, README.en.md
@@ -60,7 +64,7 @@ dirige la prioridad — ver nota en Dependencias.
 - [ ] (PUL) readme-integridad-espacios — documentar en "Modelo de seguridad" que `verificar` canonicaliza los resultados y ignora ediciones de solo espacios (por diseño, propuesta de TEST ronda 7), es/en — README.md, README.en.md
 - [ ] (IMP-1) h-013-vigilar-once-banner — con --once, el banner dice "cada 15.0 s; Ctrl+C para terminar" (cli.watch_started emitido incondicional en cli.py:792-793); clave propia p. ej. cli.watch_once ("Pase único sobre {inbox}; los casos se crean en {workspace}.") o silenciar en ese modo. BAJO (H-013) — forense/cli.py, forense/locales/, tests/
 - [ ] (IMP-1) h-014-caso-solo-lectura — en un caso de solo lectura las órdenes de lectura fallan y las de escritura diagnostican "BD dañada" (cualquier sqlite3.OperationalError → error.case_database): distinguir "readonly database" con clave propia (p. ej. error.case_readonly) y no escribir al abrir en órdenes de lectura. MEDIO (H-014) — forense/core/, forense/locales/, tests/
-- [ ] (PUL) q2-changelog — CHANGELOG.md (Keep a Changelog) reconstruido desde el historial y notas de release generadas desde Conventional Commits — CHANGELOG.md, .github/workflows/
+- [ ] (PUL) q2-changelog — CHANGELOG.md (Keep a Changelog) reconstruido desde el historial y notas de release generadas desde Conventional Commits (EN CURSO, claim PUL 2026-10-25) — CHANGELOG.md, .github/workflows/
 - [ ] (PUL) q1-primera-release — etiquetar v0.4.1 (tras A1–A6 y Q2) y comprobar que el flujo `release` produce rueda, sdist, exe y Docker; corregir lo que falle — pyproject.toml, .github/workflows/, install/, packaging/
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (desbloqueo: P1 · muestras-reales del roadmap de producto) — forense/modules/, forense/locales/, forense/demo/, tests/
 
@@ -89,6 +93,10 @@ dirige la prioridad — ver nota en Dependencias.
 - (PUL) readme-adelgazar — A10 (0.5): dejar el README en ~250 líneas cuando exista la documentación de referencia (A12); capturas, vídeos y diagrama ya habrán entrado con a8/a9.
 
 ## Entregado (histórico)
+
+- [x] (PUL) a7-readme-badges — badges de CI, licencia y Python en ambos README (6ae122f; PENDIENTE verificación
+  TEST); los de versión PyPI e imagen GHCR podrán completarse en q1 cuando existan los artefactos — README.md,
+  README.en.md
 
 - [x] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con
   Server-Sent Events, cancelación cooperativa y cola visible (6404956; PENDIENTE verificación TEST) —
