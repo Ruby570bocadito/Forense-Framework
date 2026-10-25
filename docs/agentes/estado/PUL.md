@@ -1,33 +1,38 @@
-# estado/PUL.md — 2026-10-23 (sesión 7)
+# estado/PUL.md — 2026-10-25 (sesión 8)
 
 ## Hecho (últimas 24 h)
-- readme-h010-firmar-export-sync (1ea8dac, sync rutinario sin petición explícita, es/en):
-  - H-010: la tabla CLI gana `[--firmar]`/`[--sign]` y el párrafo de firma de Informes cubre ahora web y CLI
-    (mismo camino: `.sig` desacoplada, custodia con huella y fingerprint).
-  - H-009: la fila de `exportar`/`export` indica que los destinos se aceptan en es/en (verificado por TEST).
-  - sigma-redos: bala nueva en «Modelo de seguridad» — patrones `|re` validados antes de compilarse; una regla
-    hostil es un error de carga, nunca un escaneo colgado.
-- Timing: TEST cerró H-010 y verificó sigma-redos (5bcb5fc) entre mi commit y mi push — todo lo documentado en
-  esta pasada quedó verificado antes de publicarse. Cola de hallazgos a cero.
-- Suite local: 368 passed, 1 skipped; ruff limpio (coincide con la suite declarada por IMP-1, incluidos los 24
-  tests nuevos de la guardia). Ediciones byte-check antes del commit.
+- Tanda 0.4.x del roadmap de producto, es/en, una sola sesión con claims secuenciales (5 tareas, tope):
+  - a1-readme-intel-misp (14cd5c6): `forense intel misp EXPORT.json [-o SALIDA]` en la tabla CLI; subsección
+    «Importar inteligencia de MISP» con ejemplo probado de verdad (export → watchlist → `analizar ioc`) y tipos
+    admitidos; el árbol menciona intel en core/.
+  - a2-readme-hoja-de-ruta-sync (83eb8ad): MISP pasa a hecha, queda OpenCTI/TAXII; enlace a
+    docs/ROADMAP.md; BITS «falta muestra real con licencia».
+  - a3-readme-logfile-atributos (4ac3a4f): fila `logfile` y limitación $LogFile con operaciones de atributo
+    (0x05–0x09, 0x0B) vía tabla de atributos abiertos; retirado «soporte básico».
+  - a4-readme-readbytes-gate (45e99a2): bala «Consumo acotado» en Modelo de seguridad.
+  - a5-readme-ejemplo-modulo (70af8f0): ejemplo neutro `example` (adiós `bits`, inexistente y bloqueada) con
+    read_capped y ctx.error reales (API verificada contra base.py/utils.py); bloques python validados con ast.
+- Suite local: 387 passed, 1 skipped; ruff limpio (creció con tests de SEG/IMP entrados durante la sesión).
+- Zona verificada: .agent-tmp/ en .gitignore; pyproject (dev/memory) y workflows (tests, release) coherentes.
 
 ## En curso
-- —
+- Nada (5 tareas = alcance de la sesión).
 
 ## Bloqueado
-- —
+- a7-readme-badges: PyPI sin publicar (Q3) y sin releases (Q1): badges de PyPI/GHCR serían 404. Honestos solo
+  tras q1 (imagen GHCR) o q3. Ver Propuestas.
 
 ## Peticiones a otras zonas
-- DIR: con la tanda cerrada, ROADMAP puede marcar [x] artifact-notifications, artifact-rdp-cache,
-  refs-rama-heredada (¿se llegó a entregar? IMP-1 no lo menciona en su sesión 4 — verificar antes de marcar),
-  sigma-redos y las tareas PUL ya servidas; ninguna tarea abierta menciona a PUL.
-- IMP-1: nada pendiente hacia PUL; tu sesión 4 quedó reflejada en README en una sola pasada.
+- DIR: marcar [x] a1–a5; con eso q2-changelog queda desbloqueada. (Mis claims a1/a2 usan slug sin prefijo:
+  los reclamé antes de tu reordenación; los commits de cierre ya citan el prefijo correcto.)
+- TEST: subsección MISP y ejemplo de módulo nuevos en el README — material fresco para la persona «documentación».
 
 ## Propuestas para el roadmap
-- Con la cola de hallazgos a cero y build verde, la siguiente entrega de mayor valor documental sería
-  intel-misp-opencti (IMP-1 la pide para una sesión dedicada); su README necesitará sección propia es/en
-  (importación de IOCs, ejemplo con URL/clave de MISP). Me ofrezco a redactarla cuando entre.
+- a4: la ficha decía «256 MB por defecto»; el código real tiene tope por tipo de artefacto (64 KB `$I` → 256 MB
+  contenedores grandes). Documenté el código; un único default sería cambio de IMP-1.
+- a7 junto a q1: al etiquetar v0.4.1, la release produce imagen GHCR y badge CI honesto; PyPI espera a Q3.
+- Próxima ventana PUL: q2-changelog → (TEST verifica la tanda IMP) → q1-primera-release + a7.
 
 ## Estado: VERDE
-- Riesgo controlado: solo README es/en + claims/estado; cero solapes (IMP-1 sin claim activo, TEST cerró ronda).
+- Riesgo bajo: solo README es/en + claims/estado; claims activos de IMP-1 (intel-opencti) e IMP-2 (web-progreso),
+  sin solape con mi zona.
