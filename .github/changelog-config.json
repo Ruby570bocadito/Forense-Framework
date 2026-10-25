@@ -1,0 +1,28 @@
+{
+  "pr_template": "- {{.TITLE}}",
+  "categories": [
+    {
+      "title": "### Añadido",
+      "labels": ["feat"]
+    },
+    {
+      "title": "### Corregido",
+      "labels": ["fix"]
+    },
+    {
+      "title": "### Seguridad",
+      "labels": ["security"]
+    },
+    {
+      "title": "### Otros cambios",
+      "labels": ["perf", "refactor", "build", "ci", "chore"]
+    }
+  ],
+  "label_extractor": [
+    {
+      "method": "regex",
+      "pattern": "^(feat|fix|security|perf|refactor|build|ci|chore)(\\([^)]*\\))?!?:.*",
+      "target": "$1"
+    }
+  ]
+}
