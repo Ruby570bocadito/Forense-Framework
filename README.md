@@ -567,6 +567,10 @@ caso/
   shell, con argumentos controlados y salida capturada.
 - **Entradas estructuradas**: la configuración y los playbooks se cargan con `safe_load` de YAML; el YAML nunca
   ejecuta código.
+- **Consumo acotado**: la lectura de artefactos pasa por un punto central con tope de tamaño por tipo de artefacto
+  (de 64 KB para los `$I` de la papelera a 256 MB para los contenedores más grandes); un fichero que supera su tope
+  se reporta como error de análisis en vez de leerse entero, para que una evidencia gigante u hostil no agote la
+  memoria ni el disco.
 - **Reglas Sigma acotadas**: los patrones `|re` se validan antes de compilarse (límites estructurales y de
   ramificación contra ReDoS); una regla hostil es un error de carga, nunca un escaneo colgado.
 - **Interfaz web**: escucha en `127.0.0.1` por defecto, formularios con token CSRF, cabeceras CSP y

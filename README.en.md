@@ -560,6 +560,9 @@ case/
 - **External processes without a shell**: Volatility 3 and the browser that prints the PDF run as separate processes,
   no shell, controlled arguments and captured output.
 - **Structured inputs**: configuration and playbooks load with YAML `safe_load`; YAML never executes code.
+- **Bounded consumption**: artifacts are read whole through one central gate with a size cap per artifact type
+  (from 64 KB for Recycle Bin `$I` files to 256 MB for the largest containers); a file above its cap is reported as
+  an analysis error instead of being read whole, so huge or hostile evidence cannot exhaust memory or disk.
 - **Bounded Sigma rules**: `|re` patterns are validated before compilation (structural and branching limits against
   ReDoS); a hostile rule is a load error, never a hung scan.
 - **Web interface**: listens on `127.0.0.1` by default, forms carry a CSRF token, CSP and `X-Frame-Options` headers,
