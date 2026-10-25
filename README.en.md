@@ -203,6 +203,7 @@ Every command has an English name and a Spanish alias.
 | `forense watch FOLDER [-w WORKSPACE] [--once]` | `vigilar` | Automatically process whatever is dropped into a folder |
 | `forense config [show\|init\|path]` | `configuracion` | Configuration |
 | `forense correlate [-w WORKSPACE] [--type T] [--json]` | `correlacionar` | Items shared between cases |
+| `forense intel misp EXPORT.json [-o FILE]` | `inteligencia` | Convert a MISP JSON export into a watchlist for the `ioc` module and correlation |
 | `forense doctor` | `diagnostico` | Check the installation |
 | `forense update [--check]` | `actualizar` | Check for and install a new version |
 | `forense -c CASE notify` | `notificar` | Send the summary to the configured webhook |
@@ -386,6 +387,27 @@ overview gets a **Seen in other cases** panel. The index of each case is kept in
 and rebuilt only when its chain of custody changes; cases are never modified. Options: `--type usb`,
 `--min-cases 3`, `--json`.
 
+### Importing MISP intelligence
+
+`forense intel misp` converts a **MISP JSON export** —one event, the API's `response` set or a list of events— into a
+**watchlist** for the [`ioc`](#analysis-modules) module: one indicator per line, with the provenance of every source
+event kept as a `#` comment (UUID, title and date). The import **never touches the network**: you export the events
+from your MISP instance and hand the file to the command, so neither the instance URL nor the API key ever reaches
+the case.
+
+```powershell
+forense intel misp C:\intel\EXPORT.json -o C:\intel\misp.watchlist.txt
+forense -c CASE analyze ioc EV-002 -o watchlist=C:\intel\misp.watchlist.txt
+```
+
+- Supported MISP types: md5, sha1, sha256 and sha512 (also `filename|hash`: only the hash, the only safe part to
+  match), ip-src and ip-dst with or without `|port`, domain and hostname (and their `|ip` forms), url, uri, link,
+  e-mail (source and destination), filename, regkey and user-agent. Deleted attributes are left out, duplicates are
+  dropped and unknown types are counted and reported as skipped: never guessed.
+- The resulting list also serves `forense auto` and `forense watch` through the `intel.watchlists` key of the
+  [configuration](#configuration), and its `ioc.watchlist_match` findings feed cross-case correlation.
+- An export with no usable indicators is a localized error (and the output can never overwrite the input file).
+
 ## Reports
 
 `forense report` writes a self-contained HTML file (no scripts or external resources) and `--pdf` also the PDF, both
@@ -549,7 +571,7 @@ case/
 
 ```
 forense/
-├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports, correlation and STIX indicators
+├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports, correlation, STIX indicators and intelligence import
 ├── parsers/     regf (+ transaction logs and deleted cells), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
 ├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor

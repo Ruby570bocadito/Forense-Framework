@@ -204,6 +204,7 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `forense vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
 | `forense config [show\|init\|path]` | `config` | Configuración |
 | `forense correlacionar [-w ESPACIO] [--tipo T] [--json]` | `correlate` | Elementos compartidos entre casos |
+| `forense intel misp EXPORT.json [-o SALIDA]` | `inteligencia` | Convertir una exportación JSON de MISP en una lista de vigilancia para el módulo `ioc` y la correlación |
 | `forense doctor` | `diagnostico` | Comprobar la instalación |
 | `forense update [--check]` | `actualizar` | Buscar e instalar una versión nueva |
 | `forense -c CASO notificar` | `notify` | Enviar el resumen al webhook configurado |
@@ -390,6 +391,28 @@ RDP, destinos RDP, rutas UNC), nombres de equipo y cuentas de dominio de inicios
 cada caso se guarda en `ESPACIO/.forense-correlation` y solo se rehace cuando cambia su cadena de custodia; los casos
 nunca se modifican. Opciones: `--tipo usb`, `--minimo 3`, `--json`.
 
+### Importar inteligencia de MISP
+
+`forense intel misp` convierte una **exportación JSON de MISP** —un evento, el conjunto `response` de la API o una
+lista de eventos— en una **lista de vigilancia** para el módulo [`ioc`](#módulos-de-análisis): un indicador por línea,
+con la procedencia de cada evento origen como comentario `#` (UUID, título y fecha). La importación **nunca toca la
+red**: exporta los eventos desde tu instancia de MISP y dale el fichero al comando, así que ni la URL de la instancia
+ni la clave de API llegan al caso.
+
+```powershell
+forense intel misp C:\intel\EXPORT.json -o C:\intel\misp.watchlist.txt
+forense -c CASO analizar ioc EV-002 -o watchlist=C:\intel\misp.watchlist.txt
+```
+
+- Tipos MISP admitidos: md5, sha1, sha256 y sha512 (también `filename|hash`: solo el hash, que es lo único seguro de
+  comparar), ip-src e ip-dst con o sin `|port`, domain y hostname (y sus formas `|ip`), url, uri, link, email (origen
+  y destino), filename, regkey y user-agent. Los atributos borrados se excluyen, los duplicados se descartan y los
+  tipos desconocidos se cuentan y se reportan como omitidos: nunca se adivinan.
+- La lista resultante también sirve para `forense auto` y `forense vigilar` con la clave `intel.watchlists` de la
+  [configuración](#configuración), y sus hallazgos `ioc.watchlist_match` alimentan la correlación entre casos.
+- Una exportación sin indicadores utilizables es un error localizado (y la salida nunca puede pisar al fichero de
+  entrada).
+
 ## Informes
 
 `forense informe` genera un HTML autocontenido (sin scripts ni recursos externos) y `--pdf` también el PDF, ambos con
@@ -555,7 +578,7 @@ caso/
 
 ```
 forense/
-├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones, correlación e indicadores STIX
+├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones, correlación, indicadores STIX e importación de inteligencia
 ├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
 ├── image/       contenedores (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit y extractor
