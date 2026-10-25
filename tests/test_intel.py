@@ -186,6 +186,19 @@ def test_write_watchlist_is_deterministic_and_nested(tmp_path):
     assert first.parent.is_dir()
 
 
+def test_multiline_values_never_reach_the_watchlist(tmp_path):
+    source = tmp_path / "event.json"
+    source.write_text(json.dumps({"Event": _event(attributes=(
+        _attr("domain", "evil.example"),
+        _attr("domain", "bad.example\n# injected line"),
+    ))}), encoding="utf-8")
+    result = import_misp(source)
+    assert result.indicators == ["evil.example"]  # the newline would fabricate a second IOC
+    assert result.skipped["value_multiline"] == 1
+    watchlist = write_watchlist(result, tmp_path / "w.txt")
+    assert load_watchlist(watchlist) == {"evil.example"}
+
+
 # --- OpenCTI STIX 2.1 bundles (``forense intel opencti``) ---------------------
 
 
@@ -301,6 +314,19 @@ def test_opencti_unusable_indicators_are_counted_not_guessed(tmp_path):
         "pattern_type:sigma": 1,
         "malformed_object": 1,
     }
+
+
+def test_opencti_multiline_literal_is_skipped(tmp_path):
+    source = tmp_path / "bundle.json"
+    source.write_text(json.dumps(_bundle(
+        _indicator("[domain-name:value = 'clean.example']",
+                   ident="indicator--00000000-0000-4000-8000-000000000001"),
+        _indicator("[domain-name:value = 'bad.example\n# fake rule']",
+                   ident="indicator--00000000-0000-4000-8000-000000000002"),
+    )), encoding="utf-8")
+    result = import_opencti(source)
+    assert result.indicators == ["clean.example"]  # no phantom line in the watchlist
+    assert result.skipped["value_multiline"] == 1
 
 
 def test_opencti_broken_inputs_are_rejected(tmp_path, monkeypatch):

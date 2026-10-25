@@ -75,7 +75,8 @@ class MispImport:
     attributes: int = 0
     used: int = 0  # attributes that produced at least one indicator
     duplicates: int = 0
-    skipped: dict[str, int] = field(default_factory=dict)  # type -> count, for non-importable types
+    skipped: dict[str, int] = field(default_factory=dict)  # reason -> count: non-importable
+    # types and values that cannot live in a one-per-line watchlist
 
 
 def _events_of(payload: object, source: Path) -> list[dict]:
@@ -160,6 +161,11 @@ def import_misp(source: Path) -> MispImport:
             if produced:
                 result.used += 1
             for indicator in produced:
+                if "\n" in indicator or "\r" in indicator:
+                    # a newline would split the line in the watchlist file and load_watchlist
+                    # would read the rest as a separate indicator: a phantom IOC (SEG)
+                    result.skipped["value_multiline"] = result.skipped.get("value_multiline", 0) + 1
+                    continue
                 key = indicator.lower()
                 if key in seen:
                     result.duplicates += 1
@@ -467,6 +473,10 @@ def import_opencti(source: Path) -> OpenctiImport:
             else:
                 omitted_notes += 1
         for indicator in produced:
+            if "\n" in indicator or "\r" in indicator:
+                # same one-per-line rule as the MISP importer: no phantom IOCs in the watchlist
+                result.skipped["value_multiline"] = result.skipped.get("value_multiline", 0) + 1
+                continue
             key = indicator.lower()
             if key in seen:
                 result.duplicates += 1
