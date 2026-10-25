@@ -612,34 +612,43 @@ mostrarlos, por lo que el mismo caso se puede revisar o informar en cualquiera d
 Un módulo nuevo:
 
 ```python
-from forense.core.utils import find_files, relative_name
+from forense.core.utils import find_files, read_capped, relative_name
 from forense.modules.base import AnalysisContext, Module, Option, register
+
+MAX_EXAMPLE_SIZE = 64 * 1024 * 1024  # tope del ejemplo, como el resto de módulos
 
 
 @register
-class BitsModule(Module):
-    name = "bits"
-    category = "windows"
-    triage = True
+class ExampleModule(Module):
+    name = "example"
+    category = "generic"
+    triage = False                 # True para que el triaje lo ejecute si encuentra artefactos
     options = (Option("max_files", 1000, "int"),)
 
     def discover(self, target):
-        return find_files(target, lambda p: p.name.lower() == "qmgr.db")
+        return find_files(target, lambda p: p.suffix.lower() == ".dat")
 
     def analyze(self, ctx: AnalysisContext) -> None:
+        n = 0
         for path in self.discover(ctx.target)[: ctx.options["max_files"]]:
             rel = relative_name(path, ctx.target)
-            ...
-            ctx.record("bits_job", {"file": rel, "url": url, "destination": dest})
-            ctx.event(created, "bits_job", f"BITS: {url} → {dest}", rel)
-            if sospechoso:
-                ctx.finding("bits.suspicious_job", "high", created, url=url)
-        ctx.summary["jobs"] = n
+            try:
+                data = read_capped(path, MAX_EXAMPLE_SIZE)
+            except (OSError, ValueError) as exc:  # FileTooLarge incluido: un fichero gigante no tumba el análisis
+                ctx.error(rel, exc)
+                continue
+            ...                             # parsea el artefacto y deriva value, created y suspicious
+            ctx.record("example_entry", {"file": rel, "value": value})
+            ctx.event(created, "example_entry", f"Example: {value}", rel)
+            if suspicious:
+                ctx.finding("example.suspicious", "high", created, value=value)
+            n += 1
+        ctx.summary["entries"] = n
 ```
 
 Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `locales/es.json` y `locales/en.json`
-(`module.bits.title`, `.description`, `.opt.*`, `finding.bits.suspicious_job.title/.description`,
-`artifact.bits_job`, `etype.bits_job`). Los tests de `tests/test_i18n.py` avisan si falta alguna traducción.
+(`module.example.title`, `.description`, `.opt.*`, `finding.example.suspicious.title/.description`,
+`artifact.example_entry`, `etype.example_entry`). Los tests de `tests/test_i18n.py` avisan si falta alguna traducción.
 
 ## Limitaciones conocidas
 
