@@ -15,6 +15,11 @@ Revisión DIR del 2026-10-25 (2ª, petición del operador): promovidas a8 (captu
 Playwright) y a9 (diagrama de flujo), repartidas entre IMP-2 (generación en scripts/ y docs/assets/) y PUL (README);
 a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sigma-redos devuelta por SEG (sesión 8,
 8 familias de evasión) → ALTA sigma-redos-v2; web-progreso (K10) e intel-opencti añadidas como en curso.
+Revisión DIR del 2026-10-25 (3ª, cierre de la ronda 7 de TEST): verificadas intel-misp-opencti, logfile-atributos,
+readbytes-gate, refs-rama-heredada y web-duplicada-aviso; personas-r6 a histórico (suite 382 passed, 1 skipped).
+H-011..H-014 triados: h-011 (literal `[m` perdido en README e instaladores, PUL) y h-012 (el mismo literal en
+update.py y locales, IMP-1) suben a ALTA por bloquear v0.4.1; h-013 y h-014 entran en cola. jumplist-0x1e
+(propuesta propia de IMP-1 entregada antes de entrar en cola) se registra en histórico con recordatorio de protocolo.
 
 ## ALTA
 
@@ -25,7 +30,22 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
   presupuesto de ambigüedad global Σ log2(ways) con recursión en grupos cuantificados; el test del paquete builtin
   (15 reglas, 0 errores) es la red contra falsos positivos — forense/sigma/, tests/
 
-  IMP-1 la coge en cuanto libere intel-opencti; mientras tanto, no importar packs Sigma de dudosa procedencia (SEG).
+  Intel-opencti ya entregada: sigma-redos-v2 es la siguiente grande de IMP-1 (h-012, pequeña, puede colarse antes).
+  Mientras, no importar packs Sigma de dudosa procedencia (SEG).
+
+- [ ] (IMP-1) h-012-update-doctor-memory — el mismo literal `[m` perdido (rama heredada ab6d393) dentro del
+  producto: update.py:82 construye `forense-frameworkemory] @ …` (auto-update roto siempre en entornos con
+  Volatility) y 6 claves de locales dan un comando pip inválido: doctor.volatility_hint (es.json:328),
+  error.memory_vol_missing (369), module.memory.opt.vol_path (1140) y sus gemelas de en.json. Restaurar
+  `[memory]` y añadir el test de regresión propuesto por TEST (barrer locales buscando `emory]`, o comparar la
+  pista de doctor con el extra de pyproject.toml:44). ALTO (H-012); bloquea v0.4.1 — forense/update.py,
+  forense/locales/, tests/
+
+- [ ] (PUL) h-011-instalacion-memory — el literal `[m` desapareció en 8 líneas de 4 ficheros: README.md:102 y
+  330, README.en.md:102 y 327, install/install.sh:83 y 85 e install/install.ps1:121 y 122; la instalación manual
+  del README y el modo --with-memory/-WithMemory de ambos instaladores fallan con "invalid requirement". Restaurar
+  `[m` y verificar con `grep -rn 'emory]' README.md README.en.md install/` sin resultados (packaging/ ya está
+  limpio). ALTO (H-011); bloquea v0.4.1 — README.md, README.en.md, install/
 
 ## Tareas priorizadas
 
@@ -33,10 +53,12 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 - [ ] (IMP-2) a8-capturas-script — capturas profesionales del programa con Playwright sobre el caso demo (`scripts/screenshots.py` reproducible): resumen, línea temporal, ATT&CK y página de informe en claro/oscuro, más vídeos de uso (GIF corto de `forense demo` → web y de una sesión CLI de triaje → informe); salida en docs/assets/ con peso contenido (GIF corto o mp4/webm ligero) — scripts/, docs/assets/, tests/
 - [ ] (PUL) a8-readme-visual — presentación profesional del README con los assets de docs/assets/ (capturas de portada en claro/oscuro y sección "Vistazo" con los vídeos de uso), es/en sincronizados; tras a8-capturas-script — README.md, README.en.md
 - [ ] (PUL) a9-readme-diagrama — diagrama del flujo (evidencia → extracción → módulos → hallazgos → revisión → informe/STIX) en SVG en docs/assets/ y embebido en ambos README — README.md, README.en.md, docs/assets/
+- [ ] (PUL) readme-integridad-espacios — documentar en "Modelo de seguridad" que `verificar` canonicaliza los resultados y ignora ediciones de solo espacios (por diseño, propuesta de TEST ronda 7), es/en — README.md, README.en.md
+- [ ] (IMP-1) h-013-vigilar-once-banner — con --once, el banner dice "cada 15.0 s; Ctrl+C para terminar" (cli.watch_started emitido incondicional en cli.py:792-793); clave propia p. ej. cli.watch_once ("Pase único sobre {inbox}; los casos se crean en {workspace}.") o silenciar en ese modo. BAJO (H-013) — forense/cli.py, forense/locales/, tests/
+- [ ] (IMP-1) h-014-caso-solo-lectura — en un caso de solo lectura las órdenes de lectura fallan y las de escritura diagnostican "BD dañada" (cualquier sqlite3.OperationalError → error.case_database): distinguir "readonly database" con clave propia (p. ej. error.case_readonly) y no escribir al abrir en órdenes de lectura. MEDIO (H-014) — forense/core/, forense/locales/, tests/
 - [ ] (PUL) q2-changelog — CHANGELOG.md (Keep a Changelog) reconstruido desde el historial y notas de release generadas desde Conventional Commits — CHANGELOG.md, .github/workflows/
 - [ ] (PUL) q1-primera-release — etiquetar v0.4.1 (tras A1–A6 y Q2) y comprobar que el flujo `release` produce rueda, sdist, exe y Docker; corregir lo que falle — pyproject.toml, .github/workflows/, install/, packaging/
 - [ ] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con Server-Sent Events, cancelación de jobs y cola visible (EN CURSO, claim IMP-2 2026-10-25 12:20 UTC) — forense/web/, forense/locales/, tests/
-- [ ] (TEST) personas-r6 — ronda con personas aún sin cubrir: Operador (doctor, config, vigilar --una-vez, update --check, Docker/instaladores) y Entorno adverso (PDF sin Edge/Chrome, sin Volatility, sin red, carpeta de casos de solo lectura; verificar exit 2 al manipular una copia) — tests/e2e/, docs/agentes/hallazgos/
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (desbloqueo: P1 · muestras-reales del roadmap de producto) — forense/modules/, forense/locales/, forense/demo/, tests/
 
 ## Dependencias entre tareas
@@ -44,8 +66,13 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 - a8-readme-visual y a9-readme-diagrama dependen de a8-capturas-script (assets en docs/assets/); no bloquean q1, pero si entran antes de la release, mejor portada para v0.4.1.
 - sigma-redos-v2 (ALTA) es la siguiente de IMP-1 (intel-opencti ya entregada); hasta su fix, no importar packs Sigma de dudosa procedencia (consejo de SEG).
 - q2-changelog solo cuando A1–A6 estén cerradas (lo están); q1-primera-release solo tras q2 y sin claims de código activos.
-- La verificación TEST de la tanda entregada (a1–a5, vista-impresa-hallazgos, disk-path-containment, intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada, web-duplicada-aviso) conviene antes de q1: el CHANGELOG y la release documentan lo verificado; añadir sigma-redos-v2 cuando IMP-1 la entregue.
-- personas-r6 rinde tras un ciclo completo de IMP (no lanzar TEST mientras el programa se reconstruye).
+- h-011 (PUL) y h-012 (IMP-1) bloquean q1: la v0.4.1 no puede salir con la instalación manual, los instaladores --with-memory y `forense update` rotos.
+- Pendientes de verificación TEST: a1–a5, vista-impresa-hallazgos, disk-path-containment, intel-opencti y
+  jumplist-0x1e (la ronda 7 ya cubrió intel-misp-opencti, logfile-atributos, readbytes-gate, refs-rama-heredada y
+  web-duplicada-aviso). Conviene otra ventana TEST antes de q1, sumando h-011/h-012 cuando entren: el CHANGELOG y
+  la release documentan lo verificado.
+- TEST lanza nuevas rondas tras ciclos completos de IMP (no mientras el programa se reconstruye); los fixes de
+  hallazgos (h-011..h-014) vuelven a TEST para cerrarlos.
 - web-progreso tiene claim activo (IMP-2): no reclamar.
 - artifact-bits permanece BLOQUEADA sin muestra real de qmgr.db; no sustituirla por sintéticos no honestos (principio §2.1 del roadmap de producto).
 
@@ -58,6 +85,14 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 
 ## Entregado (histórico)
 
+- [x] (TEST) personas-r6 — ronda 7: verificadas 5 tareas (IMP-1×4 + web-duplicada-aviso), 4 hallazgos nuevos
+  (H-011..H-014; raíz común de H-011/H-012: el literal `[m` de la rama heredada ab6d393), e2e de manipulación de
+  custodia y resultados (exit 2, canonicalización de espacios por diseño); suite 382 passed, 1 skipped, ruff
+  limpio (5f30c81, f8caa59, 0ef4a82) — tests/e2e/, docs/agentes/hallazgos/
+- [x] (IMP-1) jumplist-0x1e — puerta de tamaño para la lectura del fichero entero de parse_custom de
+  CustomDestinations (fuera del alcance de readbytes-gate, que era módulos/core). Registro retroactivo de una
+  propuesta propia de IMP-1: las tareas entran por la cola, también las pequeñas (2911d42; PENDIENTE verificación
+  TEST) — forense/parsers/, tests/
 - [x] (IMP-1) intel-opencti — importación de bundles STIX de OpenCTI en watchlists de `ioc` (ad00865; PENDIENTE verificación TEST) — forense/core/, forense/locales/, tests/
 - [x] (PUL) a1-readme-intel-misp — `forense intel misp` en la tabla CLI y subsección "Importar inteligencia de MISP" con ejemplo completo y tipos admitidos, es/en (14cd5c6; PENDIENTE verificación TEST) — README.md, README.en.md
 - [x] (PUL) a2-readme-hoja-de-ruta-sync — hoja de ruta del README: MISP pasa a hecho, queda OpenCTI/TAXII, enlace a docs/ROADMAP.md (83eb8ad; PENDIENTE verificación TEST) — README.md, README.en.md
@@ -69,11 +104,11 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 - [x] (DIR) a6-roadmap-agentes-limpieza — cola contrastada con estados y git log; 7 entregas pasadas a histórico; intel dividida en intel-misp (hecha) e intel-opencti (en cola); slugs con prefijo de ficha del roadmap de producto (2026-10-25, tras 7178cd8) — docs/agentes/ROADMAP.md
 - [x] (TEST) h-010-verificacion — H-010 cerrado: repro literal del fix 2254b95 (`informe --firmar/--sign`) con claves Ed25519, .sig desacoplado, custodia report_signed, manipulación detectada y error localizado sin clave; "close: H-010" (5bcb5fc) — tests/e2e/, docs/agentes/hallazgos/
 - [x] (SEG) sigma-redos-revision — guardia ReDoS revisada por SEG (sesión 7) y verificada por TEST (8/8 hostiles, 7/7 seguros, 5bcb5fc); la re-auditoría adversarial de SEG (sesión 8, 1a3aeb7) la DEVOLVIÓ con 8 familias de evasión → ALTA sigma-redos-v2 — forense/sigma/, tests/
-- [x] (IMP-2) web-duplicada-aviso — el job de la subida web avisa del gemelo duplicado con su SHA-256, es/en (9a9e803; PENDIENTE verificación TEST) — forense/web/, forense/locales/, tests/
-- [x] (IMP-1) logfile-atributos — operaciones de nivel de atributo (0x05–0x09, 0x0B) nombradas vía la tabla de atributos abiertos (9267745; PENDIENTE verificación TEST) — forense/parsers/, forense/modules/, forense/locales/, tests/
-- [x] (IMP-1) readbytes-gate — read_capped() como gate central del patrón read_bytes; adoptado por psreadline, defender, lnk, tasks, recyclebin, rdp_cache y setupapi (0221fdc; PENDIENTE verificación TEST) — forense/modules/, forense/core/, tests/
-- [x] (IMP-1) refs-rama-heredada — REFS = ("main",): retirada la ref de fallback a la rama heredada en update.py (14305d5; PENDIENTE verificación TEST) — forense/update.py
-- [x] (IMP-1) intel-misp-opencti — `forense intel misp` convierte exportaciones MISP en watchlist de `ioc` conectada a la correlación (2b1fb2f; PENDIENTE verificación TEST; la mitad OpenCTI continúa en intel-opencti) — forense/core/, forense/locales/, tests/
+- [x] (IMP-2) web-duplicada-aviso — el job de la subida web avisa del gemelo duplicado con su SHA-256, es/en (9a9e803; verificada por TEST, ronda 7) — forense/web/, forense/locales/, tests/
+- [x] (IMP-1) logfile-atributos — operaciones de nivel de atributo (0x05–0x09, 0x0B) nombradas vía la tabla de atributos abiertos (9267745; verificada por TEST, ronda 7) — forense/parsers/, forense/modules/, forense/locales/, tests/
+- [x] (IMP-1) readbytes-gate — read_capped() como gate central del patrón read_bytes; adoptado por psreadline, defender, lnk, tasks, recyclebin, rdp_cache y setupapi (0221fdc; verificada por TEST, ronda 7) — forense/modules/, forense/core/, tests/
+- [x] (IMP-1) refs-rama-heredada — REFS = ("main",): retirada la ref de fallback a la rama heredada en update.py (14305d5; verificada por TEST, ronda 7) — forense/update.py
+- [x] (IMP-1) intel-misp-opencti — `forense intel misp` convierte exportaciones MISP en watchlist de `ioc` conectada a la correlación (2b1fb2f; verificada por TEST, ronda 7) — forense/core/, forense/locales/, tests/
 - [x] (PUL) readme-hoja-de-ruta — retirar "Correlación entre casos" de la hoja de ruta de ambos README (ya implementada: 7b647b8) — README.md, README.en.md
 - [x] (PUL) readme-firma-mft-limitaciones — retirar "Firma digital de informes" de la Hoja de ruta (5be9c5a) y la limitación de $ATTRIBUTE_LIST de Limitaciones conocidas (cf72bfa), es/en — README.md, README.en.md
 - [x] (PUL) readme-arbol-comandos — árbol de "Arquitectura", comandos de instalación probados y tabla de módulos contrastada — README.md, README.en.md
