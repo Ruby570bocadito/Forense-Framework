@@ -1,5 +1,9 @@
 # Forense-Framework
 
+[![CI](https://github.com/Ruby570bocadito/Forense-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Forense-Framework/actions/workflows/tests.yml)
+[![Licencia](https://img.shields.io/github/license/Ruby570bocadito/Forense-Framework)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)
+
 **Framework de análisis forense digital centrado en Windows**: gestión de casos, cadena de custodia verificable,
 imágenes de disco (E01, raw, VHD/VHDX, VMDK, QCOW2) con instantáneas VSS y BitLocker, recolección en vivo, más de 20
 módulos de artefactos de Windows y memoria RAM, reglas Sigma y YARA, superlínea temporal, vista de ejecución de
