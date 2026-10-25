@@ -1,40 +1,39 @@
-# estado/DIR.md — 2026-10-25 (primera sesión sobre el roadmap de producto, sobre 7178cd8)
+# estado/DIR.md — 2026-10-25 (2ª revisión del día, petición del operador, sobre 64505a8)
 
 ## Hecho (últimas 24 h)
-- docs/ROADMAP.md (v0.4.x → v1.0, ejes A–S) traído a main desde claude/project-expansion-roadmap-y41iie (7178cd8);
-  la rama solo añadía el documento, nada de código que fusionar.
-- PROTOCOLO: el paso 2 del ciclo remite ahora a la ficha de la tarea en docs/ROADMAP.md; §6 con reglas nuevas
-  (slug con prefijo de ficha, principios §2 vinculantes, XL se divide antes de reclamarse).
-- OWNERSHIP completo: DIR con docs/ROADMAP.md; IMP-1 con collector/cli/demo/automation/notify/update/doctor/i18n;
-  IMP-2 con charts/presentation; PUL con CHANGELOG/CONTRIBUTING/SECURITY cuando el roadmap lo pida.
-- A6 (a6-roadmap-agentes-limpieza): cola contrastada con estados y git log; 7 entregas marcadas [x] en histórico
-  (h-010-verificacion y sigma-redos-revision verificadas; web-duplicada-aviso, logfile-atributos, readbytes-gate,
-  refs-rama-heredada e intel-misp pendientes de TEST); intel dividida en intel-misp (hecha) e intel-opencti (en cola).
-- Promovidas a la cola las tareas 0.4.x del producto: a1, a2, a3, a7, a4, a5, q2, q1 (todas PUL; orden según
-  dependencias A1–A6 → Q2 → Q1). .agent-tmp/ verificado en .gitignore; claims/ sin restos; docs/ sin basura.
+- Sesión 1 (sobre 7178cd8): docs/ROADMAP.md traído a main; PROTOCOLO (ficha de tarea en el ciclo + reglas §6) y
+  OWNERSHIP al día; A6 con 7 entregas a histórico; promovidas las 0.4.x del producto (a1–a5, a7, q2, q1).
+- Entre sesiones, los agentes entregaron 7 tareas: a1–a5 (PUL, README es/en), vista-impresa-hallazgos (IMP-2,
+  de9adc2) y disk-path-containment (SEG, e53919f). Todas marcadas [x] en histórico, pendientes de verificación TEST.
+- Petición del operador ("readme con vídeos de uso e imágenes más profesional") promovida como a8 y a9 del roadmap:
+  a8-capturas-script (IMP-2: Playwright sobre el caso demo, capturas claro/oscuro + GIF/vídeos de uso en
+  scripts/screenshots.py → docs/assets/) y a8-readme-visual + a9-readme-diagrama (PUL: portada, sección "Vistazo"
+  y diagrama de flujo embebidos, es/en). OWNERSHIP: scripts/ y docs/assets/ asignados a IMP-2.
+- sigma-redos-revision de SEG (sesión 8) DEVOLVIÓ la guardia de 65dd311 con 8 familias de evasión (repro incluido):
+  promovida como ALTA sigma-redos-v2 para IMP-1, con el fix sugerido (presupuesto de ambigüedad global) y la red
+  antifalsos-positivos (paquete builtin). La re-auditoría "duplicada" de la mañana encontró algo real.
+- k10-web-progreso (IMP-2, claim activo) e intel-opencti (IMP-1, claim activo) añadidas a la cola como EN CURSO.
 
 ## En curso
-- Nada.
+- Nada directo; vigilando claims de IMP-1 e IMP-2.
 
 ## Bloqueado
-- artifact-bits: sin muestra real de qmgr.db; el desbloqueo es el programa P1 · muestras-reales (DIR+TEST, continua).
+- artifact-bits: sin muestra real de qmgr.db (desbloqueo: P1 · muestras-reales, programa continuo DIR+TEST).
 
 ## Peticiones a otras zonas
-- PUL: 0.4.x es casi todo tuyo (a1–a5, a7, q2, q1); A1–A5 tocan ambos README: una sesión ordenada, un claim cada vez.
-- TEST: verificación de la tanda IMP-1/IMP-2 (intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada,
-  web-duplicada-aviso) antes de q1; personas-r6 sigue en cola.
-- SEG: sigma-redos-revision ya estaba cerrada (tu sesión 7 + TEST 5bcb5fc) y sale de la cola; tu claim 1a3aeb7 llegó
-  antes de la limpieza: si el sondeo adversarial confirma evasión, ábrelo como hallazgo a IMP-1; si no, release sin cambios.
-  disk-path-containment sigue abierta (bajo).
-- IMP-1: intel-opencti en cola (2ª mitad); logfile-atributos y readbytes-gate ya tienen README en cola (a3, a4).
+- IMP-1: al liberar intel-opencti, sigma-redos-v2 (ALTA) es la siguiente; mientras, sin packs Sigma no confiables.
+- IMP-2: a8-capturas-script cuando cierres web-progreso; el operador quiere README con vídeo y capturas de calidad.
+- PUL: a7 badges ya; a8-readme-visual y a9-readme-diagrama en cuanto IMP-2 deje assets en docs/assets/.
+- TEST: la tanda de verificación ha crecido (a1–a5, vista-impresa, disk-path, intel-misp, logfile-atributos,
+  readbytes-gate, refs-rama-heredada, web-duplicada-aviso); ventana TEST antes de q1, por favor.
 
 ## Propuestas para el roadmap
-- Tras q1 (v0.4.1), versión en curso pasa a 0.5: B5 migraciones antes de cualquier cambio de esquema; B1/B2 antes de A13/M1.
-- P1 · muestras-reales como tarea continua en cola cuando arranque el eje C (sin muestra no hay módulo).
+- Siguientes de IMP-2 a la espera: K9 web-subida-archivos, K18 web-accesibilidad-aa, L1 informe-plantillas, L3 informe-pdfa.
+- Tras q1 (v0.4.1): versión en curso pasa a 0.5 (B5 migraciones antes de cualquier cambio de esquema; B1/B2 antes de A13/M1).
 
-## Estado: VERDE
+## Estado: AMARILLO
 - Versión en curso: 0.4.x "Puesta al día". Criterio de salida: v0.4.1 con rueda, exe y Docker; README sin desfases.
-- Riesgos: cola cargada para PUL (8 tareas, orden ya fijado); 5 entregas de IMP esperando verificación TEST;
-  token de despliegue sigue pendiente de rotación por el operador (petición de TEST, ronda 5).
-- Decisiones: ventana PUL (0.4.x) → TEST (verificación + personas-r6) → IMP-1+IMP-2+SEG en paralelo; DIR de nuevo
-  al cerrar la versión (tras q1).
+- Riesgos: sigma-redos evadible hasta sigma-redos-v2 (mitigación: no importar packs no confiables); cola de
+  verificación TEST creciendo más rápido que TEST; token de despliegue sigue pendiente de rotación por el operador.
+- Decisiones: orden IMP-2 = web-progreso → a8-capturas-script; IMP-1 = intel-opencti → sigma-redos-v2; PUL = a7 →
+  a8-readme-visual/a9 cuando haya assets; ventana TEST antes de q1.

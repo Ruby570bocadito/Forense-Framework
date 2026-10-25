@@ -11,34 +11,43 @@ exe y Docker; README sin desfases.
 Revisión DIR del 2026-10-25 (sobre 7178cd8, primera sesión con el roadmap de producto en main): estados contrastados
 con git log y código; sin claims activos, hallazgos a cero, build verde (última suite declarada: 369 passed, 1 skipped).
 Promovidas las tareas 0.4.x del producto (A1–A5, A7, Q2, Q1) e intel dividida en intel-misp (hecha) e intel-opencti.
+Revisión DIR del 2026-10-25 (2ª, petición del operador): promovidas a8 (capturas y vídeos de uso generados con
+Playwright) y a9 (diagrama de flujo), repartidas entre IMP-2 (generación en scripts/ y docs/assets/) y PUL (README);
+a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sigma-redos devuelta por SEG (sesión 8,
+8 familias de evasión) → ALTA sigma-redos-v2; web-progreso (K10) e intel-opencti añadidas como en curso.
 
 ## ALTA
 
-(ninguna: build verde, sin hallazgos CRÍTICO/ALTO abiertos)
+- [ ] (IMP-1) sigma-redos-v2 — la guardia ReDoS de 65dd311 es evadible: 8 familias con re.search congelado >4 s
+  ((a?){25}X, (a{0,2}){15}X, (.?){25}X, ((a?){5}){5}X, a?×30+X, ([\w]{0,3}){12}X; repros completos en estado/SEG.md
+  sesión 8). Dos fallos de modelo: el presupuesto multiplica por la ventana del repetidor UNA vez (la ambigüedad se
+  eleva B^iteraciones) y los átomos adyacentes cuantificados sin grupo no se comprueban. Fix sugerido por SEG:
+  presupuesto de ambigüedad global Σ log2(ways) con recursión en grupos cuantificados; el test del paquete builtin
+  (15 reglas, 0 errores) es la red contra falsos positivos — forense/sigma/, tests/
+
+  IMP-1 la coge en cuanto libere intel-opencti; mientras tanto, no importar packs Sigma de dudosa procedencia (SEG).
 
 ## Tareas priorizadas
 
-- [ ] (PUL) a1-readme-intel-misp — `forense intel misp EXPORT.json` en la tabla CLI y subsección "Importar inteligencia de MISP" con ejemplo completo (exportación → watchlist → `analizar ioc -o watchlist=` → correlación) y tipos MISP admitidos, es/en — README.md, README.en.md
-- [ ] (PUL) a2-readme-hoja-de-ruta-sync — "Hoja de ruta" del README: MISP pasa a hecho, queda "OpenCTI/TAXII"; enlazar docs/ROADMAP.md para el detalle — README.md, README.en.md
-- [ ] (PUL) a3-readme-logfile-atributos — ampliar la fila de `logfile` y la limitación de $LogFile: también se nombran las operaciones de atributo (0x05–0x09, 0x0B) vía la tabla de atributos abiertos — README.md, README.en.md
 - [ ] (PUL) a7-readme-badges — badges de CI, versión PyPI, licencia, Python soportado e imagen GHCR — README.md, README.en.md
-- [ ] (PUL) a4-readme-readbytes-gate — bala en "Modelo de seguridad": tope central de tamaño por artefacto (256 MB por defecto) y artefacto gigante reportado como error de análisis — README.md, README.en.md
-- [ ] (PUL) a5-readme-ejemplo-modulo — el ejemplo de "cómo crear un módulo" usa `bits` (inexistente y bloqueado): cambiarlo por un ejemplo neutro o un módulo real recortado — README.md, README.en.md
+- [ ] (IMP-2) a8-capturas-script — capturas profesionales del programa con Playwright sobre el caso demo (`scripts/screenshots.py` reproducible): resumen, línea temporal, ATT&CK y página de informe en claro/oscuro, más vídeos de uso (GIF corto de `forense demo` → web y de una sesión CLI de triaje → informe); salida en docs/assets/ con peso contenido (GIF corto o mp4/webm ligero) — scripts/, docs/assets/, tests/
+- [ ] (PUL) a8-readme-visual — presentación profesional del README con los assets de docs/assets/ (capturas de portada en claro/oscuro y sección "Vistazo" con los vídeos de uso), es/en sincronizados; tras a8-capturas-script — README.md, README.en.md
+- [ ] (PUL) a9-readme-diagrama — diagrama del flujo (evidencia → extracción → módulos → hallazgos → revisión → informe/STIX) en SVG en docs/assets/ y embebido en ambos README — README.md, README.en.md, docs/assets/
 - [ ] (PUL) q2-changelog — CHANGELOG.md (Keep a Changelog) reconstruido desde el historial y notas de release generadas desde Conventional Commits — CHANGELOG.md, .github/workflows/
 - [ ] (PUL) q1-primera-release — etiquetar v0.4.1 (tras A1–A6 y Q2) y comprobar que el flujo `release` produce rueda, sdist, exe y Docker; corregir lo que falle — pyproject.toml, .github/workflows/, install/, packaging/
-- [ ] (SEG) disk-path-containment — contención explícita (resolve + parents) para rutas relativas en disk_path (bajo; fix mínimo con test de regresión) — transversal (claim previo)
-- [ ] (IMP-2) vista-impresa-hallazgos — vista imprimible de hallazgos análoga a la de la línea temporal, anclada a custodia (export_created + sha256) — forense/web/, forense/locales/, tests/
+- [ ] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con Server-Sent Events, cancelación de jobs y cola visible (EN CURSO, claim IMP-2 2026-10-25 12:20 UTC) — forense/web/, forense/locales/, tests/
 - [ ] (TEST) personas-r6 — ronda con personas aún sin cubrir: Operador (doctor, config, vigilar --una-vez, update --check, Docker/instaladores) y Entorno adverso (PDF sin Edge/Chrome, sin Volatility, sin red, carpeta de casos de solo lectura; verificar exit 2 al manipular una copia) — tests/e2e/, docs/agentes/hallazgos/
-- [ ] (IMP-1) intel-opencti — colecciones OpenCTI → watchlist de `ioc` (2ª mitad de la tarea de inteligencia; sesión dedicada completa, no fraccionar) — forense/core/, forense/locales/, tests/
+- [ ] (IMP-1) intel-opencti — colecciones OpenCTI → watchlist de `ioc` (2ª mitad de la tarea de inteligencia; EN CURSO, claim IMP-1 2026-10-25 11:50 UTC) — forense/core/, forense/locales/, tests/
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (desbloqueo: P1 · muestras-reales del roadmap de producto) — forense/modules/, forense/locales/, forense/demo/, tests/
 
 ## Dependencias entre tareas
 
-- A1–A5 y a7 tocan ambos README (misma ruta): PUL los ejecuta en una sola sesión ordenada, un claim cada vez, no en paralelo.
-- q2-changelog solo cuando A1–A6 estén cerradas (A6 lo está desde hoy); q1-primera-release solo tras q2 y sin claims de código activos.
-- La verificación TEST de la tanda IMP-1/IMP-2 (intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada, web-duplicada-aviso) conviene antes de q1: el CHANGELOG y la release documentan lo verificado.
+- a8-readme-visual y a9-readme-diagrama dependen de a8-capturas-script (assets en docs/assets/); no bloquean q1, pero si entran antes de la release, mejor portada para v0.4.1.
+- sigma-redos-v2 (ALTA) es la siguiente de IMP-1 en cuanto libere intel-opencti; hasta su fix, no importar packs Sigma de dudosa procedencia (consejo de SEG).
+- q2-changelog solo cuando A1–A6 estén cerradas (lo están); q1-primera-release solo tras q2 y sin claims de código activos.
+- La verificación TEST de la tanda entregada (a1–a5, vista-impresa-hallazgos, disk-path-containment, intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada, web-duplicada-aviso) conviene antes de q1: el CHANGELOG y la release documentan lo verificado; añadir sigma-redos-v2 cuando IMP-1 la entregue.
 - personas-r6 rinde tras un ciclo completo de IMP (no lanzar TEST mientras el programa se reconstruye).
-- intel-opencti tras la verificación de intel-misp; sesión dedicada.
+- web-progreso e intel-opencti tienen claim activo: no reclamar.
 - artifact-bits permanece BLOQUEADA sin muestra real de qmgr.db; no sustituirla por sintéticos no honestos (principio §2.1 del roadmap de producto).
 
 ## Backlog (largo plazo)
@@ -46,13 +55,20 @@ Promovidas las tareas 0.4.x del producto (A1–A5, A7, Q2, Q1) e intel dividida 
 - (IMP-1) wmi-parser-cim — parser CIM completo del repositorio WMI (hoy por búsqueda de cadenas); en el roadmap de producto entra en 0.6.
 - (IMP-1) carving-fragmentado — carving de archivos no contiguos (0.6).
 - (IMP-1) sistemas-no-windows — Linux y macOS como sistemas analizados (eje J, 0.9).
-- (PUL) readme-capturas/diagrama/adelgazar — A8/A9/A10 (0.4.x–0.5), cuando el README se estabilice tras A1–A5.
+- (PUL) readme-adelgazar — A10 (0.5): dejar el README en ~250 líneas cuando exista la documentación de referencia (A12); capturas, vídeos y diagrama ya habrán entrado con a8/a9.
 
 ## Entregado (histórico)
 
+- [x] (PUL) a1-readme-intel-misp — `forense intel misp` en la tabla CLI y subsección "Importar inteligencia de MISP" con ejemplo completo y tipos admitidos, es/en (14cd5c6; PENDIENTE verificación TEST) — README.md, README.en.md
+- [x] (PUL) a2-readme-hoja-de-ruta-sync — hoja de ruta del README: MISP pasa a hecho, queda OpenCTI/TAXII, enlace a docs/ROADMAP.md (83eb8ad; PENDIENTE verificación TEST) — README.md, README.en.md
+- [x] (PUL) a3-readme-logfile-atributos — fila de logfile y limitación de $LogFile ampliadas con las operaciones de atributo (4ac3a4f; PENDIENTE verificación TEST) — README.md, README.en.md
+- [x] (PUL) a4-readme-readbytes-gate — bala de consumo acotado (256 MB por defecto, artefacto gigante como error de análisis) en "Modelo de seguridad" (45e99a2; PENDIENTE verificación TEST) — README.md, README.en.md
+- [x] (PUL) a5-readme-ejemplo-modulo — ejemplo de módulo neutro en lugar del bits bloqueado (70af8f0; PENDIENTE verificación TEST) — README.md, README.en.md
+- [x] (SEG) disk-path-containment — las rutas relativas de disk_path se resuelven y quedan contenidas en la raíz del caso (resolve + parents, symlink incluido); error.evidence_path_escapes es/en (e53919f; PENDIENTE verificación TEST) — forense/core/, forense/locales/, tests/
+- [x] (IMP-2) vista-impresa-hallazgos — exportación de hallazgos como HTML imprimible autónomo con filtros y custodia export_created + SHA-256 (de9adc2; PENDIENTE verificación TEST) — forense/report/, forense/web/, forense/locales/, tests/
 - [x] (DIR) a6-roadmap-agentes-limpieza — cola contrastada con estados y git log; 7 entregas pasadas a histórico; intel dividida en intel-misp (hecha) e intel-opencti (en cola); slugs con prefijo de ficha del roadmap de producto (2026-10-25, tras 7178cd8) — docs/agentes/ROADMAP.md
 - [x] (TEST) h-010-verificacion — H-010 cerrado: repro literal del fix 2254b95 (`informe --firmar/--sign`) con claves Ed25519, .sig desacoplado, custodia report_signed, manipulación detectada y error localizado sin clave; "close: H-010" (5bcb5fc) — tests/e2e/, docs/agentes/hallazgos/
-- [x] (SEG) sigma-redos-revision — guardia ReDoS revisada por SEG (sesión 7: formas hostiles cubiertas, presupuesto de ramificación, trade-off conservador documentado) y verificada por TEST (8/8 hostiles, 7/7 seguros, 5bcb5fc); una re-auditoría adversarial de SEG quedó reclamada el mismo día (1a3aeb7) — forense/sigma/, tests/
+- [x] (SEG) sigma-redos-revision — guardia ReDoS revisada por SEG (sesión 7) y verificada por TEST (8/8 hostiles, 7/7 seguros, 5bcb5fc); la re-auditoría adversarial de SEG (sesión 8, 1a3aeb7) la DEVOLVIÓ con 8 familias de evasión → ALTA sigma-redos-v2 — forense/sigma/, tests/
 - [x] (IMP-2) web-duplicada-aviso — el job de la subida web avisa del gemelo duplicado con su SHA-256, es/en (9a9e803; PENDIENTE verificación TEST) — forense/web/, forense/locales/, tests/
 - [x] (IMP-1) logfile-atributos — operaciones de nivel de atributo (0x05–0x09, 0x0B) nombradas vía la tabla de atributos abiertos (9267745; PENDIENTE verificación TEST) — forense/parsers/, forense/modules/, forense/locales/, tests/
 - [x] (IMP-1) readbytes-gate — read_capped() como gate central del patrón read_bytes; adoptado por psreadline, defender, lnk, tasks, recyclebin, rdp_cache y setupapi (0221fdc; PENDIENTE verificación TEST) — forense/modules/, forense/core/, tests/

@@ -4,7 +4,7 @@
 |----|----------------------------------|
 | DIR | docs/ROADMAP.md, docs/agentes/ROADMAP.md, docs/agentes/OWNERSHIP.md, docs/agentes/PROTOCOLO.md |
 | IMP-1 | forense/core/, forense/parsers/, forense/image/, forense/sigma/, forense/modules/, forense/collector.py, forense/cli.py, forense/demo/, forense/automation.py, forense/notify.py, forense/update.py, forense/doctor.py, forense/i18n.py, y sus tests en tests/ |
-| IMP-2 | forense/web/, forense/report/, forense/charts.py, forense/presentation.py, y sus tests en tests/ (web, informe, PDF) |
+| IMP-2 | forense/web/, forense/report/, forense/charts.py, forense/presentation.py, scripts/ (capturas y utilidades de la interfaz), docs/assets/ (imágenes y vídeos del README que genere), y sus tests en tests/ (web, informe, PDF) |
 | PUL | README.md, README.en.md, .gitignore, pyproject.toml (orden/limpieza), Dockerfile, docker-compose.yml, .dockerignore, install/, packaging/, .github/workflows/, CHANGELOG/CONTRIBUTING/SECURITY (cuando el roadmap los pida), limpieza y refactors sin cambio de comportamiento |
 | SEG | Fixes mínimos en cualquier ruta, siempre con claim previo |
 | TEST | tests/e2e/, docs/agentes/hallazgos/. NUNCA código de producto |
