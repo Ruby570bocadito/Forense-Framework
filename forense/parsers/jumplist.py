@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from forense.core.utils import filetime_to_dt
+from forense.core.utils import filetime_to_dt, read_capped
 from forense.parsers.lnk import LnkError, LnkFile, find_embedded_lnks, parse_lnk
 
 # Application identifiers (CRC-64 of the AppUserModelID / executable path) of commonly seen programs.
@@ -33,6 +33,7 @@ APP_IDS = {
     "290532160612e071": "WinRAR",
 }
 RDP_APP_ID = "1bc392b8e104a00e"
+MAX_CUSTOM_BYTES = 256 * 1024 * 1024  # a custom destinations file beyond this is not a jump list anymore
 
 
 @dataclass
@@ -127,7 +128,7 @@ def parse_automatic(path: Path) -> JumpList:
 
 def parse_custom(path: Path) -> JumpList:
     jump = JumpList(Path(path).name.split(".")[0].lower(), "custom")
-    data = Path(path).read_bytes()
+    data = read_capped(path, MAX_CUSTOM_BYTES)  # a grown or hostile file is an analysis error, not pressure
     for offset, lnk in find_embedded_lnks(data):
         jump.entries.append(JumpListEntry(f"@{offset}", lnk))
     return jump

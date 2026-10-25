@@ -9,11 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from forense.core.utils import FileTooLarge
 from forense.demo import builders as b
 from forense.modules import get_module
 from forense.modules.base import ResultSink
 from forense.modules.windows.mft import timestomp_severity
-from forense.parsers.jumplist import parse_destlist
+from forense.parsers.jumplist import MAX_CUSTOM_BYTES, parse_custom, parse_destlist
 from forense.parsers.shellitems import fat_datetime, join_path, parse_shell_item
 
 DATA = Path(__file__).parent / "data"
@@ -105,6 +106,23 @@ def test_jump_lists_real_samples(tmp_path):
     custom = [e for e in entries if e["kind"] == "custom"]
     assert custom and custom[0]["target_path"] == "C:\\Windows\\System32\\GettingStarted.exe"
     assert ctx.summary["jump_lists"] == 2
+
+
+def test_custom_jumplist_gate(tmp_path):
+    """parse_custom refuses whole-file reads of grown or hostile containers (jumplist-0x1e):
+    the module reports an analysis error instead of turning the file into memory pressure."""
+    big = tmp_path / "1dec0ded.customDestinations-ms"
+    with open(big, "wb") as fh:  # sparse: the gate trips on logical size, nothing is materialised
+        fh.write(b"\x4c\x00\x00\x00")
+        fh.truncate(MAX_CUSTOM_BYTES + 1)
+
+    with pytest.raises(FileTooLarge) as exc:
+        parse_custom(big)
+    assert "1dec0ded.customDestinations-ms" in str(exc.value) and str(MAX_CUSTOM_BYTES) in str(exc.value)
+
+    ctx, sink = run("jumplists", tmp_path, tmp_path)
+    assert sink.records == [] and len(ctx.errors) == 1
+    assert "FileTooLarge" in ctx.errors[0]["error"] and "limit" in ctx.errors[0]["error"]
 
 
 def test_destlist_version_3():
