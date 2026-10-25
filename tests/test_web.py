@@ -233,6 +233,20 @@ def test_jobs_stream_and_cancel_route(client, workspace):
     assert "no-such-job" not in page.get_data(as_text=True)
 
 
+def test_report_sections_form(client, workspace):
+    token = _token(client, "/c/case1/reports")
+    response = client.post("/c/case1/reports", data={"csrf_token": token, "sections_form": "1",
+                                                     "section_findings": "on", "confirmed": "on",
+                                                     "max_findings": "10"})
+    assert response.status_code == 302
+    _wait(client)
+    with Case.open(workspace / "case1") as case:
+        assert list((case.root / "reports").glob("report_*.html"))
+        entry = [e for e in case.custody.entries() if e.action == "report_generated"][-1]
+        assert entry.details["sections"] == ["findings"]
+        assert entry.details["detail"] == {"confirmed_only": True, "max_findings": 10}
+
+
 def test_password_protection(workspace):
     client = create_app(workspace, password="s3cret").test_client()
     assert client.get("/").status_code == 401

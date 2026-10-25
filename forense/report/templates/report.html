@@ -222,6 +222,7 @@
 {% if stats.first_event %}<p class="muted">{{ _("report.activity_span", first=(stats.first_event | ts), last=(stats.last_event | ts)) }}</p>{% endif %}
 </section>
 
+{% if include is none or "conclusions" in include %}
 <section id="s-conclusions">
 {{ heading("conclusions", _("report.conclusions")) }}
 {% if conclusions %}
@@ -229,8 +230,9 @@
 <p class="muted mono">{{ _("report.conclusions_meta", version=conclusions.version, actor=conclusions.actor, timestamp=(conclusions.timestamp | ts), sha256=conclusions.sha256) }}</p>
 {% else %}<p class="muted">{{ _("report.no_conclusions") }}</p>{% endif %}
 </section>
+{% endif %}
 
-{% if matrix %}
+{% if matrix and (include is none or "attack" in include) %}
 <section id="s-attack" class="major">
 {{ heading("attack", _("report.attack")) }}
 <p class="muted">{{ _("report.attack_note") }}</p>
@@ -248,7 +250,7 @@
 </section>
 {% endif %}
 
-{% if indicators %}
+{% if indicators and (include is none or "iocs" in include) %}
 <section id="s-iocs">
 {{ heading("iocs", _("report.iocs"), indicators | length) }}
 <p class="muted">{{ _("report.iocs_note") }}</p>
@@ -264,7 +266,7 @@
 </section>
 {% endif %}
 
-{% if shared %}
+{% if shared and (include is none or "correlation" in include) %}
 <section id="s-correlation" class="major">
 {{ heading("correlation", _("report.correlation"), shared | length) }}
 <p class="muted">{{ _("report.correlation_help") }}</p>
@@ -315,15 +317,18 @@
   </tbody>
 </table>
 {% endmacro %}
+{% if include is none or "findings" in include %}
 <section id="s-findings" class="major">
 {{ heading("findings", _("nav.findings"), findings | length) }}
+{% if findings_trimmed %}<p class="muted">{{ _('report.findings_trimmed', shown=findings_shown, total=findings_total) }}</p>{% endif %}
 {% if not findings %}<p class="muted">{{ _("findings.none") }}</p>{% endif %}
 {% if confirmed %}<h3>{{ _("report.confirmed_findings") }} ({{ confirmed | length }})</h3>{{ finding_table(confirmed) }}{% endif %}
 {% if pending %}<h3>{{ _("report.pending_findings") }} ({{ pending | length }})</h3>{{ finding_table(pending) }}{% endif %}
 {% if discarded %}<h3>{{ _("report.discarded_findings") }} ({{ discarded | length }})</h3>{{ finding_table(discarded) }}{% endif %}
 </section>
+{% endif %}
 
-{% if bookmarks %}
+{% if bookmarks and (include is none or "bookmarks" in include) %}
 <section id="s-bookmarks">
 {{ heading("bookmarks", _("report.bookmarked_events"), bookmarks | length) }}
 <table>
@@ -337,7 +342,7 @@
 </section>
 {% endif %}
 
-{% if execution %}
+{% if execution and (include is none or "execution" in include) %}
 <section id="s-execution" class="major">
 {{ heading("execution", _("nav.execution"), execution | length) }}
 <p class="muted">{{ _("report.execution_note") }}</p>
@@ -354,6 +359,7 @@
 </section>
 {% endif %}
 
+{% if include is none or "chronology" in include %}
 <section id="s-chronology" class="major">
 {{ heading("chronology", _("report.chronology")) }}
 <p class="muted">{{ _("report.chronology_note", shown=(events | length), total=events_total) }}</p>
@@ -366,6 +372,7 @@
   </tbody>
 </table>
 </section>
+{% endif %}
 
 <section id="s-analyses" class="major">
 {{ heading("analyses", _("report.analyses"), analyses | length) }}

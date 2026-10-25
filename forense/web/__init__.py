@@ -658,17 +658,29 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
     @app.post("/c/<slug>/reports")
     def generate(slug: str):
+        from forense.report import OPTIONAL_SECTIONS
+
         report_lang = normalize(request.form.get("language")) or g.lang
         verify = request.form.get("verify") == "on"
         pdf = request.form.get("pdf") == "on"
         sign = request.form.get("sign") == "on"
+        if request.form.get("sections_form"):  # the UI form: whatever it checked (even nothing)
+            include = {s for s in OPTIONAL_SECTIONS if request.form.get(f"section_{s}") == "on"}
+        else:  # callers without a section picker keep the full report
+            include = None
+        confirmed_only = request.form.get("confirmed") == "on"
+        try:
+            max_findings = min(max(0, int(request.form.get("max_findings") or 0)), 1_000_000)
+        except ValueError:
+            max_findings = 0
         who = actor()
 
         def work(case: Case, progress) -> tuple[str, str]:
             from forense.report import generate_report
 
             progress(t("web.job.report"))
-            path = generate_report(case, report_lang, verify=verify, actor=who, sign=sign)
+            path = generate_report(case, report_lang, verify=verify, actor=who, sign=sign, include=include,
+                                   confirmed_only=confirmed_only, max_findings=max_findings)
             if pdf:
                 from forense.report.pdf import html_to_pdf
 

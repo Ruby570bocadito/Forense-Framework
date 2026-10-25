@@ -34,6 +34,11 @@ from forense.presentation import (
 TEMPLATES = Path(__file__).parent / "templates"
 LOGO = Path(__file__).parent.parent / "web" / "static" / "logo.svg"
 
+# Sections every forensic report carries; the caller may drop any of the others.
+CORE_SECTIONS = frozenset({"summary", "evidence", "analyses", "custody", "methodology"})
+OPTIONAL_SECTIONS = ("conclusions", "attack", "iocs", "correlation", "findings", "bookmarks",
+                     "execution", "chronology")
+
 
 def template_environment(lang: str) -> Environment:
     env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=select_autoescape(["html"]),
@@ -61,8 +66,13 @@ def _module_title(name: str, lang: str) -> str:
 
 
 def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execution: list,
-              shared: list = ()) -> list[tuple[str, str]]:
-    """Numbered sections of the report (anchor, title); optional ones only when they have content."""
+              shared: list = (), include: Optional[set[str]] = None) -> list[tuple[str, str]]:
+    """Numbered sections of the report (anchor, title); optional ones only when they have content.
+
+    ``include`` (None = no restriction) lets the caller drop optional sections; the core ones
+    (summary, evidence, analyses, custody, methodology) always stay: a forensic report without
+    them would contradict its own chain of custody.
+    """
     items = [("summary", "report.executive_summary"), ("conclusions", "report.conclusions")]
     if matrix:
         items.append(("attack", "report.attack"))
@@ -77,6 +87,8 @@ def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execut
         items.append(("execution", "nav.execution"))
     items += [("chronology", "report.chronology"), ("analyses", "report.analyses"), ("custody", "nav.custody"),
               ("methodology", "report.methodology")]
+    if include is not None:
+        items = [(a, k) for a, k in items if a in CORE_SECTIONS or a in include]
     return [(anchor, t(key, lang)) for anchor, key in items]
 
 
@@ -115,8 +127,9 @@ def _charts(overview: dict, lang: str) -> dict:
 
 def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Path] = None, verify: bool = False,
                     actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300,
-                    sign: bool = False) -> Path:
-    from forense.core.attack import storyline
+                    sign: bool = False, include: Optional[set[str]] = None, confirmed_only: bool = False,
+                    max_findings: int = 0) -> Path:
+    from forense.core.attack import attack_matrix, storyline
     from forense.core.overview import case_overview
     from forense.core.stix import collect_indicators
 
@@ -133,6 +146,12 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
     entries = case.custody.entries()
     events = case.events(min_severity="low", limit=max_events)
     overview = case_overview(case)
+    findings_total = len(overview["findings"])  # before any filter: the note shows the full case scale
+    if confirmed_only:  # the ATT&CK matrix and the storyline follow the same verdict filter
+        overview["findings"] = [f for f in overview["findings"] if f["review"]["status"] == "confirmed"]
+        overview["matrix"] = attack_matrix(overview["findings"])
+    if max_findings and len(overview["findings"]) > max_findings:
+        overview["findings"] = overview["findings"][:max_findings]
     shared = _correlations(case)
     indicators = collect_indicators(case)
     bookmarks = case.events(bookmarked=True, limit=None).rows
@@ -147,10 +166,13 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         records_by_analysis={a.id: case.record_artifacts(a.id) for a in analyses},
         conclusions=case.conclusions(), progress=case.review_progress(), bookmarks=bookmarks, execution=execution,
         overview=overview, matrix=overview["matrix"], phases=storyline(overview["findings"]),
+        findings_total=findings_total, findings_shown=len(overview["findings"]),
+        findings_trimmed=findings_total - len(overview["findings"]),
         indicators=sorted(indicators.values(), key=lambda i: (i["first_seen"] or "9999", i["type"], i["value"])),
         charts=_charts(overview, lang),
-        sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution, shared=shared),
-        shared=shared, case_slug=info.get("slug") or case.root.name,
+        sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution, shared=shared,
+                           include=include),
+        shared=shared, case_slug=info.get("slug") or case.root.name, include=include,
         logo=Markup(LOGO.read_text(encoding="utf-8")) if LOGO.is_file() else "",
         page_label=re.sub(r"[^A-Za-z0-9 ._-]", "", f"{info.get('id', '')}")[:60],
     )
@@ -163,6 +185,8 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
     case.custody.append("report_generated", actor, {
         "file": str(output), "sha256": digest, "language": lang, "verified_evidence": verify,
         "custody_head": entries[-1].hash if entries else None,
+        "sections": sorted(include) if include is not None else "all",
+        "detail": {"confirmed_only": confirmed_only, "max_findings": max_findings or None},
     })
     if sign:
         from forense.report.signing import sign_into_custody

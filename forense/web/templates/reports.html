@@ -12,6 +12,21 @@
     <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="sign" style="width:auto" {{ 'disabled' if not sign_available }}> {{ _('web.report_sign') }}</label></div>
     <div style="flex:0 0 auto"><button type="submit">{{ _('web.generate_report') }}</button></div>
   </div>
+  {% set section_labels = {"conclusions": "report.conclusions", "attack": "report.attack", "iocs": "report.iocs",
+                           "correlation": "report.correlation", "findings": "nav.findings",
+                           "bookmarks": "report.bookmarked_events", "execution": "nav.execution",
+                           "chronology": "report.chronology"} %}
+  <input type="hidden" name="sections_form" value="1">
+  <div class="row">
+    <div><label>{{ _('web.report_sections') }}</label>
+      <div class="tabs" style="flex-wrap:wrap">
+      {% for s in section_labels %}<label style="display:flex; gap:4px; align-items:center"><input type="checkbox" name="section_{{ s }}" checked style="width:auto"> {{ _(section_labels[s]) }}</label>{% endfor %}
+      </div></div>
+  </div>
+  <div class="row">
+    <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="confirmed" style="width:auto"> {{ _('web.report_confirmed_only') }}</label></div>
+    <div><label>{{ _('web.report_max_findings') }} <input type="number" name="max_findings" value="0" min="0" max="1000000" step="50" style="width:110px"></label></div>
+  </div>
   <p class="muted">{{ _('web.report_help') }}</p>
   {% if not sign_available %}<p class="muted small">{{ _('web.report_sign_help') }}</p>{% endif %}
 </form>

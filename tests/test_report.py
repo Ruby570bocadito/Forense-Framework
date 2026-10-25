@@ -342,3 +342,43 @@ def test_findings_html_export_escapes_hostile_values(case, evidence_dir, tmp_pat
     html = path.read_text(encoding="utf-8")
     assert "<script>alert" not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "<img src=y>" not in html and "&lt;img" in html and "quoted" in html
+
+
+def test_report_sections_included(demo_case, tmp_path):
+    with Case.open(demo_case) as case:
+        path = generate_report(case, "en", tmp_path / "short.html", include={"findings"})
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+    assert entry.details["sections"] == ["findings"]
+    assert entry.details["detail"] == {"confirmed_only": False, "max_findings": None}
+    toc = re.search(r'<nav class="toc".*?</nav>', html, re.S).group(0)
+    anchors = re.findall(r'href="#([a-z]+)"', toc)
+    assert anchors == ["summary", "evidence", "findings", "analyses", "custody", "methodology"]
+    assert 'id="s-attack"' not in html and 'id="s-iocs"' not in html and 'id="s-conclusions"' not in html
+    assert 'id="s-findings"' in html and 'id="s-custody"' in html  # the core stays
+
+
+def test_report_core_sections_only(demo_case, tmp_path):
+    with Case.open(demo_case) as case:
+        path = generate_report(case, "en", tmp_path / "core.html", include=set())
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+    assert entry.details["sections"] == []
+    toc = re.search(r'<nav class="toc".*?</nav>', html, re.S).group(0)
+    assert re.findall(r'href="#([a-z]+)"', toc) == ["summary", "evidence", "analyses", "custody", "methodology"]
+    assert 'id="s-findings"' not in html and 'id="s-chronology"' not in html
+
+
+def test_report_confirmed_only_and_cap(demo_case, tmp_path):
+    with Case.open(demo_case) as case:
+        first = case.findings()[0]
+        case.review_finding(first["id"], "confirmed", actor="Ana")
+        path = generate_report(case, "en", tmp_path / "confirmed.html", confirmed_only=True, max_findings=1)
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+    assert entry.details["sections"] == "all"
+    assert entry.details["detail"] == {"confirmed_only": True, "max_findings": 1}
+    assert "Showing 1 of" in html and "(trimmed by the detail option)" in html
+    assert "Pending findings" not in html and "Discarded findings" not in html
+    assert "Findings confirmed by the analyst (1)" in html
+    assert 'id="s-attack"' in html  # the matrix follows the same verdict filter
