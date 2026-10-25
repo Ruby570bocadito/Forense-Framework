@@ -1,31 +1,37 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- vista-impresa-hallazgos (K11 del roadmap de producto; de9adc2): exportación de hallazgos como HTML
-  imprimible autónomo (sin JS, sin recursos externos, estilos inline, thead repetido por página),
-  mismo camino de entrega que la exportación de la línea temporal: fichero en exports/ del caso y
-  entrada de custodia export_created con el SHA-256 real del documento y los filtros aplicados.
-  Respeta los filtros de la página de hallazgos (severidad mínima, estado de revisión, técnica
-  ATT&CK); cada fila lleva título y descripción, técnicas ATT&CK, evidencia, análisis y último
-  veredicto de revisión (nota y revisor); los falsos positivos van atenuados. Botón
-  "Exportar HTML (imprimir)" junto al de CSV. Claves es/en: export_html.findings,
-  export_html.findings_no_filters. 6 tests (custodia, filtros, estado de revisión, caso vacío,
-  escape hostil, ruta web con CSRF). Suite al cerrar: 386 passed, 1 skipped; ruff limpio.
-  web-duplicada-aviso ya estaba entregada en main (9a9e803); no se rehizo.
+- web-progreso (K10 del roadmap de producto; 6404956): progreso estructurado de jobs (punto de control
+  actual, hecho/total cuando el tipo lo sabe: triaje cuenta módulos, playbooks pasos, hashing archivos
+  y bytes) junto al texto del núcleo. Cola como Server-Sent Events (/api/jobs/stream, 1 instantánea/s
+  mientras hay actividad, cierre al quedar vacía) con EventSource y sondeo de respaldo. Cancelación
+  honesta: en cola no llega a arrancar; triaje y playbook paran en el próximo punto de control (nunca
+  a mitad de módulo, vía JobCancelled como BaseException para que los manejadores por paso del núcleo
+  no la traguen); módulo suelto/hashing/informe lo dicen en lugar de fingir. Cola con activos primero,
+  línea de progreso localizada y botón cancelar (POST con CSRF). 8 tests nuevos de jobs + ruta SSE/
+  cancelar. Suite al cerrar: 396 passed, 1 skipped; ruff limpio.
+- vista-impresa-hallazgos (K11; de9adc2): exportación de hallazgos como HTML imprimible autónomo,
+  anclada a custodia (export_created + SHA-256), con los filtros de la página (severidad, revisión,
+  técnica ATT&CK) y técnicas por fila. 6 tests. web-duplicada-aviso ya estaba en main (9a9e803).
 
 ## En curso
-- web-progreso (K10, P1): progreso real de jobs (archivos procesados / total, módulo actual) con
-  Server-Sent Events, cancelación y cola visible. Reclamada; sin trabajo local todavía.
+- informe-secciones-elegibles (L6, P2): elegir qué secciones incluye el informe y con qué detalle,
+  registrado en custodia. Reclamada a continuación; sin trabajo local todavía.
 
 ## Bloqueado
 - (nada)
 
 ## Peticiones a otras zonas
-- DIR: marcar [x] vista-impresa-hallazgos (entregada) y web-duplicada-aviso (9a9e803, sesión previa).
-- TEST: si toca verificar, la exportación nueva es POST /c/<slug>/export/findings_html con los
-  mismos filtros de query que la página (severity/status/technique); CSRF como el resto de exports.
+- DIR: marcar [x] vista-impresa-hallazgos y web-progreso (entregadas; K11 y K10 del roadmap de producto).
+- TEST: para verificar web-progreso, la cola vive en el panel "Tareas en segundo plano" (SSE activo con
+  jobs en marcha); cancelar es POST /c/<slug>/jobs/<id>/cancel con CSRF; en un triaje en marcha el botón
+  para en el próximo módulo.
 
 ## Propuestas para el roadmap
-- Siguientes de mi zona por prioridad, a la espera de promoción: K9 web-subida-archivos (P1),
-  K18 web-accesibilidad-aa (P1; exige axe-core vendido para el e2e, sin recursos externos en
-  runtime), L1 informe-plantillas (P1) y L3 informe-pdfa (P1).
+- Tras L6, siguiente de mi zona: K12 web-atajos-teclado (P2, S). Las P1 de mi zona quedan a la espera
+  de promoción con ámbito decidido: K9 web-subida-archivos (P1) cambia la filosofía "la evidencia se
+  registra por ruta, nunca se sube" (comentario en create_app y superficie de SEG/H-005) — decisión de
+  DIR antes de tocarla; K18 web-accesibilidad-aa (P1) necesita el e2e con axe-core vendido (tests/e2e/
+  es de TEST) — coordinar; L1 informe-plantillas (P1) y L3 informe-pdfa (P1) son M/L: partir.
+- L8 informe-verificador (P2): su ruta natural es cli.py (IMP-1); la verificación en sí ya vive en
+  forense/report/signing.py — coordinar reparto si se promueve.
