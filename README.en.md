@@ -656,8 +656,10 @@ Then import it in `forense/modules/__init__.py` and add its texts to `locales/es
 
 ## Roadmap
 
-- More artifacts: BITS (`qmgr.db`)
-- Intelligence import from MISP/OpenCTI
+The full roadmap, by versions and priorities, lives in [docs/ROADMAP.md](docs/ROADMAP.md); coming next:
+
+- Intelligence import from OpenCTI/TAXII (the MISP one is already available: `forense intel misp`)
+- More artifacts: BITS (`qmgr.db`; a licensed real sample is still needed)
 - Linux and macOS as analysed systems
 
 ## Development

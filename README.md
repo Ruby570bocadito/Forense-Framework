@@ -665,8 +665,10 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 ## Hoja de ruta
 
-- Más artefactos: BITS (`qmgr.db`)
-- Importación de inteligencia desde MISP/OpenCTI
+La hoja de ruta completa, por versiones y prioridades, vive en [docs/ROADMAP.md](docs/ROADMAP.md); lo próximo de aquí:
+
+- Importación de inteligencia desde OpenCTI/TAXII (la de MISP ya está disponible: `forense intel misp`)
+- Más artefactos: BITS (`qmgr.db`; falta una muestra real con licencia)
 - Linux y macOS como sistemas analizados
 
 ## Desarrollo
