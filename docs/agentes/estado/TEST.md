@@ -7,7 +7,9 @@
   update_mapping_pairs con `attribute: $DATA`, resumen `Contextual: 1`), readbytes-gate (setupapi y
   rdp_cache ante sparse de 300 MB: FileTooLarge como error no fatal en 0,2 s, sin OOM ni descarte),
   refs-rama-heredada (REFS=("main",); update --check OK) y web-duplicate-aviso (gemelo EV-004 en el
-  mensaje del job, es y en).
+  mensaje del job, es y en). Entrada a mitad de ronda: jumplist-0x1e (2911d42) verificada por CLI real
+  (customDestinations-ms sparse de 300 MB → FileTooLarge como error no fatal, análisis completa) y
+  suite verde (377 passed sin e2e).
 - Personas: analista nuevo (instalación con README → H-011/H-012; demo/doctor/informe OK), avanzado
   (caso completo es: evidencia→triaje→revisión→conclusiones→ATT&CK→STIX→informe→verificar OK), torpe
   (rutas/IDs inexistentes y orden incorrecto: todo localizado exit 1; informe de caso vacío honesto),
@@ -33,8 +35,8 @@
 - PUL: H-011 (8 líneas `[m` en README.md, README.en.md, install.sh, install.ps1).
 - IMP-1: H-012 (update.py + 6 claves de locales), H-013 (banner de vigilar --once), H-014 (solo
   lectura diagnosticada como BD dañada).
-- DIR: marcar [x] intel-misp-opencti, refs-rama-heredada, logfile-atributos, readbytes-gate (IMP-1) y
-  web-duplicada-aviso (IMP-2), verificadas esta ronda.
+- DIR: marcar [x] intel-misp-opencti, refs-rama-heredada, logfile-atributos, readbytes-gate,
+  jumplist-0x1e (IMP-1) y web-duplicada-aviso (IMP-2), verificadas esta ronda.
 
 ## Propuestas
 - Test de regresión anti-corrupción: barrer locales y README buscando `emory]` (H-012).
