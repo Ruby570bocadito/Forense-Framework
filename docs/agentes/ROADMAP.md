@@ -26,18 +26,10 @@ dirige la prioridad — ver nota en Dependencias.
 Revisión DIR del 2026-10-25 (5ª, sobre 4c835dc): a7 entregada (6ae122f) → histórico; claims activos: q2-changelog
 (PUL), sigma-redos-v2 (IMP-1) e informe-secciones-elegibles (IMP-2). Recordatorio: h-011 es la siguiente de PUL
 al liberar q2 y h-012 la de IMP-1 tras sigma-redos-v2 — ambas bloquean v0.4.1.
+Revisión DIR del 2026-10-25 (6ª, sobre db8a09c): sigma-redos-v2 entregada (eb1cf54) → histórico; a verificación
+TEST (repros de SEG en estado/SEG.md) y re-auditoría de SEG. h-012 queda como siguiente de IMP-1.
 
 ## ALTA
-
-- [ ] (IMP-1) sigma-redos-v2 — la guardia ReDoS de 65dd311 es evadible: 8 familias con re.search congelado >4 s
-  ((a?){25}X, (a{0,2}){15}X, (.?){25}X, ((a?){5}){5}X, a?×30+X, ([\w]{0,3}){12}X; repros completos en estado/SEG.md
-  sesión 8). Dos fallos de modelo: el presupuesto multiplica por la ventana del repetidor UNA vez (la ambigüedad se
-  eleva B^iteraciones) y los átomos adyacentes cuantificados sin grupo no se comprueban. Fix sugerido por SEG:
-  presupuesto de ambigüedad global Σ log2(ways) con recursión en grupos cuantificados; el test del paquete builtin
-  (15 reglas, 0 errores) es la red contra falsos positivos — forense/sigma/, tests/
-
-  Intel-opencti ya entregada; sigma-redos-v2 EN CURSO (claim IMP-1 2026-10-25). h-012 (pequeña) queda para
-  después de la guardia, antes de q1. Mientras, no importar packs Sigma de dudosa procedencia (SEG).
 
 - [ ] (IMP-1) h-012-update-doctor-memory — el mismo literal `[m` perdido (rama heredada ab6d393) dentro del
   producto: update.py:82 construye `forense-frameworkemory] @ …` (auto-update roto siempre en entornos con
@@ -46,6 +38,8 @@ al liberar q2 y h-012 la de IMP-1 tras sigma-redos-v2 — ambas bloquean v0.4.1.
   `[memory]` y añadir el test de regresión propuesto por TEST (barrer locales buscando `emory]`, o comparar la
   pista de doctor con el extra de pyproject.toml:44). ALTO (H-012); bloquea v0.4.1 — forense/update.py,
   forense/locales/, tests/
+
+  SIGUIENTE de IMP-1 (sigma-redos-v2 ya entregada): la release no sale con el auto-update roto.
 
 - [ ] (PUL) h-011-instalacion-memory — el literal `[m` desapareció en 8 líneas de 4 ficheros: README.md:102 y
   330, README.en.md:102 y 327, install/install.sh:83 y 85 e install/install.ps1:121 y 122; la instalación manual
@@ -93,6 +87,10 @@ al liberar q2 y h-012 la de IMP-1 tras sigma-redos-v2 — ambas bloquean v0.4.1.
 - (PUL) readme-adelgazar — A10 (0.5): dejar el README en ~250 líneas cuando exista la documentación de referencia (A12); capturas, vídeos y diagrama ya habrán entrado con a8/a9.
 
 ## Entregado (histórico)
+
+- [x] (IMP-1) sigma-redos-v2 — guardia ReDoS rehecha con presupuesto de ambigüedad global (Σ log2(ways) con
+  recursión en grupos cuantificados): las 8 familias de evasión de SEG (sesión 8) rechazadas (eb1cf54;
+  PENDIENTE verificación TEST — repros en estado/SEG.md — y re-auditoría de SEG) — forense/sigma/, tests/
 
 - [x] (PUL) a7-readme-badges — badges de CI, licencia y Python en ambos README (6ae122f; PENDIENTE verificación
   TEST); los de versión PyPI e imagen GHCR podrán completarse en q1 cuando existan los artefactos — README.md,
