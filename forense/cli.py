@@ -796,8 +796,11 @@ def cmd_watch(args: argparse.Namespace) -> int:
     from forense.core.config import get_config
 
     workspace = Path(args.workspace or get_config().value("workspace") or ".")
-    _out(t("cli.watch_started", inbox=str(Path(args.inbox).resolve()), workspace=str(workspace.resolve()),
-           interval=args.interval))
+    if args.once:  # H-013: the single pass announces itself, without interval or Ctrl+C
+        _out(t("cli.watch_once", inbox=str(Path(args.inbox).resolve()), workspace=str(workspace.resolve())))
+    else:
+        _out(t("cli.watch_started", inbox=str(Path(args.inbox).resolve()), workspace=str(workspace.resolve()),
+               interval=args.interval))
     results = watch(Path(args.inbox), workspace, args.playbook, args.interval, args.once, progress=_out)
     for result in results:
         _print_automation(result)

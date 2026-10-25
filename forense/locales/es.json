@@ -219,6 +219,7 @@
  "cli.update_none": "Ya tiene la última versión.",
  "cli.update_status": "Versión instalada: {current} · publicada ({ref}): {latest}",
  "cli.watch_started": "Vigilando {inbox} cada {interval} s; los casos se crean en {workspace}. Ctrl+C para terminar.",
+ "cli.watch_once": "Pase único sobre {inbox}; los casos se crean en {workspace}.",
  "cli.web_open_notice": "AVISO: la interfaz web arranca sin autenticación (solo accesible desde esta máquina). Usa --clave o FORENSE_WEB_PASSWORD para protegerla.",
  "cli.web_exposed_warning": "AVISO: la interfaz web quedará accesible en la red sin contraseña. Usa --clave.",
  "common.all": "Todos",

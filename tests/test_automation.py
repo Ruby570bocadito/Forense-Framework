@@ -185,6 +185,15 @@ def test_cli_watch_once(tmp_path, capsys):
     (inbox / "a.txt").write_text("a", encoding="utf-8")
     assert main(["vigilar", str(inbox), "-w", str(tmp_path / "ws"), "--una-vez", "-p", "triage"]) == EXIT_OK
     assert len([p for p in (tmp_path / "ws").iterdir() if p.is_dir()]) == 1
+    # H-013: the single pass announces itself, without the continuous-mode banner
+    out = capsys.readouterr().out
+    assert "Single pass" in out and str(inbox.resolve()) in out
+    assert "Watching" not in out and "Ctrl+C" not in out
+
+    assert main(["-L", "es", "vigilar", str(inbox), "-w", str(tmp_path / "ws2"), "--una-vez",
+                 "-p", "triage"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "Pase único" in out and "Vigilando" not in out and "Ctrl+C" not in out
 
 
 # -- web ----------------------------------------------------------------------------------------------

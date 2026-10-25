@@ -219,6 +219,7 @@
  "cli.update_none": "You already have the latest version.",
  "cli.update_status": "Installed version: {current} · published ({ref}): {latest}",
  "cli.watch_started": "Watching {inbox} every {interval} s; cases are created in {workspace}. Ctrl+C to stop.",
+ "cli.watch_once": "Single pass over {inbox}; cases are created in {workspace}.",
  "cli.web_open_notice": "NOTICE: the web interface starts without authentication (this machine only). Use --password or FORENSE_WEB_PASSWORD to protect it.",
  "cli.web_exposed_warning": "WARNING: the web interface will be reachable on the network without a password. Use --password.",
  "common.all": "All",
