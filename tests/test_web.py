@@ -4,10 +4,13 @@ import base64
 import json
 import re
 import time
+from pathlib import Path
 
 import pytest
 from conftest import make_signing_key
 
+import forense.report
+import forense.web
 from forense.core.case import Case
 from forense.web import create_app
 
@@ -245,6 +248,29 @@ def test_report_sections_form(client, workspace):
         entry = [e for e in case.custody.entries() if e.action == "report_generated"][-1]
         assert entry.details["sections"] == ["findings"]
         assert entry.details["detail"] == {"confirmed_only": True, "max_findings": 10}
+
+
+def test_no_external_resources(client):
+    """K17: the web and the printable documents work in isolated labs — every asset is local.
+
+    Guards the constraint the CSP relies on: no absolute http(s) or protocol-relative URL may
+    sneak into templates or static files (fonts, CDNs, analytics), and the CSP itself must
+    keep ``default-src 'self'`` with nothing that would allow an external connection.
+    """
+    roots = [Path(forense.web.__file__).parent / "templates", Path(forense.report.__file__).parent / "templates",
+             Path(forense.web.__file__).parent / "static"]
+    for root in roots:
+        for path in root.rglob("*"):
+            if path.suffix not in (".html", ".css", ".js", ".svg"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            for hit in re.findall(r"""(?:src|href)\s*=\s*["']([^"']+)["']|url\(\s*['"]?([^)'"]+)""", text):
+                url = (hit[0] or hit[1]).strip()
+                assert not url.startswith(("http://", "https://", "//")), f"{path.name}: external {url}"
+            assert not re.findall(r"https?://", re.sub(r"https?://www\.w3\.org/[^\"'\s>]*", "", text)), \
+                f"{path.name}: external URL in text"
+    csp = client.get("/").headers["Content-Security-Policy"]
+    assert "default-src 'self'" in csp and "http" not in csp.replace("'self'", "")
 
 
 def test_password_protection(workspace):
