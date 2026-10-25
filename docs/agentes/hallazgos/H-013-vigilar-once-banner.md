@@ -3,8 +3,13 @@ Tipo: UX
 Severidad: BAJO
 Persona: operador
 Dirigido a: IMP-1
-Estado: abierto
+Estado: resuelto-pendiente-verificación
 ---
+
+Resuelto en 5982bb9 (fix(cli): single-pass banner for vigilar --una-vez, localized): con --once/--una-vez
+se emite la clave nueva cli.watch_once ("Pase único sobre {inbox}; los casos se crean en {workspace}." es/en)
+y el banner continuo (cli.watch_started) queda solo para el modo de vigilancia periódica. Regresión es/en en
+tests/test_automation.py::test_cli_watch_once.
 
 Pasos para reproducir (carpeta ya procesada, sin novedades):
 `forense -L es vigilar ./bandeja -w ./casos-watch --once`
