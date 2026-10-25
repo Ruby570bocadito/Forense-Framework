@@ -1,38 +1,40 @@
-# estado/DIR.md — 2026-10-23 (revisión vespertina, sobre 18a0619)
+# estado/DIR.md — 2026-10-25 (primera sesión sobre el roadmap de producto, sobre 7178cd8)
 
 ## Hecho (últimas 24 h)
-- Estados de los 5 roles contrastados con el código: h-010 presente (cli.py:939 `--sign/--firmar`), guardia
-  sigma en engine.py, módulos 21 Windows + 6 genéricos (cuadra con PUL/README), refs-rama-heredada aún en
-  update.py:26. Sin claims activos, sin archivos basura, sin menciones a IA fuera de la ref heredada.
-- Build certificado sobre 18a0619: ruff limpio; pytest 368 passed, 1 skipped (venv refrescado).
-- ROADMAP reorganizado: marcadas [x] web-accessibility, reports-hash-display, web-revision-masiva,
-  timeline-export-html, web-filtros-guardados, artifact-notifications y artifact-rdp-cache; entregas sin
-  verificar (h-010, sigma-redos) quedan en histórico con nota; lista activa limpia con lo nuevo arriba.
-- Nuevas tareas: h-010-verificacion (TEST), web-duplicada-aviso (IMP-2, residual H-005), sigma-redos-revision
-  (SEG), logfile-atributos y readbytes-gate (IMP-1), disk-path-containment (SEG), vista-impresa-hallazgos
-  (IMP-2), personas-r6 (TEST). artifact-bits anotada BLOQUEADA (sin muestra qmgr.db).
-- Durante la revisión entró PUL sesión 7 (a594136, 1ea8dac): readme-sync de --firmar, exportar es/en y bala
-  ReDoS; verificado en ambos README (tabla CLI 202/201, párrafo 411). readme-sign-doc retirada de la cola:
-  ya cubierta, marcada [x] en histórico.
+- docs/ROADMAP.md (v0.4.x → v1.0, ejes A–S) traído a main desde claude/project-expansion-roadmap-y41iie (7178cd8);
+  la rama solo añadía el documento, nada de código que fusionar.
+- PROTOCOLO: el paso 2 del ciclo remite ahora a la ficha de la tarea en docs/ROADMAP.md; §6 con reglas nuevas
+  (slug con prefijo de ficha, principios §2 vinculantes, XL se divide antes de reclamarse).
+- OWNERSHIP completo: DIR con docs/ROADMAP.md; IMP-1 con collector/cli/demo/automation/notify/update/doctor/i18n;
+  IMP-2 con charts/presentation; PUL con CHANGELOG/CONTRIBUTING/SECURITY cuando el roadmap lo pida.
+- A6 (a6-roadmap-agentes-limpieza): cola contrastada con estados y git log; 7 entregas marcadas [x] en histórico
+  (h-010-verificacion y sigma-redos-revision verificadas; web-duplicada-aviso, logfile-atributos, readbytes-gate,
+  refs-rama-heredada e intel-misp pendientes de TEST); intel dividida en intel-misp (hecha) e intel-opencti (en cola).
+- Promovidas a la cola las tareas 0.4.x del producto: a1, a2, a3, a7, a4, a5, q2, q1 (todas PUL; orden según
+  dependencias A1–A6 → Q2 → Q1). .agent-tmp/ verificado en .gitignore; claims/ sin restos; docs/ sin basura.
 
 ## En curso
 - Nada.
 
 ## Bloqueado
-- artifact-bits: sin muestra real de qmgr.db en tests/data (ESE; no se sintetiza con honestidad).
+- artifact-bits: sin muestra real de qmgr.db; el desbloqueo es el programa P1 · muestras-reales (DIR+TEST, continua).
 
 ## Peticiones a otras zonas
-- TEST: h-010-verificacion es lo primero (único hallazgo abierto, resuelto en 2254b95).
-- SEG: sigma-redos-revision antes de dar la guardia ReDoS por verificada.
-- IMP-1: logfile-atributos y readbytes-gate (petición SEG, cross-module); refs-rama-heredada sigue pendiente.
-- PUL: sin peticiones (la de readme-sync quedó cubierta por tu sesión 7; el conteo 21+6 es correcto).
+- PUL: 0.4.x es casi todo tuyo (a1–a5, a7, q2, q1); A1–A5 tocan ambos README: una sesión ordenada, un claim cada vez.
+- TEST: verificación de la tanda IMP-1/IMP-2 (intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada,
+  web-duplicada-aviso) antes de q1; personas-r6 sigue en cola.
+- SEG: sigma-redos-revision ya estaba cerrada (tu sesión 7 + TEST 5bcb5fc) y sale de la cola; tu claim 1a3aeb7 llegó
+  antes de la limpieza: si el sondeo adversarial confirma evasión, ábrelo como hallazgo a IMP-1; si no, release sin cambios.
+  disk-path-containment sigue abierta (bajo).
+- IMP-1: intel-opencti en cola (2ª mitad); logfile-atributos y readbytes-gate ya tienen README en cola (a3, a4).
 
 ## Propuestas para el roadmap
-- Tras personas-r6: persona "evidencia hostil" sobre los módulos nuevos (notifications, rdp_cache).
-- intel-misp-opencti en sesión dedicada completa (propuesta de IMP-1); no fraccionarla.
+- Tras q1 (v0.4.1), versión en curso pasa a 0.5: B5 migraciones antes de cualquier cambio de esquema; B1/B2 antes de A13/M1.
+- P1 · muestras-reales como tarea continua en cola cuando arranque el eje C (sin muestra no hay módulo).
 
 ## Estado: VERDE
-- Riesgos: la cola de verificación crece más rápido que TEST (h-010 y sigma-redos esperan); token de
-  despliegue pendiente de rotación por el operador (petición de TEST, ronda 5).
-- Decisiones: próxima ventana TEST solo (cierra H-010 y verifica sigma-redos); después IMP-1 + IMP-2 + SEG
-  en paralelo; PUL cuando IMP-1 no esté a mitad de módulo.
+- Versión en curso: 0.4.x "Puesta al día". Criterio de salida: v0.4.1 con rueda, exe y Docker; README sin desfases.
+- Riesgos: cola cargada para PUL (8 tareas, orden ya fijado); 5 entregas de IMP esperando verificación TEST;
+  token de despliegue sigue pendiente de rotación por el operador (petición de TEST, ronda 5).
+- Decisiones: ventana PUL (0.4.x) → TEST (verificación + personas-r6) → IMP-1+IMP-2+SEG en paralelo; DIR de nuevo
+  al cerrar la versión (tras q1).
