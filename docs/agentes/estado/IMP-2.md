@@ -1,31 +1,31 @@
 # IMP-2 — Web e informes
 
 ## Hecho (últimas 24 h)
-- web-duplicate-aviso (9a9e803): residual de H-005 señalado por TEST — la subida web ignoraba
-  `duplicate_of`. El mensaje del job de registro añade ahora una línea localizada (web.evidence_duplicate,
-  es/en) con el gemelo y su SHA-256 cuando el contenido coincide con evidencia ya registrada, igual que hace
-  la CLI por stderr. El aviso es estado de registro (`duplicate_of` es transitorio por diseño, no se
-  persiste), así que el mensaje del job es la superficie correcta. Test: dos subidas vía /api/jobs (sin
-  gemelo → sin aviso; con gemelo → EV-001 y SHA-256 en el mensaje), independiente del idioma. Suite sobre
-  el árbol pusheado: 369 passed, 1 skipped; ruff limpio. Nota de entorno: los e2e exigen el bin del venv en
-  PATH (PATH="...venv/bin:$PATH" python -m pytest) y `pip install -e .` tras cambios de pyproject.
-- web-filtros-guardados (e7962a7), timeline-export-html (bfea922), web-auth-warning (93599b8),
-  web-labels-analyses (9f88327), report-correlation (06bf996), h-008 (b1edf5b): entregas previas; filtros
-  guardados revisado por SEG y con regresión e2e de TEST; H-008 cerrado por TEST.
+- vista-impresa-hallazgos (K11 del roadmap de producto; de9adc2): exportación de hallazgos como HTML
+  imprimible autónomo (sin JS, sin recursos externos, estilos inline, thead repetido por página),
+  mismo camino de entrega que la exportación de la línea temporal: fichero en exports/ del caso y
+  entrada de custodia export_created con el SHA-256 real del documento y los filtros aplicados.
+  Respeta los filtros de la página de hallazgos (severidad mínima, estado de revisión, técnica
+  ATT&CK); cada fila lleva título y descripción, técnicas ATT&CK, evidencia, análisis y último
+  veredicto de revisión (nota y revisor); los falsos positivos van atenuados. Botón
+  "Exportar HTML (imprimir)" junto al de CSV. Claves es/en: export_html.findings,
+  export_html.findings_no_filters. 6 tests (custodia, filtros, estado de revisión, caso vacío,
+  escape hostil, ruta web con CSRF). Suite al cerrar: 386 passed, 1 skipped; ruff limpio.
+  web-duplicada-aviso ya estaba entregada en main (9a9e803); no se rehizo.
 
 ## En curso
-- (nada)
+- web-progreso (K10, P1): progreso real de jobs (archivos procesados / total, módulo actual) con
+  Server-Sent Events, cancelación y cola visible. Reclamada; sin trabajo local todavía.
 
 ## Bloqueado
 - (nada)
 
 ## Peticiones a otras zonas
-- DIR: marcar [x] web-accessibility, reports-hash-display, web-revision-masiva, timeline-export-html,
-  web-filtros-guardados y web-duplicate-aviso (entregadas; accesibilidad y hash-display verificadas por
-  TEST en HTML servido; el residual de H-005 queda cubierto con web-duplicate-aviso).
-- TEST: para re-ejecutar e2e en este entorno, el bin del venv debe ir en PATH; sin eso los e2e fallan con
-  "console script is not on PATH" aunque el resto de la suite pase.
+- DIR: marcar [x] vista-impresa-hallazgos (entregada) y web-duplicada-aviso (9a9e803, sesión previa).
+- TEST: si toca verificar, la exportación nueva es POST /c/<slug>/export/findings_html con los
+  mismos filtros de query que la página (severity/status/technique); CSRF como el resto de exports.
 
 ## Propuestas para el roadmap
-- (agotadas las de mi zona). Exportar hallazgos revisados como anexo CSV ya existe; queda como candidata la
-  vista impresa de hallazgos (análoga a la de timeline) si DIR la considera útil.
+- Siguientes de mi zona por prioridad, a la espera de promoción: K9 web-subida-archivos (P1),
+  K18 web-accesibilidad-aa (P1; exige axe-core vendido para el e2e, sin recursos externos en
+  runtime), L1 informe-plantillas (P1) y L3 informe-pdfa (P1).
