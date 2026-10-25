@@ -37,17 +37,16 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 - [ ] (PUL) q1-primera-release — etiquetar v0.4.1 (tras A1–A6 y Q2) y comprobar que el flujo `release` produce rueda, sdist, exe y Docker; corregir lo que falle — pyproject.toml, .github/workflows/, install/, packaging/
 - [ ] (IMP-2) k10-web-progreso — progreso real de los jobs (archivos procesados/total, módulo actual) con Server-Sent Events, cancelación de jobs y cola visible (EN CURSO, claim IMP-2 2026-10-25 12:20 UTC) — forense/web/, forense/locales/, tests/
 - [ ] (TEST) personas-r6 — ronda con personas aún sin cubrir: Operador (doctor, config, vigilar --una-vez, update --check, Docker/instaladores) y Entorno adverso (PDF sin Edge/Chrome, sin Volatility, sin red, carpeta de casos de solo lectura; verificar exit 2 al manipular una copia) — tests/e2e/, docs/agentes/hallazgos/
-- [ ] (IMP-1) intel-opencti — colecciones OpenCTI → watchlist de `ioc` (2ª mitad de la tarea de inteligencia; EN CURSO, claim IMP-1 2026-10-25 11:50 UTC) — forense/core/, forense/locales/, tests/
 - [ ] (IMP-1) artifact-bits — módulo BITS (qmgr.db): trabajos, URLs, estado y destino, hallazgo con severidad y técnica ATT&CK T1197; BLOQUEADA: sin muestra real en tests/data (desbloqueo: P1 · muestras-reales del roadmap de producto) — forense/modules/, forense/locales/, forense/demo/, tests/
 
 ## Dependencias entre tareas
 
 - a8-readme-visual y a9-readme-diagrama dependen de a8-capturas-script (assets en docs/assets/); no bloquean q1, pero si entran antes de la release, mejor portada para v0.4.1.
-- sigma-redos-v2 (ALTA) es la siguiente de IMP-1 en cuanto libere intel-opencti; hasta su fix, no importar packs Sigma de dudosa procedencia (consejo de SEG).
+- sigma-redos-v2 (ALTA) es la siguiente de IMP-1 (intel-opencti ya entregada); hasta su fix, no importar packs Sigma de dudosa procedencia (consejo de SEG).
 - q2-changelog solo cuando A1–A6 estén cerradas (lo están); q1-primera-release solo tras q2 y sin claims de código activos.
 - La verificación TEST de la tanda entregada (a1–a5, vista-impresa-hallazgos, disk-path-containment, intel-misp, logfile-atributos, readbytes-gate, refs-rama-heredada, web-duplicada-aviso) conviene antes de q1: el CHANGELOG y la release documentan lo verificado; añadir sigma-redos-v2 cuando IMP-1 la entregue.
 - personas-r6 rinde tras un ciclo completo de IMP (no lanzar TEST mientras el programa se reconstruye).
-- web-progreso e intel-opencti tienen claim activo: no reclamar.
+- web-progreso tiene claim activo (IMP-2): no reclamar.
 - artifact-bits permanece BLOQUEADA sin muestra real de qmgr.db; no sustituirla por sintéticos no honestos (principio §2.1 del roadmap de producto).
 
 ## Backlog (largo plazo)
@@ -59,6 +58,7 @@ a1–a5, vista-impresa-hallazgos y disk-path-containment pasan a histórico; sig
 
 ## Entregado (histórico)
 
+- [x] (IMP-1) intel-opencti — importación de bundles STIX de OpenCTI en watchlists de `ioc` (ad00865; PENDIENTE verificación TEST) — forense/core/, forense/locales/, tests/
 - [x] (PUL) a1-readme-intel-misp — `forense intel misp` en la tabla CLI y subsección "Importar inteligencia de MISP" con ejemplo completo y tipos admitidos, es/en (14cd5c6; PENDIENTE verificación TEST) — README.md, README.en.md
 - [x] (PUL) a2-readme-hoja-de-ruta-sync — hoja de ruta del README: MISP pasa a hecho, queda OpenCTI/TAXII, enlace a docs/ROADMAP.md (83eb8ad; PENDIENTE verificación TEST) — README.md, README.en.md
 - [x] (PUL) a3-readme-logfile-atributos — fila de logfile y limitación de $LogFile ampliadas con las operaciones de atributo (4ac3a4f; PENDIENTE verificación TEST) — README.md, README.en.md
