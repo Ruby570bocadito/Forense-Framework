@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ case.get('name', '') }} — {{ _('nav.findings') }}</title>
+<style>
+body { font: 13px/1.45 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; margin: 0; padding: 24px; }
+header { border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 6px; }
+h1 { font-size: 19px; margin: 0 0 4px; }
+.meta { color: #555; font-size: 12px; }
+.meta div { margin: 1px 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+th, td { border: 1px solid #b5b5b5; padding: 4px 7px; text-align: left; vertical-align: top; font-size: 12px; }
+thead { display: table-header-group; }
+th { background: #efefef; }
+tr { page-break-inside: avoid; }
+td.ts { font-family: ui-monospace, Consolas, Menlo, monospace; white-space: nowrap; }
+.wrap { word-break: break-word; }
+.mono { font-family: ui-monospace, Consolas, Menlo, monospace; }
+.muted { color: #5f5f5f; }
+.note { font-style: italic; }
+.small { font-size: 11px; }
+.sev { font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: .3px; white-space: nowrap; }
+.dimmed { color: #5f5f5f; }
+.dimmed b { font-weight: 400; }
+footer { margin-top: 14px; border-top: 1px solid #b5b5b5; padding-top: 8px; color: #555; font-size: 11px; }
+@page { size: A4; margin: 14mm; }
+@media print { body { padding: 0; } }
+</style>
+</head>
+<body>
+{% set filter_labels = {"severity": _("field.severity"), "status": _("web.filter_review"), "technique": "ATT&CK"} %}
+<header>
+  <h1>{{ _('nav.findings') }} — {{ case.get('name', '') }}</h1>
+  <div class="meta">
+    <div>{{ case.get('id', '') }}{% if case.get('slug') and case.get('slug') != case.get('id') %} · {{ case.get('slug') }}{% endif %}</div>
+    <div>{{ _('export_html.generated', when=generated, analyst=analyst) }}</div>
+    <div>{% if filters %}{{ _('export_html.filters') }}
+      {%- for k, v in filters.items() %} {{ filter_labels.get(k, k) }}:
+      {%- if k == 'severity' %} ≥ {{ v | sev }}
+      {%- elif k == 'status' %} {{ _('review.' + v) }}
+      {%- else %} {{ v }}
+      {%- endif %}{{ ';' if not loop.last else '' }}{% endfor %}
+    {% else %}{{ _('export_html.findings_no_filters') }}{% endif %}</div>
+    <div>{{ _('export_html.findings', n=rows | length) }}</div>
+  </div>
+</header>
+{% if rows %}
+<table>
+  <thead><tr><th scope="col">{{ _('field.severity') }}</th><th scope="col">{{ _('report.finding') }}</th>
+  <th scope="col">{{ _('report.review_status') }}</th></tr></thead>
+  <tbody>
+  {% for f in rows %}
+  <tr{% if f.review.status == 'false_positive' %} class="dimmed"{% endif %}>
+    <td class="ts"><span class="sev">{% if f.severity and f.severity != 'info' %}{{ f.severity | sev }}{% else %}—{% endif %}</span>
+      <div>#{{ f.id }}</div>
+      <div class="muted">{% if f.timestamp %}{{ f.timestamp | ts }}{% else %}—{% endif %}</div></td>
+    <td class="wrap"><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}
+      <div class="muted mono">{{ f.evidence_id }} · #{{ f.analysis_id }}{% if f.techniques %} · ATT&amp;CK {{ f.techniques | join(', ') }}{% endif %}</div></td>
+    <td>{{ _('review.' + f.review.status) }}
+      {% if f.review.note %}<div class="note">{{ _('review.note') }}: {{ f.review.note }}</div>{% endif %}
+      {% if f.review.actor %}<div class="muted small">{{ _('review.by', actor=f.review.actor, timestamp=(f.review.timestamp | ts)) }}</div>{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ _('common.no_rows') }}</p>
+{% endif %}
+<footer>{{ _('export_html.custody_note') }} · {{ version }}</footer>
+</body>
+</html>

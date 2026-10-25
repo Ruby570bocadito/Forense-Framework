@@ -264,3 +264,81 @@ def test_timeline_html_export_escapes_hostile_values(case, evidence_dir, tmp_pat
     assert "<script>alert" not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
     assert "<img src=y>" not in html and "&lt;img" in html
     assert "evil&lt;script&gt;" in html
+
+
+def test_findings_html_export_anchors_custody(demo_case, tmp_path):
+    from forense.report.findings_html import export_findings_html
+
+    with Case.open(demo_case) as case:
+        total = len(case.findings())
+        path = export_findings_html(case, tmp_path / "findings.html", "en", "Ana")
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+        assert case.custody.verify() == []
+    assert "<script" not in html and "<style>" in html  # no JS, inline styles only
+    assert "src=" not in html and "href=" not in html  # no external resources at all
+    assert "Generated on" in html and "Ana" in html and "(UTC)" in html
+    assert entry.action == "export_created" and entry.actor == "Ana"
+    assert entry.details["kind"] == "findings" and entry.details["format"] == "html"
+    assert entry.details["rows"] == total and len(entry.details["sha256"]) == 64
+
+
+def test_findings_html_export_applies_filters(demo_case, tmp_path):
+    from forense.core.attack import techniques_for
+    from forense.report.findings_html import export_findings_html
+
+    with Case.open(demo_case) as case:
+        findings = case.findings()
+        high = [f for f in findings if f["severity"] in ("high", "critical")]
+        techniques = {t for f in findings for t in techniques_for(f)}
+        path = export_findings_html(case, tmp_path / "high.html", "en", severity="high")
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+        if techniques:
+            technique = sorted(techniques)[0]
+            expected = sum(1 for f in findings if technique in techniques_for(f))
+            export_findings_html(case, tmp_path / "tech.html", "en", technique=technique)
+            tech_entry = case.custody.entries()[-1]
+    assert entry.details["rows"] == len(high) and entry.details["filters"] == {"severity": "high"}
+    assert "Applied filters" in html and "Severity: ≥ high" in html
+    if techniques:
+        assert tech_entry.details["rows"] == expected
+        assert tech_entry.details["filters"] == {"technique": technique}
+
+
+def test_findings_html_export_review_status(demo_case, tmp_path):
+    from forense.report.findings_html import export_findings_html
+
+    with Case.open(demo_case) as case:
+        first = case.findings()[0]
+        case.review_finding(first["id"], "confirmed", note="Verificado contra la evidencia", actor="Ana")
+        path = export_findings_html(case, tmp_path / "confirmed.html", "es", status="confirmed")
+        html = path.read_text(encoding="utf-8")
+        entry = case.custody.entries()[-1]
+    assert entry.details["filters"] == {"status": "confirmed"} and entry.details["rows"] == 1
+    assert "Confirmado" in html and "Verificado contra la evidencia" in html
+    assert "por Ana el" in html
+
+
+def test_findings_html_export_empty_case(case, tmp_path):
+    from forense.report.findings_html import export_findings_html
+
+    path = export_findings_html(case, tmp_path / "empty.html", "es", "Perito")
+    html = path.read_text(encoding="utf-8")
+    assert "0 hallazgos." in html and "Sin filtros" in html
+
+
+def test_findings_html_export_escapes_hostile_values(case, evidence_dir, tmp_path):
+    from forense.core.case import _CaseSink
+    from forense.report.findings_html import export_findings_html
+
+    evidence = case.add_evidence(evidence_dir)
+    analysis = case.run_analysis("inventory", evidence.id)
+    _CaseSink(case.conn, analysis.id, evidence.id).add_findings([{
+        "severity": "high", "code": "evtx.suspicious_command", "timestamp": "2026-10-25T10:00:00Z",
+        "params": {"command": '<script>alert(1)</script> & "quoted" <img src=y> tail'},
+    }])
+    path = export_findings_html(case, tmp_path / "hostile.html", "en", "Ana")
+    html = path.read_text(encoding="utf-8")
+    assert "<script>alert" not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "<img src=y>" not in html and "&lt;img" in html and "quoted" in html

@@ -494,6 +494,8 @@
  "export_html.custody_note": "El hash SHA-256 de este documento quedó registrado en la cadena de custodia del caso.",
  "export_html.events": "{n} eventos.",
  "export_html.filters": "Filtros aplicados:",
+ "export_html.findings": "{n} hallazgos.",
+ "export_html.findings_no_filters": "Sin filtros: todos los hallazgos.",
  "export_html.generated": "Generado el {when} (UTC) por {analyst}.",
  "export_html.no_filters": "Sin filtros: todos los eventos.",
  "field.Is64Bit": "64 bits",

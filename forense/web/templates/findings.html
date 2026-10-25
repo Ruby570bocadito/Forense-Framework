@@ -16,6 +16,7 @@
   </div>
   <form method="post" action="{{ url_for('export', slug=slug, what='findings') }}" style="flex:0 0 auto">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary small" type="submit">{{ _('web.export_csv') }}</button>
+    <button class="secondary small" type="submit" formaction="{{ url_for('export', slug=slug, what='findings_html', **filter_args) }}">{{ _('web.export_html') }}</button>
   </form>
 </div>
 {% with page_name = 'findings' %}{% include "_saved_filters.html" %}{% endwith %}

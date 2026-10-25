@@ -205,6 +205,21 @@ def test_timeline_html_export_route(client, workspace):
         assert case.custody.entries()[-1].action == "export_created"
 
 
+def test_findings_html_export_route(client, workspace):
+    token = _token(client, "/c/case1/findings")
+    missing = client.post("/c/case1/export/findings_html?severity=high", data={})
+    assert missing.status_code == 400  # CSRF is mandatory like in every other export
+    response = client.post("/c/case1/export/findings_html?severity=high", data={"csrf_token": token})
+    assert response.status_code == 200 and "attachment" in response.headers["Content-Disposition"]
+    body = response.get_data(as_text=True)
+    assert "<script" not in body and "<style>" in body  # standalone printable document
+    with Case.open(workspace / "case1") as case:
+        assert len(list((case.root / "exports").glob("findings_*.html"))) == 1
+        entry = case.custody.entries()[-1]
+        assert entry.action == "export_created" and entry.details["kind"] == "findings"
+        assert entry.details["filters"] == {"severity": "high"}
+
+
 def test_password_protection(workspace):
     client = create_app(workspace, password="s3cret").test_client()
     assert client.get("/").status_code == 401

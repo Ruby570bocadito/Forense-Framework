@@ -692,6 +692,11 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
                 path = export_timeline_html(case, stamped_path(exports_dir, "timeline", ".html"), g.lang, actor(),
                                             **_timeline_filters())
+            elif what == "findings_html":
+                from forense.report.findings_html import export_findings_html
+
+                path = export_findings_html(case, stamped_path(exports_dir, "findings", ".html"), g.lang, actor(),
+                                            **_findings_filters())
             elif what == "findings":
                 path = exports.export_findings(case, stamped_path(exports_dir, "findings", ".csv"), fmt, g.lang, actor())
             elif what == "execution":
@@ -748,6 +753,11 @@ def _timeline_filters() -> dict:
     return {"start": ts("from"), "end": ts("to", range_end), "search": request.args.get("q", "").strip(),
             "source": request.args.get("source") or None, "min_severity": request.args.get("severity") or None,
             "evidence_id": request.args.get("evidence") or None, "bookmarked": request.args.get("bookmarked") == "1"}
+
+
+def _findings_filters() -> dict:
+    """Non-empty findings-page filters (severity, review status, ATT&CK technique)."""
+    return {k: request.args[k] for k in ("severity", "status", "technique") if request.args.get(k)}
 
 
 def _safe_module(name: str):

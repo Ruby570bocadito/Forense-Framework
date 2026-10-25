@@ -494,6 +494,8 @@
  "export_html.custody_note": "The SHA-256 hash of this document was recorded in the case chain of custody.",
  "export_html.events": "{n} events.",
  "export_html.filters": "Applied filters:",
+ "export_html.findings": "{n} findings.",
+ "export_html.findings_no_filters": "No filters: all findings.",
  "export_html.generated": "Generated on {when} (UTC) by {analyst}.",
  "export_html.no_filters": "No filters: all events.",
  "field.Is64Bit": "64-bit",
