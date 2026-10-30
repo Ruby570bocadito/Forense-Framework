@@ -72,7 +72,7 @@ TRIAGE_PATTERNS = (
     "Documents and Settings/*/Start Menu/Programs/Startup/*",
     "Documents and Settings/*/Application Data/Mozilla/Firefox/Profiles/*/places.sqlite",
     "Documents and Settings/*/Local Settings/Temp/*.exe",
-    "RECYCLER/*/INFO2", "Windows/System32/config/*.evt",
+    "RECYCLER/*/INFO2", "RECYCLER/*/D*", "Windows/System32/config/*.evt",
 )
 
 

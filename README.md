@@ -481,13 +481,13 @@ las comprobaciones de estado de contenedores.
 | Módulo | Artefactos | Qué detecta |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Fuerza bruta y **acceso tras fuerza bruta**, borrado de logs (1102/104), altas de usuario y en grupos privilegiados, servicios (7045/4697) y tareas creadas, comandos sospechosos (4688/Sysmon 1), PowerShell malicioso (4104), detecciones y desactivación de Defender, persistencia WMI, RDP desde IP pública y **reglas Sigma** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, programas instalados (con alerta si son **herramientas ofensivas**), perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1, **claves y valores borrados** (servicios, tareas, IFEO y comandos eliminados) |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, último usuario y dominio de Winlogon, tarjetas de red y concesiones DHCP, programas instalados (con alerta si son **herramientas ofensivas**), perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1, **claves y valores borrados** (servicios, tareas, IFEO y comandos eliminados) |
 | `prefetch` | `*.pf` (XP a Windows 11, incluido el formato comprimido) | Ejecución de programas: nº de ejecuciones, últimas 8 fechas, volumen y archivos cargados; herramientas ofensivas y ejecución desde ubicaciones sospechosas |
 | `srum` | `SRUDB.dat` | Bytes enviados y recibidos por aplicación y usuario, conexiones, uso de CPU/disco; **posible exfiltración** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Carpetas exploradas, también en USB, red y carpetas ya borradas |
 | `jumplists` | `*.automaticDestinations-ms`, `*.customDestinations-ms` | Archivos abiertos por aplicación, conexiones RDP, unidades extraíbles, argumentos sospechosos |
 | `lnk` | `*.lnk` | Archivos abiertos, rutas de red, **unidades extraíbles** (serie y etiqueta), equipo y **MAC** de origen, persistencia en la carpeta Inicio |
-| `recyclebin` | `$Recycle.Bin\<SID>\$I*` | Ruta original, tamaño, fecha de borrado, usuario y si el contenido (`$R`) es recuperable |
+| `recyclebin` | `$Recycle.Bin\<SID>\$I*` y, en Windows XP, `RECYCLER\<SID>\INFO2` | Ruta original, tamaño, fecha de borrado, usuario y si el contenido (`$R`, `D<unidad><n>`) es recuperable |
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | Historial, descargas, **ejecutables descargados**, servicios de intercambio y paste |
 | `mft` | `$MFT` | Línea temporal $SI/$FN, entradas borradas, rutas completas, **Zone.Identifier** (URL de descarga), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | Creación, borrado y renombrado de archivos con rutas completas (usando el `$MFT`); herramientas ofensivas, ejecutables creados y borrados, borrado de Prefetch y EVTX, **renombrado masivo (ransomware)** y borrado masivo |
@@ -672,7 +672,7 @@ regresión. Resultados actuales ([detalle y método](docs/VALIDACION.md)):
 |---|---|
 | 261 registros de ataques reales (EVTX-ATTACK-SAMPLES) | detecta el 24 % con las reglas integradas y el **74 %** con SigmaHQ; 0 errores de lectura |
 | 599 registros de Hayabusa | 26.197 eventos y 2.888 hallazgos sin fallos, en 108 s con 2.405 reglas Sigma |
-| Disco del NIST «Hacking Case» (Windows XP) | 11 de 31 preguntas oficiales respondidas por completo y 10 en parte, en 13 s |
+| Disco del NIST «Hacking Case» (Windows XP) | 15 de 31 preguntas oficiales respondidas por completo y 9 en parte, en 13 s |
 
 `python scripts/validar_evtx.py RUTA/EVTX-ATTACK-SAMPLES [--sigma RUTA/sigma]` repite la primera medida.
 

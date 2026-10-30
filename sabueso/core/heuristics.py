@@ -102,8 +102,10 @@ _INSTALLED_TOOLS = tuple((re.compile(pattern, re.IGNORECASE), tool) for pattern,
     (r"\bnetwork stumbler\b|\bnetstumbler\b", "netstumbler"), (r"\blook@lan\b", "lookatlan"),
     (r"\bwrite all stored passwords\b", "123wasp"), (r"\bnmap\b", "nmap"), (r"\bangry ip scanner\b", "angryip"),
     (r"\badvanced ip scanner\b", "advanced_ip_scanner"), (r"\bhashcat\b", "hashcat"),
-    (r"\bjohn the ripper\b", "john"), (r"\bmimikatz\b", "mimikatz"),
+    (r"\bjohn the ripper\b", "john"), (r"\bmimikatz\b", "mimikatz"), (r"\banonymizer\b", "anonymizer"),
 ))
+# Installed tools that hide the user rather than attack anyone: worth noting, at a lower severity.
+ANONYMITY_TOOLS = frozenset({"anonymizer"})
 
 
 def installed_tool(display_name: str) -> str | None:

@@ -475,13 +475,13 @@ password for container health checks.
 | Module | Artifacts | Detects |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Brute force and **logon after brute force**, log clearing (1102/104), new users and privileged group changes, services (7045/4697) and tasks created, suspicious commands (4688/Sysmon 1), malicious PowerShell (4104), Defender detections and tampering, WMI persistence, RDP from public IPs and **Sigma rules** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, installed programs (flagging **offensive tools**), network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, Winlogon's last user and domain, network cards and DHCP leases, installed programs (flagging **offensive tools**), network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
 | `prefetch` | `*.pf` (XP to Windows 11, compressed format included) | Program execution: run count, last 8 run times, volume and loaded files; offensive tools and execution from suspicious locations |
 | `srum` | `SRUDB.dat` | Bytes sent and received per application and user, connectivity, CPU/disk usage; **possible exfiltration** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Folders browsed, including USB, network and already deleted folders |
 | `jumplists` | `*.automaticDestinations-ms`, `*.customDestinations-ms` | Files opened per application, RDP connections, removable drives, suspicious arguments |
 | `lnk` | `*.lnk` | Opened files, network paths, **removable drives** (serial and label), source machine and **MAC**, Startup folder persistence |
-| `recyclebin` | `$Recycle.Bin\<SID>\$I*` | Original path, size, deletion time, user and whether the content (`$R`) is recoverable |
+| `recyclebin` | `$Recycle.Bin\<SID>\$I*` and, on Windows XP, `RECYCLER\<SID>\INFO2` | Original path, size, deletion time, user and whether the content (`$R`, `D<drive><n>`) is recoverable |
 | `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | History, downloads, **downloaded executables**, file-sharing and paste services |
 | `mft` | `$MFT` | $SI/$FN timeline, deleted entries, full paths, **Zone.Identifier** (download URL), **timestomping** |
 | `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
@@ -664,7 +664,7 @@ Current results ([details and method](docs/VALIDACION.md), in Spanish):
 |---|---|
 | 261 logs of real attacks (EVTX-ATTACK-SAMPLES) | 24 % detected with the built-in rules, **74 %** with SigmaHQ; 0 read errors |
 | 599 Hayabusa logs | 26,197 events and 2,888 findings without failures, in 108 s with 2,405 Sigma rules |
-| NIST "Hacking Case" disk (Windows XP) | 11 of 31 official questions fully answered and 10 partly, in 13 s |
+| NIST "Hacking Case" disk (Windows XP) | 15 of 31 official questions fully answered and 9 partly, in 13 s |
 
 `python scripts/validar_evtx.py PATH/EVTX-ATTACK-SAMPLES [--sigma PATH/sigma]` repeats the first measurement.
 

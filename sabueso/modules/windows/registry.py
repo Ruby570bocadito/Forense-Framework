@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from sabueso.core.heuristics import (
+    ANONYMITY_TOOLS,
     EXECUTABLE_EXTENSIONS,
     autostart_suspicion,
     installed_tool,
@@ -262,16 +263,21 @@ class RegistryModule(Module):
 
         interfaces = hive.open(f"{base}\\Services\\Tcpip\\Parameters\\Interfaces")
         for key in interfaces.subkeys() if interfaces else []:
-            ip = _text(key.get("IPAddress")) or _text(key.get("DhcpIPAddress"))
-            if not ip or ip == "0.0.0.0":
-                continue
+            ips = [a for a in (_text(key.get("DhcpIPAddress")), _text(key.get("IPAddress"))) if a and a != "0.0.0.0"]
+            lease = key.get("LeaseObtainedTime")
+            lease_time = datetime.fromtimestamp(lease, tz=timezone.utc) if isinstance(lease, int) and lease > 0 else None
+            if not ips and lease_time is None:
+                continue  # an interface that never had an address tells nothing
             ctx.record("network_interface", {
-                "file": rel, "interface": key.name, "ip_address": ip, "dhcp": bool(key.get("EnableDHCP")),
-                "dhcp_server": _text(key.get("DhcpServer")),
+                "file": rel, "interface": key.name, "ip_address": ips[0] if ips else "",
+                "dhcp": bool(key.get("EnableDHCP")), "dhcp_server": _text(key.get("DhcpServer")),
                 "domain": _text(key.get("DhcpDomain") or key.get("Domain")),
                 "dns_servers": _text(key.get("NameServer") or key.get("DhcpNameServer")),
+                "gateway": _text(key.get("DhcpDefaultGateway") or key.get("DefaultGateway")),
+                "lease_obtained": dt_or_none_iso(lease_time),
                 "key_last_written": dt_or_none_iso(key.last_written),
             })
+            ctx.event(lease_time, "dhcp_lease", f"{key.name} {ips[0] if ips else ''}".strip(), rel)
 
         self._usb(ctx, hive, rel, base)
         self._services(ctx, hive, rel, base)
@@ -398,6 +404,10 @@ class RegistryModule(Module):
                 "registered_owner": _text(cv.get("RegisteredOwner")),
                 "registered_organization": _text(cv.get("RegisteredOrganization")),
             }
+            logon = cv.subkey("Winlogon")
+            if logon is not None:  # last interactive logon remembered by Winlogon, and the domain (or computer) used
+                info["default_user"] = _text(logon.get("DefaultUserName"))
+                info["default_domain"] = _text(logon.get("DefaultDomainName"))
             ctx.record("os_info", info)
             ctx.summary["os"] = {k: v for k, v in info.items() if k != "file"}
             ctx.event(installed, "os_installed", f"{product} {info['build']}", rel)
@@ -442,8 +452,17 @@ class RegistryModule(Module):
                 ctx.event(key.last_written, "program_installed", name, rel)
                 tool = installed_tool(name)
                 if tool:
-                    ctx.finding("registry.installed_attack_tool", "medium", key.last_written, program=name, tool=tool,
+                    severity = "low" if tool in ANONYMITY_TOOLS else "medium"
+                    ctx.finding("registry.installed_attack_tool", severity, key.last_written, program=name, tool=tool,
                                 location=_text(key.get("InstallLocation")) or "-")
+
+        cards = hive.open("Microsoft\\Windows NT\\CurrentVersion\\NetworkCards")
+        for key in cards.subkeys() if cards else []:  # adapters installed, joined to the Tcpip interfaces by GUID
+            description = _text(key.get("Description"))
+            if description:
+                ctx.record("network_card", {"file": rel, "index": key.name, "description": description,
+                                            "interface": _text(key.get("ServiceName")),
+                                            "key_last_written": dt_or_none_iso(key.last_written)})
 
         profiles = hive.open("Microsoft\\Windows NT\\CurrentVersion\\NetworkList\\Profiles")
         zone = WindowsTimeZone.from_evidence(ctx.target) if profiles else None

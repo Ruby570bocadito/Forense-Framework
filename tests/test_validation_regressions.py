@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 
 from sabueso.core.attack import attack_matrix, technique_info, techniques_for
@@ -146,3 +148,81 @@ def test_files_extracted_from_an_image_keep_their_original_times(tmp_path):
     # a folder inside the extraction finds the manifest too, with paths relative to itself
     from sabueso.core.utils import original_times
     assert original_times(extracted / "C") == {"Users/notes.txt": original}
+
+
+def _info2(records: list[tuple[str, int, int, int, int]], record_size: int = 800) -> bytes:
+    """INFO2 bytes: (path, index, drive, deletion FILETIME, size) per record."""
+    import struct
+
+    data = struct.pack("<IIIII", 5, len(records), len(records), record_size, 0)
+    for path, index, drive, deleted, size in records:
+        record = struct.pack("<260sIIQI", path.encode("cp1252"), index, drive, deleted, size)
+        if record_size == 800:
+            record += path.encode("utf-16-le").ljust(520, b"\x00")
+        data += record
+    return data
+
+
+def test_windows_xp_recycle_bin_info2(tmp_path):
+    """NIST case questions 28-29: what is in Mr. Evil's recycle bin, and is it really gone?"""
+    from sabueso.demo.builders import to_filetime
+    from sabueso.modules import get_module
+    from sabueso.parsers.recyclebin import RecycleBinError, parse_info2
+
+    when = to_filetime(datetime(2004, 8, 25, 16, 18, 25, tzinfo=timezone.utc))
+    data = _info2([(r"C:\Documents and Settings\Mr. Evil\Desktop\lalsetup250.exe", 1, 2, when, 2160128),
+                   ("", 0, 0, 0, 0),  # empty slot
+                   (r"C:\Temp\notes.txt", 2, 2, when, 4096)])
+    items = parse_info2(data + b"\x01" * 100)  # a truncated trailing record is ignored
+    assert [(i.index, i.drive, i.original_path.rsplit("\\", 1)[-1]) for i in items] == [
+        (1, "c", "lalsetup250.exe"), (2, "c", "notes.txt")]
+    assert items[0].deleted == datetime(2004, 8, 25, 16, 18, 25, tzinfo=timezone.utc)
+    assert parse_info2(_info2([(r"C:\a.exe", 1, 3, when, 1)], 280))[0].drive == "d"  # Windows 98/ME layout
+    with pytest.raises(RecycleBinError):
+        parse_info2(b"\x05" + b"\x00" * 30)
+
+    folder = tmp_path / "C" / "RECYCLER" / "S-1-5-21-1-2-3-1003"
+    folder.mkdir(parents=True)
+    (folder / "INFO2").write_bytes(data)
+    (folder / "Dc1.exe").write_bytes(b"MZ")  # still there: not really deleted
+    ctx = get_module("recyclebin").run(tmp_path, tmp_path / "out")
+    records = [r for kind, r in ctx.sink.records if kind == "deleted_file"]
+    assert [(r["content_present"], r["format"]) for r in records] == [(True, "INFO2"), (False, "INFO2")]
+    assert records[0]["sid"] == "S-1-5-21-1-2-3-1003" and records[0]["content_file"].endswith("Dc1.exe")
+    assert [f["code"] for f in ctx.sink.findings] == ["recyclebin.deleted_executable"]
+    assert ctx.summary["deleted_items"] == 2 and ctx.summary["content_recoverable"] == 1
+
+
+def test_registry_network_cards_and_last_logon(demo, tmp_path):
+    """NIST case questions 7, 11 and 13: logon domain, last user and network cards come from the registry."""
+    from sabueso.modules import get_module
+
+    ctx = get_module("registry").run(demo["triage"], tmp_path / "out")
+    os_info = next(r for kind, r in ctx.sink.records if kind == "os_info")
+    assert (os_info["default_user"], os_info["default_domain"]) == ("maria", "CONTOSO")
+    card = next(r for kind, r in ctx.sink.records if kind == "network_card")
+    assert card["description"].startswith("Intel") and card["interface"].startswith("{4f2a7c10")
+    assert not any("Your Image File Name Here" in str(f["params"]) for f in ctx.sink.findings)
+
+
+def test_anonymity_tools_are_noted_at_low_severity():
+    from sabueso.core.heuristics import ANONYMITY_TOOLS
+
+    assert installed_tool("Anonymizer Bar 2.0 (remove only)") == "anonymizer" and "anonymizer" in ANONYMITY_TOOLS
+    finding = {"code": "registry.installed_attack_tool", "params": {"program": "Anonymizer Bar", "tool": "anonymizer"}}
+    assert "T1090" in techniques_for(finding)
+
+
+def test_doctor_recommends_sigmahq_rules(tmp_path):
+    from sabueso.core.config import DEFAULTS, Config
+    from sabueso.doctor import run_checks
+
+    def sigma_check(config):
+        return next(c for c in run_checks(config) if "SigmaHQ" in c.purpose)
+
+    assert sigma_check(Config(dict(DEFAULTS))).status == "missing"
+    rules = tmp_path / "sigma"
+    rules.mkdir()
+    configured = Config({**DEFAULTS, "intel": {**DEFAULTS.get("intel", {}), "sigma_rules": str(rules)}})
+    assert sigma_check(configured).status == "ok"
+

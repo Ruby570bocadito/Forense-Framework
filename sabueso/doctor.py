@@ -113,6 +113,10 @@ def run_checks(config=None) -> list[Check]:
     rules = Path(__file__).parent / "sigma" / "rules"
     count = len(list(rules.glob("*.yml"))) if rules.is_dir() else 0
     checks.append(Check(t("doctor.sigma_bundled"), "ok" if count else "error", str(count), t("doctor.purpose.sigma")))
+    external = [p for p in config.paths("intel.sigma_rules") if p.exists()]
+    checks.append(Check(t("doctor.sigma_rules"), "ok" if external else "missing",
+                        ", ".join(str(p) for p in external) or t("doctor.sigma_rules_hint"),
+                        t("doctor.purpose.sigma_external")))
     checks.append(Check(t("doctor.language"), "ok", get_language(), t("doctor.purpose.language")))
     if os.name == "nt":
         checks.append(Check(t("doctor.admin"), "ok" if _is_admin() else "warn",

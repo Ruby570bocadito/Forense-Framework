@@ -66,7 +66,7 @@ Con solo las reglas integradas, el mismo registro se analiza en 1,3 s.
 sabueso auto "4Dell Latitude CPi.E01" --nuevo nist-hacking -p full
 ```
 
-13 segundos para la imagen completa. Resultado frente a las preguntas oficiales:
+13 segundos para la imagen completa. Resultado frente a las preguntas oficiales (segunda ronda, tras las mejoras de la v0.5):
 
 | # | Pregunta | Sabueso | Dónde |
 |---|---|---|---|
@@ -76,21 +76,22 @@ sabueso auto "4Dell Latitude CPi.E01" --nuevo nist-hacking -p full
 | 4 | Zona horaria | ✅ Central Standard Time | `system_info` |
 | 5 | Propietario registrado | ✅ Greg Schardt | `os_info` |
 | 6 | Nombre del equipo | ✅ N-1A9ODN6ZXK4LQ | `system_info` |
-| 7 | Dominio principal | ❌ no se extrae | — |
+| 7 | Dominio principal | ✅ N-1A9ODN6ZXK4LQ (Winlogon) | `os_info` |
 | 8 | Último apagado | ✅ 2004-08-27 15:46:33 UTC | `system_info` |
 | 9 | Número de cuentas | ✅ 5 | `user_account` |
-| 10–11 | Usuario habitual / último en iniciar sesión | ✅ Mr. Evil (15 inicios, último 2004-08-27 15:08:23 UTC) | `user_account` |
+| 10–11 | Usuario habitual / último en iniciar sesión | ✅ Mr. Evil (15 inicios, último 2004-08-27 15:08:23 UTC; también en Winlogon) | `user_account`, `os_info` |
 | 12 | Archivo que liga a G. Schardt con Mr. Evil | ❌ requiere buscar en el contenido de archivos de programa | — |
-| 13–15 | Tarjetas de red, IP y MAC | ⚠️ MAC 00:10:a4:93:3e:09 en los accesos directos; sin IP ni tarjetas | `shell_link` |
-| 16 | 6 programas de hacking | ✅ 5 de 6 marcados (Cain & Abel, Ethereal, Look@LAN, Network Stumbler, 123 Write All Stored Passwords); Anonymizer aparece en la lista de instalados sin alerta | hallazgos |
+| 13 | Tarjetas de red | ✅ Xircom CardBus Ethernet 100 + Modem 56 y Compaq WL110 Wireless LAN, con sus concesiones DHCP | `network_card`, `network_interface` |
+| 14–15 | IP, MAC y fabricante | ⚠️ MAC 00:10:a4:93:3e:09 en los accesos directos (prefijo de Xircom); la IP solo está en un archivo de Look@LAN | `shell_link` |
+| 16 | 6 programas de hacking | ✅ los 6 marcados: Cain & Abel, Ethereal, Look@LAN, Network Stumbler y 123 Write All Stored Passwords (gravedad media) y Anonymizer (baja) | hallazgos |
 | 17–20 | Correo, servidor de noticias, grupos | ⚠️ Forté Agent y Outlook Express identificados; su configuración no se analiza | `installed_program`, ejecución |
 | 21–22 | Configuración y canales de mIRC | ⚠️ se ve el acceso a `mIRC\channels\channels.txt`; no se lee su contenido | `shell_link` |
 | 23–27 | Captura de Ethereal y correo web | ❌ fuera del perfil de triaje | — |
-| 28–29 | Ejecutables en la papelera | ❌ la papelera de XP (`INFO2`) se extrae pero no se analiza | — |
+| 28–29 | Ejecutables en la papelera | ✅ 4 (lalsetup250, NetStumbler, WinPcap y Ethereal) y su contenido sigue en `RECYCLER` (`Dc1.exe`…): no están realmente borrados | `deleted_file` |
 | 30 | Archivos borrados según el sistema de archivos | ✅ 3 entradas borradas en `$MFT` | análisis `mft` |
 | 31 | Antivirus | ❌ no es un antivirus (YARA y listas de hashes sí) | — |
 
-**Resumen:** de las 31 preguntas, 11 con respuesta completa, 10 parciales y 10 sin respuesta. Lo que falta es, sobre todo,
+**Resumen:** de las 31 preguntas, **15 con respuesta completa, 9 parciales y 7 sin respuesta** (en la primera ronda: 11, 10 y 10). Lo que falta es, sobre todo,
 el **contenido de archivos de aplicaciones** (mIRC, Agent, Outlook Express, capturas de red), que hoy no forma parte
 del triaje.
 
@@ -108,12 +109,14 @@ del triaje.
 | Las técnicas de reglas Sigma que no estaban en la tabla interna no aparecían en el mapa ATT&CK | EVTX-ATTACK | Se usan las etiquetas de táctica de la propia regla (táctica correcta: del 25 % al 43 %) |
 | Cargar SigmaHQ costaba 27 s en cada análisis y evaluar cada evento de creación de procesos, ~18 ms | Hayabusa | Cargador YAML en C, caché de reglas, índice por EventID y prefiltro de cadenas obligatorias, con prueba de que el resultado no cambia |
 | Los tests fallaban en un Windows en español | este equipo | El idioma de los tests se fija a inglés |
+| No se leía la papelera de Windows XP (`INFO2`) | NIST (2ª ronda) | Analizador de `INFO2` (formatos de 280 y 800 bytes) y extracción de los `D<unidad><n>` |
+| No se extraían las tarjetas de red, las concesiones DHCP ni el dominio y usuario de Winlogon | NIST (2ª ronda) | Nuevos registros `network_card` y campos `default_user` / `default_domain` |
+| Anonymizer no se marcaba | NIST (2ª ronda) | Herramientas de anonimato con gravedad baja y técnica T1090 |
 
 ## Pendiente (siguiente ronda)
 
-- Papelera de Windows XP (`INFO2`) y registros `.evt` de XP: ya se extraen, falta el analizador.
+- Registros `.evt` de Windows XP: ya se extraen, falta el analizador.
 - Configuración de clientes de correo, noticias e IRC (Outlook Express, Forté Agent, mIRC).
-- Interfaces de red e IP desde el registro (`Tcpip\Parameters\Interfaces`) y dominio principal.
 - Una imagen moderna (Windows 10/11) con preguntas oficiales para validar SRUM, Amcache, EVTX y navegadores.
 - Rendimiento de Sigma: ~150 eventos/s de creación de procesos con SigmaHQ; un índice de cadenas común a todas
   las reglas lo multiplicaría.

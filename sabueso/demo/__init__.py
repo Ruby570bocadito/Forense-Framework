@@ -154,6 +154,13 @@ def _software_hive(path: Path) -> None:
     h.value(cv, "RegisteredOwner", b.REG_SZ, "Contoso Contabilidad")
     h.value(f"{cv}\\Winlogon", "Shell", b.REG_SZ, "explorer.exe")
     h.value(f"{cv}\\Winlogon", "Userinit", b.REG_SZ, "C:\\Windows\\system32\\userinit.exe,")
+    h.value(f"{cv}\\Winlogon", "DefaultUserName", b.REG_SZ, USER)
+    h.value(f"{cv}\\Winlogon", "DefaultDomainName", b.REG_SZ, "CONTOSO")
+    h.value(f"{cv}\\NetworkCards\\2", "Description", b.REG_SZ, "Intel(R) Ethernet Connection I219-LM")
+    h.value(f"{cv}\\NetworkCards\\2", "ServiceName", b.REG_SZ, "{4f2a7c10-1111-4c3e-9a55-0d1e2f3a4b5c}")
+    # placeholder IFEO key that Windows XP and Server 2003 ship: never a finding
+    h.value(f"{cv}\\Image File Execution Options\\Your Image File Name Here without a path", "Debugger", b.REG_SZ,
+            "ntsd -d")
     h.key(f"{cv}\\Image File Execution Options\\sethc.exe", _t(48))
     h.value(f"{cv}\\Image File Execution Options\\sethc.exe", "Debugger", b.REG_SZ, "C:\\Windows\\System32\\cmd.exe")
     run = "Microsoft\\Windows\\CurrentVersion\\Run"
