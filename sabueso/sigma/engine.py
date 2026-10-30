@@ -18,6 +18,7 @@ import base64
 import fnmatch
 import ipaddress
 import math
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -514,7 +515,20 @@ class SigmaRule:
     _selections: dict[str, Predicate] = field(repr=False, default_factory=dict)
     _condition: Callable = field(repr=False, default=lambda m: False)
 
-    def matches(self, event: dict, field_map: Optional[dict] = None) -> bool:
+    # EventIDs the detection itself requires (``selection: {EventID: 4624}`` and ...), used to index the rule
+    required_event_ids: tuple[int, ...] = ()
+    # Cheap necessary condition checked before the full evaluation: [(field, literals)], at least one literal
+    # must appear (case-insensitively) in one of those fields, or the rule cannot match
+    required_literals: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def matches(self, event: dict, field_map: Optional[dict] = None, lowered: Optional[dict] = None) -> bool:
+        """Whether ``event`` matches; ``lowered`` (keys in lower case) can be shared by every rule of one event."""
+        if self.required_literals and not self.may_match(event, field_map, lowered):
+            return False
+        return self._condition_matches(event, field_map, lowered)
+
+    def _condition_matches(self, event: dict, field_map: Optional[dict] = None,
+                           lowered: Optional[dict] = None) -> bool:
         cache: dict[str, bool] = {}
 
         def get(name: str) -> Any:
@@ -524,9 +538,11 @@ class SigmaRule:
                 return event.get(field_map[name])
             if name in event:
                 return event[name]
-            lowered = name.lower()
+            if lowered is not None:
+                return lowered.get(name.lower())
+            name = name.lower()
             for key, value in event.items():
-                if key.lower() == lowered:
+                if key.lower() == name:
                     return value
             return None
 
@@ -536,6 +552,28 @@ class SigmaRule:
             return cache[name]
 
         return self._condition(selection)
+
+    def may_match(self, event: dict, field_map: Optional[dict] = None, lowered: Optional[dict] = None,
+                  texts: Optional[dict] = None) -> bool:
+        """False only when no required literal is present, so the rule cannot match (see ``required_literals``).
+
+        ``texts`` caches each field's lower-case text for every rule checked against the same event."""
+        texts = {} if texts is None else texts
+        for name, literals in self.required_literals:
+            source = field_map[name] if field_map and name in field_map else name
+            if source not in texts:
+                value = event.get(source)
+                if value is None and source not in event:
+                    value = (lowered or {}).get(source.lower())
+                text = _to_text(value)
+                # Unicode case folding is the regular expressions' job: such a field never rules a rule out
+                texts[source] = text if text is None or not text.isascii() else text.lower()
+            text = texts[source]
+            if text is None:
+                continue
+            if not text.isascii() or any(literal in text for literal in literals):
+                return True
+        return False
 
 
 def _targets(logsource: dict) -> list[tuple[str, tuple[int, ...], Optional[dict]]]:
@@ -575,7 +613,133 @@ def compile_rule(doc: dict, path: str = "") -> SigmaRule:
         status=str(doc.get("status", "")), description=str(doc.get("description", "")).strip(),
         tags=[str(t) for t in doc.get("tags") or []], path=path, targets=_targets(doc.get("logsource") or {}),
         _selections=selections, _condition=lambda m: any(c(m) for c in compiled),
+        required_event_ids=_required_event_ids(conditions, detection),
+        required_literals=_required_literals(conditions, detection),
     )
+
+
+def _selection_event_ids(definition: Any) -> Optional[set[int]]:
+    """EventIDs a selection only matches (exact ``EventID`` key, no modifiers), or None if it does not say."""
+    maps = definition if isinstance(definition, list) else [definition]
+    if not maps or not all(isinstance(m, dict) for m in maps):
+        return None
+    ids: set[int] = set()
+    for item in maps:
+        value = item.get("EventID")
+        if value is None:
+            return None  # one alternative of the selection accepts any event
+        try:
+            ids.update(int(v) for v in (value if isinstance(value, list) else [value]))
+        except (TypeError, ValueError):
+            return None
+    return ids
+
+
+def _required_selections(conditions: list, detection: dict) -> list[list[str]]:
+    """Groups of selections such that every match satisfies at least one selection of each group, read
+    conservatively from the condition: only a single condition whose top level is ``A and all of sel_* and
+    1 of x_* and not C`` gives [[A], [sel_1], [sel_2], [x_1, x_2]]. Anything else (``or`` at the top level,
+    several conditions) gives none and the rule is always evaluated in full."""
+    if len(conditions) != 1:
+        return []
+    tokens = [t.lower() if t.lower() in ("and", "or", "not", "1 of", "all of", "any of") else t
+              for t in _TOKEN.findall(str(conditions[0])) if t.strip()]
+    depth, terms, current = 0, [], []
+    for tok in tokens:
+        depth += tok == "("
+        depth -= tok == ")"
+        if depth == 0 and tok == "or":
+            return []
+        if depth == 0 and tok == "and":
+            terms.append(current)
+            current = []
+        else:
+            current.append(tok)
+    terms.append(current)
+    required: list[list[str]] = []
+    for term in terms:
+        if len(term) == 1:
+            required.append([term[0]])
+        elif len(term) == 2 and term[0] in ("all of", "1 of", "any of"):
+            named = [n for n in detection if not n.startswith("_") and
+                     (term[1] == "them" or fnmatch.fnmatchcase(n, term[1]))]
+            if term[0] == "all of":
+                required += [[n] for n in named]  # every one is required
+            elif named:
+                required.append(named)  # at least one of them is
+    return required
+
+
+def _required_event_ids(conditions: list, detection: dict) -> tuple[int, ...]:
+    """EventIDs any match must have: those pinned by a required selection, or () when none does."""
+    for group in _required_selections(conditions, detection):
+        ids = _selection_event_ids(detection.get(group[0])) if len(group) == 1 else None
+        if ids:
+            return tuple(sorted(ids))
+    return ()
+
+
+_LITERAL_MODIFIERS = {"contains", "startswith", "endswith", "all", "cased"}
+
+
+def _field_literals(field_spec: str, raw_values: Any) -> Optional[tuple[str, tuple[str, ...]]]:
+    """(field, literals) such that a match of this field contains at least one literal, or None if unknown.
+
+    Only plain string comparisons qualify; each value contributes its longest wildcard-free piece, in lower
+    case (a superset test for case-sensitive ``cased`` values too)."""
+    name, *modifiers = field_spec.split("|")
+    if not name or not {m.lower() for m in modifiers} <= _LITERAL_MODIFIERS:
+        return None
+    values = raw_values if isinstance(raw_values, list) else [raw_values]
+    literals = []
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            return None
+        value = str(value)
+        if re.search(r"\\[*?\\]", value) or not value.isascii():
+            return None  # escaped wildcards and Unicode case folding: leave them to the full matcher
+        piece = max(re.split(r"[*?]", value), key=len)
+        if not piece:
+            return None
+        literals.append(piece.lower())
+    return (name, tuple(dict.fromkeys(literals))) if literals else None
+
+
+def _selection_literals(definition: Any) -> Optional[list[tuple[str, tuple[str, ...]]]]:
+    """Alternatives (field, literals) of one selection, one per map of an OR list; None if one has none."""
+    maps = definition if isinstance(definition, list) else [definition]
+    if not maps or not all(isinstance(m, dict) and m for m in maps):
+        return None
+    alternatives = []
+    for item in maps:  # every field of a map is required: keep the most specific one (longest shortest literal)
+        candidates = [lit for lit in (_field_literals(k, v) for k, v in item.items()) if lit]
+        if not candidates:
+            return None
+        alternatives.append(max(candidates, key=_specificity))
+    return alternatives
+
+
+def _specificity(alternative: tuple[str, tuple[str, ...]]) -> int:
+    return min(len(literal) for literal in alternative[1])
+
+
+def _required_literals(conditions: list, detection: dict) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Prefilter of the most specific required group whose every selection names literals (see SigmaRule)."""
+    best: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    for group in _required_selections(conditions, detection):
+        alternatives: list[tuple[str, tuple[str, ...]]] = []
+        for name in group:
+            found = _selection_literals(detection.get(name))
+            if found is None:
+                break
+            alternatives += found
+        else:
+            if not best or min(map(_specificity, alternatives)) > min(map(_specificity, best)):
+                best = tuple(alternatives)
+    return best
+
+
+_LOAD_CACHE: dict = {}  # last SigmaRuleSet.load() result and the (path, mtime, size) of the files it read
 
 
 class SigmaRuleSet:
@@ -584,24 +748,37 @@ class SigmaRuleSet:
         self._index: dict[tuple[str, Optional[int]], list[tuple[SigmaRule, Optional[dict]]]] = {}
         for rule in self.rules:
             for channel, event_ids, field_map in rule.targets:
-                for event_id in event_ids or (None,):
+                for event_id in event_ids or rule.required_event_ids or (None,):
                     self._index.setdefault((channel, event_id), []).append((rule, field_map))
 
     @classmethod
     def load(cls, paths: Iterable[Path], min_level: str = "info",
              skip_status: tuple[str, ...] = ("deprecated", "unsupported")) -> tuple["SigmaRuleSet", list[tuple[str, str]]]:
-        """Load ``.yml``/``.yaml`` rules from files or folders. Returns ``(ruleset, [(file, error)])``."""
+        """Load ``.yml``/``.yaml`` rules from files or folders. Returns ``(ruleset, [(file, error)])``.
+
+        The last result is kept in memory while none of its files changes, so analysing many logs (or the web
+        interface running one analysis after another) compiles a large pack such as SigmaHQ only once.
+        """
         import yaml
 
-        rules, errors = [], []
         files: list[Path] = []
         for path in paths:
             path = Path(path)
             files += sorted(p for p in path.rglob("*") if p.suffix.lower() in (".yml", ".yaml")) if path.is_dir() \
                 else [path]
+        try:
+            stats = [(str(f), os.stat(f)) for f in files]
+            key = (tuple((name, st.st_mtime_ns, st.st_size) for name, st in stats), min_level, skip_status)
+        except OSError:
+            key = None
+        if key is not None and key == _LOAD_CACHE.get("key"):
+            return _LOAD_CACHE["value"]
+        # the C implementation of the safe loader when PyYAML ships it: same safety, several times faster
+        loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+        rules, errors = [], []
         for file in files:
             try:
-                docs = [d for d in yaml.safe_load_all(file.read_text(encoding="utf-8")) if d]
+                docs = [d for d in yaml.load_all(file.read_text(encoding="utf-8"), Loader=loader) if d]
             except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:
                 errors.append((str(file), f"YAML: {exc}"))
                 continue
@@ -615,15 +792,22 @@ class SigmaRuleSet:
                     continue
                 if LEVEL_RANK[rule.level] >= LEVEL_RANK.get(min_level, 0):
                     rules.append(rule)
-        return cls(rules), errors
+        result = (cls(rules), errors)
+        if key is not None:
+            _LOAD_CACHE.update(key=key, value=result)
+        return result
 
     def match(self, channel: str, event_id: int, event: dict) -> list[SigmaRule]:
         channel = channel.lower()
         hits = []
+        lowered = {key.lower(): value for key, value in reversed(event.items())}  # first key wins, as before
+        texts: dict[str, Optional[str]] = {}
         for key in ((channel, event_id), (channel, None)):
             for rule, field_map in self._index.get(key, ()):
+                if rule.required_literals and not rule.may_match(event, field_map, lowered, texts):
+                    continue
                 try:
-                    if rule.matches(event, field_map):
+                    if rule._condition_matches(event, field_map, lowered):
                         hits.append(rule)
                 except (TypeError, ValueError):
                     continue

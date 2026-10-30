@@ -8,6 +8,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from sabueso.core.attack import TACTIC_ORDER
 from sabueso.core.heuristics import autostart_suspicion, suspicious_command_rules
 from sabueso.core.utils import find_files, relative_name
 from sabueso.modules.base import AnalysisContext, Module, Option, register
@@ -202,8 +203,11 @@ class EvtxModule(Module):
                       f"{file}#{event.record_id}", rule.level)
             if state.sigma_hits[rule.title] <= self.SIGMA_FINDINGS_PER_RULE:
                 techniques = ", ".join(t[7:].upper() for t in rule.tags if t.startswith("attack.t")) or "-"
+                # the rule's tactic tags place techniques the built-in ATT&CK table does not know
+                tactics = ", ".join(t[7:].replace("_", "-") for t in rule.tags
+                                    if t[7:].replace("_", "-") in TACTIC_ORDER) or "-"
                 ctx.finding("sigma.match", rule.level, event.timestamp, title=rule.title, rule_id=rule.id,
-                            techniques=techniques, computer=event.computer, channel=event.channel,
+                            techniques=techniques, tactics=tactics, computer=event.computer, channel=event.channel,
                             event_id=event.event_id, record_id=event.record_id, details=details)
 
     def _process(self, ctx: AnalysisContext, state: "_State", event: WinEvent, file: str) -> None:

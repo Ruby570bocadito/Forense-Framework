@@ -64,6 +64,15 @@ TRIAGE_PATTERNS = (
     "ProgramData/Microsoft/Windows Defender/Scans/History/Service/DetectionHistory/**",
     "Users/Public/**/*.exe", "Users/*/AppData/Local/Temp/*.exe", "Users/*/Downloads/*.exe",
     "Windows/Temp/*.exe", "Windows/Temp/*.ps1", "Users/*/AppData/Local/Temp/*.ps1",
+    # Windows XP / Server 2003 user profiles (Documents and Settings) and their equivalents
+    "Documents and Settings/*/NTUSER.DAT", "Documents and Settings/*/NTUSER.DAT.LOG",
+    "Documents and Settings/*/Local Settings/Application Data/Microsoft/Windows/UsrClass.dat",
+    "Documents and Settings/*/Local Settings/Application Data/Microsoft/Windows/UsrClass.dat.LOG",
+    "Documents and Settings/*/Recent/**",
+    "Documents and Settings/*/Start Menu/Programs/Startup/*",
+    "Documents and Settings/*/Application Data/Mozilla/Firefox/Profiles/*/places.sqlite",
+    "Documents and Settings/*/Local Settings/Temp/*.exe",
+    "RECYCLER/*/INFO2", "Windows/System32/config/*.evt",
 )
 
 

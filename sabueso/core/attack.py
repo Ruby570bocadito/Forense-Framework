@@ -41,6 +41,7 @@ TECHNIQUES: dict[str, tuple[str, tuple[str, ...]]] = {
     "T1027": ("Obfuscated Files or Information", ("defense-evasion",)),
     "T1036.005": ("Masquerading: Match Legitimate Name or Location", ("defense-evasion",)),
     "T1036.008": ("Masquerading: Masquerade File Type", ("defense-evasion",)),
+    "T1040": ("Network Sniffing", ("credential-access", "discovery")),
     "T1046": ("Network Service Discovery", ("discovery",)),
     "T1047": ("Windows Management Instrumentation", ("execution",)),
     "T1048": ("Exfiltration Over Alternative Protocol", ("exfiltration",)),
@@ -62,6 +63,7 @@ TECHNIQUES: dict[str, tuple[str, tuple[str, ...]]] = {
     "T1098": ("Account Manipulation", ("persistence", "privilege-escalation")),
     "T1105": ("Ingress Tool Transfer", ("command-and-control",)),
     "T1110": ("Brute Force", ("credential-access",)),
+    "T1555": ("Credentials from Password Stores", ("credential-access",)),
     "T1133": ("External Remote Services", ("initial-access", "persistence")),
     "T1135": ("Network Share Discovery", ("discovery",)),
     "T1136.001": ("Create Account: Local Account", ("persistence",)),
@@ -145,11 +147,15 @@ BY_RULE = {
 
 TOOLS = {
     "T1003": ("mimikatz", "procdump", "nanodump", "lazagne", "pwdump", "wce", "gsecdump", "fgdump", "secretsdump",
-              "safetykatz", "sharpkatz", "mimidrv"),
+              "safetykatz", "sharpkatz", "mimidrv", "cain"),
+    "T1040": ("cain", "ethereal", "wireshark", "tshark"),
+    "T1555": ("123wasp",),
+    "T1110": ("hashcat", "hydra"),
     "T1558": ("rubeus", "kerbrute"),
     "T1087.002": ("sharphound", "bloodhound", "adfind"),
     "T1021.002": ("psexec", "paexec", "psexesvc", "wmiexec", "smbexec", "crackmapexec", "cme"),
-    "T1046": ("netscan", "advanced_ip_scanner", "advanced_port_scanner", "angryip", "nmap", "masscan"),
+    "T1046": ("netscan", "advanced_ip_scanner", "advanced_port_scanner", "angryip", "nmap", "masscan", "lookatlan",
+              "lookathost", "netstumbler"),
     "T1567.002": ("rclone", "megacmd", "megasync"),
     "T1572": ("ngrok", "chisel", "plink"),
     "T1071": ("cobaltstrike", "beacon"),
@@ -169,6 +175,7 @@ def techniques_for(finding: dict) -> list[str]:
             found += BY_RULE.get(rule.strip(), ())
     if code.endswith((".attack_tool", ".remote_access")) or code in ("psreadline.suspicious_command",
                                                                     "evtx.suspicious_command", "defender.detection",
+                                                                    "registry.installed_attack_tool",
                                                                     "evtx.defender_detection"):
         text = " ".join(str(v) for v in params.values()).lower()
         for match in _TOOL_NAMES.finditer(text):
@@ -182,6 +189,15 @@ def techniques_for(finding: dict) -> list[str]:
         found += [tech.strip().upper() for tech in str(params.get("techniques") or "").split(",")
                   if tech.strip().upper().startswith("T")]
     return list(dict.fromkeys(tech for tech in found if tech))
+
+
+def technique_info(technique: str, finding: Optional[dict] = None) -> tuple[str, tuple[str, ...]]:
+    """(name, tactics) of a technique; for one the table does not know, the tactics a Sigma rule tagged."""
+    known = TECHNIQUES.get(technique) or TECHNIQUES.get(technique.split(".")[0])
+    if known:
+        return known
+    tagged = str(((finding or {}).get("params") or {}).get("tactics") or "")
+    return technique, tuple(t for t in (s.strip() for s in tagged.split(",")) if t in TACTIC_ORDER)
 
 
 @dataclass
@@ -225,7 +241,7 @@ def attack_matrix(findings: Iterable[dict], min_severity: str = "medium",
         if review != "confirmed" and SEVERITY_ORDER.index(finding.get("severity", "info")) < threshold:
             continue
         for technique in techniques_for(finding):
-            name, tactics = TECHNIQUES.get(technique, TECHNIQUES.get(technique.split(".")[0], (technique, ())))
+            name, tactics = technique_info(technique, finding)
             for tactic in tactics:
                 hit = matrix[tactic].setdefault(technique, TechniqueHit(technique, name, tactic))
                 hit.findings.append(finding)

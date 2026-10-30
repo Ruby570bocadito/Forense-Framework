@@ -12,6 +12,7 @@ from typing import Callable, Optional
 from sabueso.core.heuristics import (
     EXECUTABLE_EXTENSIONS,
     autostart_suspicion,
+    installed_tool,
     is_suspicious_location,
     launches_interpreter,
     suspicious_command_rules,
@@ -61,6 +62,14 @@ NETWORK_NAME_TYPES = {6: "wired", 23: "vpn", 71: "wireless", 243: "mobile_broadb
 # deleted keys whose removal can be the clean-up of persistence
 _DELETED_SERVICE = re.compile(r"(^|\\)controlset\d{3}\\services\\([^\\]+)$", re.IGNORECASE)
 _DELETED_TASK = re.compile(r"\\schedule\\taskcache\\tree\\(.+)$", re.IGNORECASE)
+# Windows XP / Server 2003 ship this placeholder IFEO key with "ntsd -d" as its debugger (it does nothing)
+_DEFAULT_IFEO = ("your image file name here without a path", "ntsd -d")
+
+
+def _default_ifeo(name: str, debugger: str) -> bool:
+    return (name.strip().lower(), debugger.strip().lower()) == _DEFAULT_IFEO
+
+
 _DELETED_IFEO = re.compile(r"\\image file execution options\\([^\\]+)$", re.IGNORECASE)
 _DELETED_RUN = re.compile(r"\\currentversion\\(run|runonce)$", re.IGNORECASE)
 # with many deleted keys (normal Windows churn), only these reach the timeline
@@ -404,7 +413,7 @@ class RegistryModule(Module):
             ifeo = cv.subkey("Image File Execution Options")
             for key in ifeo.subkeys() if ifeo else []:
                 debugger = _text(key.get("Debugger"))
-                if debugger:
+                if debugger and not _default_ifeo(key.name, debugger):
                     severity = "critical" if key.name.lower() in (
                         "sethc.exe", "utilman.exe", "osk.exe", "narrator.exe", "magnify.exe", "displayswitch.exe",
                         "atbroker.exe") else "high"
@@ -431,6 +440,10 @@ class RegistryModule(Module):
                     "key_last_written": dt_or_none_iso(key.last_written),
                 })
                 ctx.event(key.last_written, "program_installed", name, rel)
+                tool = installed_tool(name)
+                if tool:
+                    ctx.finding("registry.installed_attack_tool", "medium", key.last_written, program=name, tool=tool,
+                                location=_text(key.get("InstallLocation")) or "-")
 
         profiles = hive.open("Microsoft\\Windows NT\\CurrentVersion\\NetworkList\\Profiles")
         zone = WindowsTimeZone.from_evidence(ctx.target) if profiles else None

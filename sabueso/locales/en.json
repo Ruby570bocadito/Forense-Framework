@@ -1033,6 +1033,8 @@
  "finding.registry.dirty_hive.title": "Dirty registry hive",
  "finding.registry.guest_enabled.description": "The built-in guest account (RID 501) is enabled.",
  "finding.registry.guest_enabled.title": "Guest account enabled",
+ "finding.registry.installed_attack_tool.title": "Offensive tool installed: {program}",
+ "finding.registry.installed_attack_tool.description": "The installed programs list (Uninstall) includes {program}, a tool used in attacks ({tool}); location: {location}. Being installed does not prove use: check Prefetch, UserAssist and the timeline.",
  "finding.registry.ifeo_debugger.description": "Running {program} launches {debugger} (persistence / backdoor technique).",
  "finding.registry.ifeo_debugger.title": "IFEO debugger for {program}",
  "finding.registry.password_not_required.description": "The account is enabled and does not require a password (PASSWD_NOTREQD).",

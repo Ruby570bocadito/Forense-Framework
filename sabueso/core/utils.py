@@ -167,6 +167,28 @@ def find_files(target: Path, predicate: Callable[[Path], bool],
     return [path for path in iter_files(target, on_error) if predicate(path)]
 
 
+EXTRACTION_TIMES = "extraction_times.json"  # written next to an image's extracted/ folder
+
+
+def original_times(target: Path) -> dict[str, dict]:
+    """MACB times read from the disk image for the files extracted to ``target`` (``{relative path: times}``).
+
+    A copy extracted from an image keeps its modification time, but its creation and change times are those
+    of the extraction: modules that report file times prefer these originals. Empty when ``target`` is not an
+    image extraction (or a folder inside one)."""
+    target = Path(target)
+    for root in (target, *target.parents):
+        manifest = root.parent / EXTRACTION_TIMES
+        if root.name == "extracted" and manifest.is_file():
+            try:
+                data = json.loads(manifest.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return {}
+            prefix = "" if root == target else target.relative_to(root).as_posix() + "/"
+            return {path[len(prefix):]: times for path, times in data.items() if path.startswith(prefix)}
+    return {}
+
+
 def relative_name(path: Path, target: Path) -> str:
     """Path of ``path`` relative to the evidence root ``target`` using ``/`` separators."""
     path, target = Path(path), Path(target)

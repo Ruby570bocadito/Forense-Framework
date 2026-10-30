@@ -85,6 +85,8 @@ wce.exe pwdump.exe pwdump7.exe gsecdump.exe fgdump.exe lazagne.exe rubeus.exe sh
 adfind.exe kerbrute.exe nanodump.exe safetykatz.exe sharpkatz.exe secretsdump.exe wmiexec.exe smbexec.exe
 crackmapexec.exe cme.exe netscan.exe advanced_ip_scanner.exe advanced_port_scanner.exe angryip.exe nmap.exe
 masscan.exe rclone.exe megacmd.exe megasync.exe ngrok.exe chisel.exe plink.exe cobaltstrike.exe beacon.exe
+cain.exe abel.exe 123wasp.exe hashcat.exe john.exe hydra.exe responder.exe netstumbler.exe lookatlan.exe
+lookathost.exe ethereal.exe wireshark.exe tshark.exe
 """.split())
 REMOTE_ACCESS_TOOLS = frozenset("""
 anydesk.exe teamviewer.exe teamviewer_service.exe screenconnect.windowsclient.exe screenconnect.clientservice.exe
@@ -92,6 +94,24 @@ connectwisecontrol.client.exe atera_agent.exe ateraagent.exe splashtop.exe srser
 remoteutilities.exe rutserv.exe rfusclient.exe netsupport.exe client32.exe logmein.exe lmiguardiansvc.exe
 ammyy_admin.exe aa_v3.exe radmin.exe tightvnc.exe tvnserver.exe winvnc.exe vncviewer.exe ultravnc.exe
 """.split())
+
+
+# Display names (Uninstall key) of offensive tools -> the executable stem used for the ATT&CK mapping.
+_INSTALLED_TOOLS = tuple((re.compile(pattern, re.IGNORECASE), tool) for pattern, tool in (
+    (r"\bcain\s*&\s*abel\b", "cain"), (r"\bethereal\b", "ethereal"), (r"\bwireshark\b", "wireshark"),
+    (r"\bnetwork stumbler\b|\bnetstumbler\b", "netstumbler"), (r"\blook@lan\b", "lookatlan"),
+    (r"\bwrite all stored passwords\b", "123wasp"), (r"\bnmap\b", "nmap"), (r"\bangry ip scanner\b", "angryip"),
+    (r"\badvanced ip scanner\b", "advanced_ip_scanner"), (r"\bhashcat\b", "hashcat"),
+    (r"\bjohn the ripper\b", "john"), (r"\bmimikatz\b", "mimikatz"),
+))
+
+
+def installed_tool(display_name: str) -> str | None:
+    """Offensive tool named by an installed program (``Cain & Abel v2.5`` -> ``cain``), or None."""
+    for pattern, tool in _INSTALLED_TOOLS:
+        if display_name and pattern.search(display_name):
+            return tool
+    return None
 
 
 def tool_category(executable: str) -> str | None:
@@ -130,10 +150,15 @@ def _distance(a: str, b: str) -> int:
     return previous[-1]
 
 
+# Genuine Windows binaries one or two letters away from a system binary (iexplore.exe ~ explorer.exe),
+# measured on the executables of Windows XP and Windows 11 installations.
+GENUINE_NEIGHBOURS = frozenset("iexplore.exe tasklist.exe dashost.exe synchost.exe fsiso.exe stimon.exe".split())
+
+
 def lookalike_of(name: str) -> str | None:
     """System binary that ``name`` imitates with a small typo (scvhost.exe -> svchost.exe)."""
     name = name.lower()
-    if name in SYSTEM_BINARIES or len(name) < 7:
+    if name in SYSTEM_BINARIES or name in GENUINE_NEIGHBOURS or len(name) < 7:
         return None
     for real in SYSTEM_BINARIES:
         if abs(len(real) - len(name)) <= 2 and 0 < _distance(name, real) <= (1 if len(real) <= 9 else 2):

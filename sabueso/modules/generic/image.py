@@ -7,7 +7,10 @@ or startup key (never stored in the case: only a fingerprint is kept).
 
 from __future__ import annotations
 
+import json
+
 from sabueso.core.errors import ModuleError
+from sabueso.core.utils import EXTRACTION_TIMES
 from sabueso.image import (
     TRIAGE_PATTERNS,
     Extractor,
@@ -64,6 +67,7 @@ class ImageModule(Module):
                 "startup_key": options["bitlocker_startup_key"]}
         patterns = ("**",) if options["all_files"] else tuple(options["patterns"] or TRIAGE_PATTERNS)
         extracted_root = ctx.output_dir / "extracted"
+        times: dict[str, dict] = {}  # original MACB of every extracted file, for the modules run on the copies
         max_size = options["max_file_mb"] * 1024 * 1024
         volumes, locked, total, ntfs_index, copies = [], [], 0, 0, 0
         for partition, fs in filesystems(img, bitlocker=keys, locked=locked):
@@ -79,7 +83,7 @@ class ImageModule(Module):
                             "filesystem": partition.filesystem, "encryption": partition.encryption,
                             "files": len(files), "shadow_copies": len(stores)})
             ctx.record("image_partition", volumes[-1])
-            total += self._record_files(ctx, label, files)
+            total += self._record_files(ctx, label, files, times)
             live = {f.source: f.sha256 for f in files}
             for store in stores:
                 copies += 1
@@ -88,7 +92,7 @@ class ImageModule(Module):
                 ctx.event(store.created, "shadow_copy_created", f"{label}: VSS {store.index} {store.identifier}")
                 if options["vss"]:
                     total += self._extract_shadow_copy(ctx, store, f"{label}_vss{store.index}", extracted_root,
-                                                       patterns, max_size, live)
+                                                       patterns, max_size, live, times)
         for partition in locked:
             volumes.append({"label": f"volume{partition.index}", "partition": partition.index,
                             "offset": partition.offset, "length": partition.length,
@@ -99,14 +103,20 @@ class ImageModule(Module):
                         offset=partition.offset)
         if hasattr(img, "close"):
             img.close()
+        if times:
+            manifest = ctx.output_dir / EXTRACTION_TIMES
+            manifest.write_text(json.dumps(times, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+            ctx.add_artifact(manifest)
         if total:
             ctx.add_artifact(extracted_root)
         ctx.summary.update({"volumes": volumes, "files_extracted": total, "shadow_copies": copies})
         ctx.summary["extracted_to"] = extracted_root.name
 
     @staticmethod
-    def _record_files(ctx: AnalysisContext, label: str, files) -> int:
+    def _record_files(ctx: AnalysisContext, label: str, files, times: dict) -> int:
         for item in files:
+            times[f"{label}{item.source}"] = {"mtime": item.mtime, "atime": item.atime, "ctime": item.ctime,
+                                                   "crtime": item.crtime}
             ctx.record("extracted_file", {
                 "volume": label, "path": item.source, "size": item.size, "sha256": item.sha256, "md5": item.md5,
                 "mtime": item.mtime, "atime": item.atime, "ctime": item.ctime, "crtime": item.crtime,
@@ -115,7 +125,7 @@ class ImageModule(Module):
         return len(files)
 
     def _extract_shadow_copy(self, ctx: AnalysisContext, store, label: str, root, patterns, max_size: int,
-                             live: dict) -> int:
+                             live: dict, times: dict) -> int:
         """Extract from a shadow copy only the files that differ from the live volume."""
         import pytsk3
 
@@ -137,5 +147,5 @@ class ImageModule(Module):
                 folder.rmdir()
         if (root / label).is_dir() and not any((root / label).iterdir()):
             (root / label).rmdir()
-        return self._record_files(ctx, label, changed)
+        return self._record_files(ctx, label, changed, times)
 

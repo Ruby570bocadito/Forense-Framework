@@ -88,7 +88,7 @@ def test_image_module_records_and_options(tmp_path):
     kinds = [kind for kind, _ in sink.records]
     assert kinds.count("image_info") == 1 and kinds.count("image_partition") == 1 and kinds.count("extracted_file") == 4
     assert (tmp_path / "out" / "extracted" / "C" / "Windows" / "Prefetch").is_dir()
-    assert ctx.artifacts == ["extracted"]
+    assert ctx.artifacts == ["extraction_times.json", "extracted"]  # original MACB of the copies + the copies
 
 
 def test_triage_of_an_image_extracts_derived_evidence(case):

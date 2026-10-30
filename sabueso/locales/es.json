@@ -1033,6 +1033,8 @@
  "finding.registry.dirty_hive.title": "Colmena del registro sin consolidar",
  "finding.registry.guest_enabled.description": "La cuenta integrada de invitado (RID 501) está habilitada.",
  "finding.registry.guest_enabled.title": "Cuenta Invitado habilitada",
+ "finding.registry.installed_attack_tool.title": "Herramienta ofensiva instalada: {program}",
+ "finding.registry.installed_attack_tool.description": "El registro de programas instalados (Uninstall) incluye {program}, una herramienta usada para ataques ({tool}); ubicación: {location}. Una instalación no prueba su uso: contrástala con Prefetch, UserAssist y la línea temporal.",
  "finding.registry.ifeo_debugger.description": "Al ejecutar {program} se lanza {debugger} (técnica de persistencia / puerta trasera).",
  "finding.registry.ifeo_debugger.title": "Depurador IFEO para {program}",
  "finding.registry.password_not_required.description": "La cuenta está habilitada y no requiere contraseña (PASSWD_NOTREQD).",

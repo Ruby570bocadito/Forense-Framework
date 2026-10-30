@@ -27,8 +27,15 @@ _INSTALLED = re.compile(
 )
 
 
+# Explorer's built-in ZIP support extracts to "Temporary Directory N for X.zip" keeping the dates stored in the
+# archive, so $SI predates $FN in whole seconds there too: still worth a look, but not as a high finding.
+_ZIP_EXTRACTED = re.compile(r"\\temporary directory \d+ for [^\\]+\.zip\\", re.IGNORECASE)
+
+
 def timestomp_severity(path: str) -> str | None:
     """Severity of a timestomping indication at ``path`` (None for installer-created files)."""
+    if _ZIP_EXTRACTED.search(path):
+        return "low"
     if is_suspicious_location(path):  # e.g. \Windows\Temp: never excluded
         return "high"
     if _INSTALLED.match(path):

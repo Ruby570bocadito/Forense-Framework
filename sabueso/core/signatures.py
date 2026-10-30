@@ -40,7 +40,7 @@ SIGNATURES: tuple[Signature, ...] = (
     _sig("GIF", b"GIF87a", "gif"),
     _sig("GIF", b"GIF89a", "gif"),
     _sig("PDF", b"%PDF-", "pdf"),
-    _sig("Registry hive", b"regf", "dat hve sav", empty_ok=True),
+    _sig("Registry hive", b"regf", "dat hve sav log log1 log2", empty_ok=True),
     _sig("NTFS MFT", b"FILE0", "mft", empty_ok=True),
     _sig("Prefetch (MAM)", b"MAM\x04", "pf"),
     _sig("Prefetch", b"SCCA", "pf", offset=4),

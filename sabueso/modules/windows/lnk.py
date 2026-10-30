@@ -6,7 +6,15 @@ import os
 from pathlib import Path
 
 from sabueso.core.heuristics import autostart_suspicion, suspicious_command_rules
-from sabueso.core.utils import FileTooLarge, dt_or_none_iso, find_files, read_capped, relative_name, ts_to_iso
+from sabueso.core.utils import (
+    FileTooLarge,
+    dt_or_none_iso,
+    find_files,
+    original_times,
+    read_capped,
+    relative_name,
+    ts_to_iso,
+)
 from sabueso.modules.base import AnalysisContext, Module, register
 from sabueso.parsers.lnk import LnkError, LnkFile, parse_lnk
 
@@ -29,6 +37,7 @@ class LnkModule(Module):
     def analyze(self, ctx: AnalysisContext) -> None:
         drive_types: dict[str, int] = {}
         total = 0
+        originals = original_times(ctx.target)  # a .lnk extracted from an image: its creation time there
         for path in self.discover(ctx.target):
             rel = relative_name(path, ctx.target)
             try:
@@ -46,11 +55,12 @@ class LnkModule(Module):
                 continue
             total += 1
             drive_types[lnk.drive_type or "-"] = drive_types.get(lnk.drive_type or "-", 0) + 1
-            self._emit(ctx, rel, lnk, st)
+            self._emit(ctx, rel, lnk, st, originals.get(rel, {}).get("crtime"))
         ctx.summary.update({"links": total, "drive_types": drive_types})
 
     @staticmethod
-    def _emit(ctx: AnalysisContext, name: str, lnk: LnkFile, st: os.stat_result | None) -> None:
+    def _emit(ctx: AnalysisContext, name: str, lnk: LnkFile, st: os.stat_result | None,
+              created: str | None = None) -> None:
         target = lnk.target_path
         command = f"{target} {lnk.arguments}".strip()
         record = {
@@ -62,7 +72,7 @@ class LnkModule(Module):
             "target_size": lnk.target_size, "drive_type": lnk.drive_type, "volume_serial": lnk.volume_serial,
             "volume_label": lnk.volume_label, "network_path": lnk.network_path, "machine_id": lnk.machine_id,
             "mac_address": lnk.mac_address,
-            "lnk_created": ts_to_iso(st.st_ctime) if st and os.name == "nt" else None,
+            "lnk_created": created or (ts_to_iso(st.st_ctime) if st and os.name == "nt" else None),
             "lnk_modified": ts_to_iso(st.st_mtime) if st else None,
         }
         ctx.record("shell_link", record)
