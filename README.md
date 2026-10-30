@@ -45,10 +45,11 @@ sabueso web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 15. [Reglas Sigma y YARA](#reglas-sigma-y-yara)
 16. [Integridad y cadena de custodia](#integridad-y-cadena-de-custodia)
 17. [Arquitectura y cómo crear un módulo](#arquitectura-y-cómo-crear-un-módulo)
-18. [Limitaciones conocidas](#limitaciones-conocidas)
-19. [Hoja de ruta](#hoja-de-ruta)
-20. [Desarrollo](#desarrollo)
-21. [Licencia](#licencia)
+18. [Validación con casos reales](#validación-con-casos-reales)
+19. [Limitaciones conocidas](#limitaciones-conocidas)
+20. [Hoja de ruta](#hoja-de-ruta)
+21. [Desarrollo](#desarrollo)
+22. [Licencia](#licencia)
 
 ## Principios
 
@@ -480,7 +481,7 @@ las comprobaciones de estado de contenedores.
 | Módulo | Artefactos | Qué detecta |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Fuerza bruta y **acceso tras fuerza bruta**, borrado de logs (1102/104), altas de usuario y en grupos privilegiados, servicios (7045/4697) y tareas creadas, comandos sospechosos (4688/Sysmon 1), PowerShell malicioso (4104), detecciones y desactivación de Defender, persistencia WMI, RDP desde IP pública y **reglas Sigma** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, programas instalados, perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1, **claves y valores borrados** (servicios, tareas, IFEO y comandos eliminados) |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Equipo, zona horaria, red, **USB** (primera/última conexión), servicios, **ShimCache**, **BAM**, SO e instalación, programas instalados (con alerta si son **herramientas ofensivas**), perfiles de red, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, cuentas SAM, **UserAssist**, RecentDocs, RunMRU, TypedPaths, búsquedas, destinos RDP, Amcache con SHA-1, **claves y valores borrados** (servicios, tareas, IFEO y comandos eliminados) |
 | `prefetch` | `*.pf` (XP a Windows 11, incluido el formato comprimido) | Ejecución de programas: nº de ejecuciones, últimas 8 fechas, volumen y archivos cargados; herramientas ofensivas y ejecución desde ubicaciones sospechosas |
 | `srum` | `SRUDB.dat` | Bytes enviados y recibidos por aplicación y usuario, conexiones, uso de CPU/disco; **posible exfiltración** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Carpetas exploradas, también en USB, red y carpetas ya borradas |
@@ -521,7 +522,9 @@ Qué se puede registrar como evidencia:
 ## Reglas Sigma y YARA
 
 **Sigma**: el módulo `evtx` aplica 15 reglas integradas (Office que lanza una shell, acceso a LSASS, Kerberoasting,
-DCSync, PsExec, pass-the-hash, borrado de instantáneas…) y las que le indiques:
+DCSync, PsExec, pass-the-hash, borrado de instantáneas…) y las que le indiques. Las integradas son una base mínima:
+con ataques reales detectan el 24 % y con las de SigmaHQ el 74 % ([validación](docs/VALIDACION.md)), así que para
+registros de eventos **conviene descargar las de SigmaHQ** y apuntar a ellas `intel.sigma_rules` en la configuración:
 
 ```bash
 sabueso sigma download ./sigma                 # reglas Windows de SigmaHQ
@@ -659,6 +662,19 @@ class ExampleModule(Module):
 Después se importa en `sabueso/modules/__init__.py` y se añaden sus textos a `locales/es.json` y `locales/en.json`
 (`module.example.title`, `.description`, `.opt.*`, `finding.example.suspicious.title/.description`,
 `artifact.example_entry`, `etype.example_entry`). Los tests de `tests/test_i18n.py` avisan si falta alguna traducción.
+
+## Validación con casos reales
+
+Sabueso se prueba con evidencias públicas de respuesta conocida y cada fallo encontrado se convierte en un test de
+regresión. Resultados actuales ([detalle y método](docs/VALIDACION.md)):
+
+| Conjunto | Resultado |
+|---|---|
+| 261 registros de ataques reales (EVTX-ATTACK-SAMPLES) | detecta el 24 % con las reglas integradas y el **74 %** con SigmaHQ; 0 errores de lectura |
+| 599 registros de Hayabusa | 26.197 eventos y 2.888 hallazgos sin fallos, en 108 s con 2.405 reglas Sigma |
+| Disco del NIST «Hacking Case» (Windows XP) | 11 de 31 preguntas oficiales respondidas por completo y 10 en parte, en 13 s |
+
+`python scripts/validar_evtx.py RUTA/EVTX-ATTACK-SAMPLES [--sigma RUTA/sigma]` repite la primera medida.
 
 ## Limitaciones conocidas
 

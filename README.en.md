@@ -45,10 +45,11 @@ sabueso web -w ./lab        # open http://127.0.0.1:8765
 15. [Sigma and YARA rules](#sigma-and-yara-rules)
 16. [Integrity and chain of custody](#integrity-and-chain-of-custody)
 17. [Architecture and writing a module](#architecture-and-writing-a-module)
-18. [Known limitations](#known-limitations)
-19. [Roadmap](#roadmap)
-20. [Development](#development)
-21. [License](#license)
+18. [Validation with real cases](#validation-with-real-cases)
+19. [Known limitations](#known-limitations)
+20. [Roadmap](#roadmap)
+21. [Development](#development)
+22. [License](#license)
 
 ## Principles
 
@@ -474,7 +475,7 @@ password for container health checks.
 | Module | Artifacts | Detects |
 |---|---|---|
 | `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Brute force and **logon after brute force**, log clearing (1102/104), new users and privileged group changes, services (7045/4697) and tasks created, suspicious commands (4688/Sysmon 1), malicious PowerShell (4104), Defender detections and tampering, WMI persistence, RDP from public IPs and **Sigma rules** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, installed programs, network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
+| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, installed programs (flagging **offensive tools**), network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
 | `prefetch` | `*.pf` (XP to Windows 11, compressed format included) | Program execution: run count, last 8 run times, volume and loaded files; offensive tools and execution from suspicious locations |
 | `srum` | `SRUDB.dat` | Bytes sent and received per application and user, connectivity, CPU/disk usage; **possible exfiltration** |
 | `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Folders browsed, including USB, network and already deleted folders |
@@ -515,7 +516,9 @@ What can be registered as evidence:
 ## Sigma and YARA rules
 
 **Sigma**: the `evtx` module applies 15 built-in rules (Office spawning a shell, LSASS access, Kerberoasting, DCSync,
-PsExec, pass-the-hash, shadow copy deletion…) plus the ones you provide:
+PsExec, pass-the-hash, shadow copy deletion…) plus the ones you provide. The built-in rules are a minimal baseline:
+on real attacks they detect 24 %, and SigmaHQ's rules 74 % ([validation](docs/VALIDACION.md)), so for event logs
+**download SigmaHQ's rules** and point `intel.sigma_rules` in the configuration at them:
 
 ```bash
 sabueso sigma download ./sigma                 # SigmaHQ Windows rules
@@ -651,6 +654,19 @@ class ExampleModule(Module):
 Then import it in `sabueso/modules/__init__.py` and add its texts to `locales/es.json` and `locales/en.json`
 (`module.example.title`, `.description`, `.opt.*`, `finding.example.suspicious.title/.description`,
 `artifact.example_entry`, `etype.example_entry`). `tests/test_i18n.py` reports any missing translation.
+
+## Validation with real cases
+
+Sabueso is tested against public evidence with a known answer, and every bug found becomes a regression test.
+Current results ([details and method](docs/VALIDACION.md), in Spanish):
+
+| Data set | Result |
+|---|---|
+| 261 logs of real attacks (EVTX-ATTACK-SAMPLES) | 24 % detected with the built-in rules, **74 %** with SigmaHQ; 0 read errors |
+| 599 Hayabusa logs | 26,197 events and 2,888 findings without failures, in 108 s with 2,405 Sigma rules |
+| NIST "Hacking Case" disk (Windows XP) | 11 of 31 official questions fully answered and 10 partly, in 13 s |
+
+`python scripts/validar_evtx.py PATH/EVTX-ATTACK-SAMPLES [--sigma PATH/sigma]` repeats the first measurement.
 
 ## Known limitations
 
