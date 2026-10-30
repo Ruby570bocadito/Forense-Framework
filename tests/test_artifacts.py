@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from forense.core.utils import FileTooLarge
-from forense.demo import builders as b
-from forense.modules import get_module
-from forense.modules.base import ResultSink
-from forense.modules.windows.mft import timestomp_severity
-from forense.parsers.jumplist import MAX_CUSTOM_BYTES, parse_custom, parse_destlist
-from forense.parsers.shellitems import fat_datetime, join_path, parse_shell_item
+from sabueso.core.utils import FileTooLarge
+from sabueso.demo import builders as b
+from sabueso.modules import get_module
+from sabueso.modules.base import ResultSink
+from sabueso.modules.windows.mft import timestomp_severity
+from sabueso.parsers.jumplist import MAX_CUSTOM_BYTES, parse_custom, parse_destlist
+from sabueso.parsers.shellitems import fat_datetime, join_path, parse_shell_item
 
 DATA = Path(__file__).parent / "data"
 T = datetime(2026, 9, 14, 2, 36, tzinfo=timezone.utc)

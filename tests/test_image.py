@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from forense.cli import EXIT_OK, main
-from forense.collector import collect
-from forense.core.case import Case, CaseError
-from forense.core.errors import ForenseError
-from forense.image import Extractor, ImageInfo, filesystems, is_disk_image, open_image, verify_media
-from forense.modules.base import ResultSink, get_module
+from sabueso.cli import EXIT_OK, main
+from sabueso.collector import collect
+from sabueso.core.case import Case, CaseError
+from sabueso.core.errors import SabuesoError
+from sabueso.image import Extractor, ImageInfo, filesystems, is_disk_image, open_image, verify_media
+from sabueso.modules.base import ResultSink, get_module
 
 DATA = Path(__file__).parent / "data"
 E01 = DATA / "ntfs.E01"
@@ -134,7 +134,7 @@ def test_collector_from_an_image(tmp_path):
     assert {r["path"] for r in rows} >= {"C/Windows/System32/config/SAM", "C/$MFT"}
     description = json.loads((dest / "collection.json").read_text(encoding="utf-8"))
     assert description["manifest_sha256"] == result["manifest_sha256"]
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         collect(dest, str(E01))
 
 

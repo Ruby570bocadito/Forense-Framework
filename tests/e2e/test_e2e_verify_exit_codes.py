@@ -1,4 +1,4 @@
-"""E2E: ``forense verificar`` exit codes on a healthy and a tampered case.
+"""E2E: ``sabueso verificar`` exit codes on a healthy and a tampered case.
 
 Regression test of the custody guarantee documented in the README:
 a healthy case verifies (exit 0) and any altered evidence must fail
@@ -17,7 +17,7 @@ from _cli import make_demo_lab, run
 
 @pytest.fixture(scope="module")
 def demo_lab(tmp_path_factory) -> Path:
-    """A fresh ``forense demo`` lab shared by the tests of this module."""
+    """A fresh ``sabueso demo`` lab shared by the tests of this module."""
     return make_demo_lab(tmp_path_factory.mktemp("e2e-lab"))
 
 

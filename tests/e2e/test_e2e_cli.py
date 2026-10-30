@@ -21,8 +21,8 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def _cli() -> list[str]:
-    script = Path(sys.executable).with_name("forense")
-    return [str(script)] if script.exists() else [sys.executable, "-m", "forense"]
+    script = Path(sys.executable).with_name("sabueso")
+    return [str(script)] if script.exists() else [sys.executable, "-m", "sabueso"]
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def nuevo_caso(run, tmp_path: Path):
 
 
 def _evidence_hashes(case: Path, evidence_id: str) -> dict:
-    db = sqlite3.connect(f"file:{case / 'forense.db'}?mode=ro", uri=True)
+    db = sqlite3.connect(f"file:{case / 'sabueso.db'}?mode=ro", uri=True)
     try:
         row = db.execute("SELECT hashes FROM evidence WHERE id = ?", (evidence_id,)).fetchone()
     finally:
@@ -96,7 +96,7 @@ def test_verificar_sale_2_con_hash_manipulado_en_copia(run, tmp_path: Path, nuev
                str(demo_triage_dir), "--copiar", "-d", "Triaje").returncode == 0
     copia = tmp_path / "caso-copia"
     shutil.copytree(case, copia)
-    db = sqlite3.connect(copia / "forense.db")
+    db = sqlite3.connect(copia / "sabueso.db")
     try:
         hashes = _evidence_hashes(case, "EV-001")
         hashes["sha256"] = "0" * 64

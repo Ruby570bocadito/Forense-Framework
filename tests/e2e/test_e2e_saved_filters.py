@@ -22,7 +22,7 @@ import time
 from urllib.parse import quote
 
 import pytest
-from _cli import forense_path, run
+from _cli import run, sabueso_path
 
 PASSWORD = "pw-e2e"
 NOMBRE_HOSTIL = 'Grave"><script>alert(1)</script>'
@@ -44,7 +44,7 @@ def servidor(tmp_path_factory):
 
     port = _free_port()
     server = subprocess.Popen(
-        [forense_path(), "web", "-w", str(ws), "--host", "127.0.0.1", "--port", str(port),
+        [sabueso_path(), "web", "-w", str(ws), "--host", "127.0.0.1", "--port", str(port),
          "--password", PASSWORD],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     deadline = time.time() + 30
@@ -106,7 +106,7 @@ def _post_form(port: str, cookie: str, csrf: str, path: str, extra: str) -> tupl
 
 
 def _custody_count(ws) -> int:
-    conn = sqlite3.connect(ws / "c" / "forense.db")
+    conn = sqlite3.connect(ws / "c" / "sabueso.db")
     n = conn.execute("select count(*) from custody").fetchone()[0]
     conn.close()
     return n

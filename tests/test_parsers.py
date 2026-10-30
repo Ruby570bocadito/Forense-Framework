@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from forense.demo import builders as b
-from forense.parsers.evtx import iter_events, normalize
-from forense.parsers.lnk import LnkError, find_embedded_lnks, parse_lnk
-from forense.parsers.logfile import (
+from sabueso.demo import builders as b
+from sabueso.parsers.evtx import iter_events, normalize
+from sabueso.parsers.lnk import LnkError, find_embedded_lnks, parse_lnk
+from sabueso.parsers.logfile import (
     LogFileError,
     LogRecord,
     OpenAttributes,
@@ -25,7 +25,7 @@ from forense.parsers.logfile import (
     operation_name,
     parse_restart,
 )
-from forense.parsers.mft import (
+from sabueso.parsers.mft import (
     MftReader,
     PathResolver,
     collect_extensions,
@@ -34,9 +34,9 @@ from forense.parsers.mft import (
     parse_record,
     parse_zone_identifier,
 )
-from forense.parsers.recyclebin import RecycleBinError, parse_i_file
-from forense.parsers.regf import REG_BINARY, RegistryError, RegistryHive, identify
-from forense.parsers.shimcache import ShimCacheError, parse_appcompatcache
+from sabueso.parsers.recyclebin import RecycleBinError, parse_i_file
+from sabueso.parsers.regf import REG_BINARY, RegistryError, RegistryHive, identify
+from sabueso.parsers.shimcache import ShimCacheError, parse_appcompatcache
 
 DATA = Path(__file__).parent / "data"
 
@@ -46,7 +46,7 @@ T = datetime(2026, 9, 14, 2, 35, 0, tzinfo=timezone.utc)
 # -- registry -----------------------------------------------------------------------
 def test_registry_roundtrip():
     h = b.HiveBuilder(default_time=T)
-    h.value("Software\\Vendor\\App", "Name", b.REG_SZ, "Forense")
+    h.value("Software\\Vendor\\App", "Name", b.REG_SZ, "Sabueso")
     h.value("Software\\Vendor\\App", "Count", b.REG_DWORD, 42)
     h.value("Software\\Vendor\\App", "Big", b.REG_QWORD, 2 ** 40)
     h.value("Software\\Vendor\\App", "List", b.REG_MULTI_SZ, ["a", "b"])
@@ -58,7 +58,7 @@ def test_registry_roundtrip():
     assert hive.checksum_ok and not hive.dirty
     key = hive.open("software\\VENDOR\\app")
     assert key is not None and key.path == "Software\\Vendor\\App" and key.last_written == T
-    assert key.get("Name") == "Forense" and key.get("Count") == 42 and key.get("Big") == 2 ** 40
+    assert key.get("Name") == "Sabueso" and key.get("Count") == 42 and key.get("Big") == 2 ** 40
     assert key.get("List") == ["a", "b"] and key.get("Tiny") == b"\x01\x02"
     assert key.get("Huge") == bytes(range(256)) * 100
     assert key.value("").data == "default"

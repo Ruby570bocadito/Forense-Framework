@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 from conftest import make_signing_key
 
-from forense.cli import EXIT_ERROR, EXIT_OK, main
-from forense.core.case import Case
-from forense.report import generate_report
-from forense.report.pdf import find_browser, html_to_pdf
+from sabueso.cli import EXIT_ERROR, EXIT_OK, main
+from sabueso.core.case import Case
+from sabueso.report import generate_report
+from sabueso.report.pdf import find_browser, html_to_pdf
 
 
 @pytest.fixture(scope="module")
@@ -98,7 +98,7 @@ def _fake_browser(folder: Path) -> Path:
 
 
 def test_cli_report_pdf_is_hashed_into_the_custody(demo_case, tmp_path, monkeypatch, capsys):
-    monkeypatch.setenv("FORENSE_BROWSER", str(_fake_browser(tmp_path)))
+    monkeypatch.setenv("SABUESO_BROWSER", str(_fake_browser(tmp_path)))
     target = tmp_path / "out" / "informe.pdf"
     assert main(["-c", str(demo_case), "informe", "-o", str(target), "-L", "es"]) == EXIT_OK
     assert target.read_bytes().startswith(b"%PDF") and target.with_suffix(".html").is_file()
@@ -112,7 +112,7 @@ def test_cli_report_pdf_is_hashed_into_the_custody(demo_case, tmp_path, monkeypa
 def test_pdf_errors_are_reported(tmp_path, monkeypatch, capsys):
     html = tmp_path / "r.html"
     html.write_text("<p>x</p>", encoding="utf-8")
-    monkeypatch.setenv("FORENSE_BROWSER", str(tmp_path / "no-such-browser"))
+    monkeypatch.setenv("SABUESO_BROWSER", str(tmp_path / "no-such-browser"))
     assert find_browser() == str(tmp_path / "no-such-browser")
     with pytest.raises(Exception) as info:
         html_to_pdf(html)
@@ -132,7 +132,7 @@ def test_pdf_timeout_is_reported(tmp_path, monkeypatch):
     browser.write_text(f"#!{sys.executable}\nimport runpy\nrunpy.run_path({str(slow)!r}, run_name='__main__')\n",
                        encoding="utf-8")
     browser.chmod(browser.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("FORENSE_BROWSER", str(browser))
+    monkeypatch.setenv("SABUESO_BROWSER", str(browser))
     html = tmp_path / "r.html"
     html.write_text("<p>x</p>", encoding="utf-8")
     with pytest.raises(Exception) as info:
@@ -141,18 +141,18 @@ def test_pdf_timeout_is_reported(tmp_path, monkeypatch):
 
 
 def test_no_browser_error_and_path_lookup(tmp_path, monkeypatch):
-    from forense.core.errors import ForenseError
-    from forense.report import pdf
+    from sabueso.core.errors import SabuesoError
+    from sabueso.report import pdf
 
     html = tmp_path / "r.html"
     html.write_text("<p>x</p>", encoding="utf-8")
-    monkeypatch.delenv("FORENSE_BROWSER", raising=False)
+    monkeypatch.delenv("SABUESO_BROWSER", raising=False)
     monkeypatch.setattr(pdf, "_WINDOWS", ())
     monkeypatch.setattr(pdf, "_MAC", ())
     monkeypatch.setattr(pdf, "_NAMES", ())
     monkeypatch.setattr(pdf, "_GLOBS", ())
     assert pdf.find_browser() is None
-    with pytest.raises(ForenseError) as info:
+    with pytest.raises(SabuesoError) as info:
         html_to_pdf(html)
     assert info.value.code == "error.pdf_no_browser"
 
@@ -166,8 +166,8 @@ def test_no_browser_error_and_path_lookup(tmp_path, monkeypatch):
 # -- digital signatures of the reports -----------------------------------------------
 
 def test_signing_roundtrip(tmp_path, monkeypatch):
-    from forense.core.errors import ForenseError
-    from forense.report import signing
+    from sabueso.core.errors import SabuesoError
+    from sabueso.report import signing
 
     document = tmp_path / "report.html"
     document.write_text("<html>informe</html>", encoding="utf-8")
@@ -181,26 +181,26 @@ def test_signing_roundtrip(tmp_path, monkeypatch):
     assert not signing.verify_file(document, signing.load_public_key(pub))
     other, _ = make_signing_key(tmp_path, "other")
     assert not signing.verify_file(document, signing.load_private_key(other).public_key())
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         signing.verify_file(tmp_path / "missing.html", signing.load_public_key(pub))
     bogus = tmp_path / "bogus.pem"
     bogus.write_text("not a pem", encoding="utf-8")
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         signing.load_private_key(bogus)
     document.write_text("<html>informe</html>", encoding="utf-8")  # original content again
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
     assert signing.verify_file(document)  # public key derived from the configured signing key
 
 
 def test_generate_report_signed_and_custody(demo_case, tmp_path, monkeypatch):
-    from forense.report import signing
+    from sabueso.report import signing
 
     pem, pub = make_signing_key(tmp_path)
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
     with Case.open(demo_case) as case:
         output = generate_report(case, "en", tmp_path / "signed.html", sign=True)
     assert signing.signature_path(output).is_file()
-    monkeypatch.setenv("FORENSE_SIGN_PUB", str(pub))
+    monkeypatch.setenv("SABUESO_SIGN_PUB", str(pub))
     with Case.open(demo_case) as case:
         assert signing.verify_file(output)
         entry = [e for e in case.custody.entries() if e.action == "report_signed"][-1]
@@ -212,7 +212,7 @@ def test_generate_report_signed_and_custody(demo_case, tmp_path, monkeypatch):
 
 
 def test_timeline_html_export_is_standalone_and_custody_logged(demo_case, tmp_path):
-    from forense.report.timeline_html import export_timeline_html
+    from sabueso.report.timeline_html import export_timeline_html
 
     with Case.open(demo_case) as case:
         total = case.events(limit=1).total
@@ -229,7 +229,7 @@ def test_timeline_html_export_is_standalone_and_custody_logged(demo_case, tmp_pa
 
 
 def test_timeline_html_export_applies_filters(demo_case, tmp_path):
-    from forense.report.timeline_html import export_timeline_html
+    from sabueso.report.timeline_html import export_timeline_html
 
     with Case.open(demo_case) as case:
         total = case.events(limit=1).total
@@ -242,7 +242,7 @@ def test_timeline_html_export_applies_filters(demo_case, tmp_path):
 
 
 def test_timeline_html_export_empty_case(case, tmp_path):
-    from forense.report.timeline_html import export_timeline_html
+    from sabueso.report.timeline_html import export_timeline_html
 
     path = export_timeline_html(case, tmp_path / "empty.html", "es", "Perito")
     html = path.read_text(encoding="utf-8")
@@ -250,8 +250,8 @@ def test_timeline_html_export_empty_case(case, tmp_path):
 
 
 def test_timeline_html_export_escapes_hostile_values(case, evidence_dir, tmp_path):
-    from forense.core.case import _CaseSink
-    from forense.report.timeline_html import export_timeline_html
+    from sabueso.core.case import _CaseSink
+    from sabueso.report.timeline_html import export_timeline_html
 
     evidence = case.add_evidence(evidence_dir)
     analysis = case.run_analysis("inventory", evidence.id)
@@ -267,7 +267,7 @@ def test_timeline_html_export_escapes_hostile_values(case, evidence_dir, tmp_pat
 
 
 def test_findings_html_export_anchors_custody(demo_case, tmp_path):
-    from forense.report.findings_html import export_findings_html
+    from sabueso.report.findings_html import export_findings_html
 
     with Case.open(demo_case) as case:
         total = len(case.findings())
@@ -284,8 +284,8 @@ def test_findings_html_export_anchors_custody(demo_case, tmp_path):
 
 
 def test_findings_html_export_applies_filters(demo_case, tmp_path):
-    from forense.core.attack import techniques_for
-    from forense.report.findings_html import export_findings_html
+    from sabueso.core.attack import techniques_for
+    from sabueso.report.findings_html import export_findings_html
 
     with Case.open(demo_case) as case:
         findings = case.findings()
@@ -307,7 +307,7 @@ def test_findings_html_export_applies_filters(demo_case, tmp_path):
 
 
 def test_findings_html_export_review_status(demo_case, tmp_path):
-    from forense.report.findings_html import export_findings_html
+    from sabueso.report.findings_html import export_findings_html
 
     with Case.open(demo_case) as case:
         first = case.findings()[0]
@@ -321,7 +321,7 @@ def test_findings_html_export_review_status(demo_case, tmp_path):
 
 
 def test_findings_html_export_empty_case(case, tmp_path):
-    from forense.report.findings_html import export_findings_html
+    from sabueso.report.findings_html import export_findings_html
 
     path = export_findings_html(case, tmp_path / "empty.html", "es", "Perito")
     html = path.read_text(encoding="utf-8")
@@ -329,8 +329,8 @@ def test_findings_html_export_empty_case(case, tmp_path):
 
 
 def test_findings_html_export_escapes_hostile_values(case, evidence_dir, tmp_path):
-    from forense.core.case import _CaseSink
-    from forense.report.findings_html import export_findings_html
+    from sabueso.core.case import _CaseSink
+    from sabueso.report.findings_html import export_findings_html
 
     evidence = case.add_evidence(evidence_dir)
     analysis = case.run_analysis("inventory", evidence.id)

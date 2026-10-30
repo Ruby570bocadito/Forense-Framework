@@ -6,10 +6,10 @@ import re
 import string
 from pathlib import Path
 
-from forense.i18n import catalog, label, t
-from forense.modules import available_modules
+from sabueso.i18n import catalog, label, t
+from sabueso.modules import available_modules
 
-ROOT = Path(__file__).parent.parent / "forense"
+ROOT = Path(__file__).parent.parent / "sabueso"
 
 
 def _placeholders(text: str) -> set[str]:
@@ -30,7 +30,7 @@ def test_catalogs_have_the_same_keys_and_placeholders():
 def test_every_static_key_used_in_code_exists():
     source = _source()
     keys = set(re.findall(r"""\b(?:t|_)\(\s*["']([a-z_]+\.[A-Za-z0-9_.]+)["']""", source))
-    keys |= set(re.findall(r"""(?:Error|CaseError|ModuleError|ForenseError)\(\s*["']([a-z_]+\.[a-z_.]+)["']""", source))
+    keys |= set(re.findall(r"""(?:Error|CaseError|ModuleError|SabuesoError)\(\s*["']([a-z_]+\.[a-z_.]+)["']""", source))
     missing = sorted(k for k in keys if not k.endswith(".") and k not in catalog("en"))  # "prefix." + dynamic part
     assert missing == []
 
@@ -41,7 +41,7 @@ def test_memory_extra_spec_is_byte_intact():
     The literal is built by parts because the sequence "bracket + m" has already been eaten by
     text-display layers between the analyst and the disk (see hallazgos H-001, H-002, H-003).
     """
-    spec = "forense-framework[" + "m" + "emory]"
+    spec = "sabueso-framework[" + "m" + "emory]"
     for lang in ("es", "en"):
         cat = catalog(lang)
         for key in ("doctor.volatility_hint", "error.memory_vol_missing", "module.memory.opt.vol_path"):
@@ -86,7 +86,7 @@ def test_translation_helpers():
 
 
 def test_locale_names_are_normalised():
-    from forense.i18n import normalize
+    from sabueso.i18n import normalize
 
     assert normalize("Spanish_Spain") == "es" and normalize("es_ES.UTF-8") == "es" and normalize("ES") == "es"
     assert normalize("English_United States") == "en" and normalize("en-GB") == "en"

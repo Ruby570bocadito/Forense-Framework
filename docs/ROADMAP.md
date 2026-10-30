@@ -1,4 +1,4 @@
-# Hoja de ruta de producto — Forense-Framework
+# Hoja de ruta de producto — Sabueso-Framework
 
 Documento de planificación a medio y largo plazo (v0.4.0 → v1.0 y después). Complementa, no sustituye, a
 `docs/agentes/ROADMAP.md`, que sigue siendo la cola operativa de tareas de los agentes: de aquí salen las tareas que
@@ -66,7 +66,7 @@ Leyenda de cada tarea:
 
 | Área | Hueco concreto |
 |---|---|
-| Documentación | `forense intel misp` (2b1fb2f) no aparece en la tabla CLI ni en el README; la "Hoja de ruta" del README aún lista MISP como pendiente; la fila de `logfile` no refleja la tabla de atributos abiertos (9267745); README de 660 líneas sin capturas, sin badges, sin documentación de referencia separada; no hay CHANGELOG, CONTRIBUTING ni SECURITY. |
+| Documentación | `sabueso intel misp` (2b1fb2f) no aparece en la tabla CLI ni en el README; la "Hoja de ruta" del README aún lista MISP como pendiente; la fila de `logfile` no refleja la tabla de atributos abiertos (9267745); README de 660 líneas sin capturas, sin badges, sin documentación de referencia separada; no hay CHANGELOG, CONTRIBUTING ni SECURITY. |
 | Releases | `__version__ = "0.4.0"` pero no hay etiquetas `v*` publicadas: el flujo `release` existe y nunca se ha disparado. |
 | Arquitectura | `cli.py` (1.088 líneas) y `web/__init__.py` (775) concentran demasiado; los módulos se registran por import, sin descubrimiento de plugins de terceros; `SCHEMA_VERSION = 1` con migración ad hoc. |
 | Calidad | Sin tipado estático comprobado (mypy/pyright), sin cobertura medida en CI, sin fuzzing sistemático de parsers. |
@@ -113,7 +113,7 @@ Leyenda de cada tarea:
 
 ### A.1 Sincronización inmediata (0.4.x)
 
-- **A1 · readme-intel-misp** — P0 · S · PUL — Añadir `forense intel misp EXPORT.json [-o SALIDA]` (`inteligencia`)
+- **A1 · readme-intel-misp** — P0 · S · PUL — Añadir `sabueso intel misp EXPORT.json [-o SALIDA]` (`inteligencia`)
   a la tabla CLI, una subsección "Importar inteligencia de MISP" dentro de *MITRE ATT&CK, relato e indicadores*
   con un ejemplo completo (exportación → watchlist → `analizar ioc -o watchlist=` → correlación) y los tipos MISP
   admitidos. Es/en.
@@ -134,13 +134,13 @@ Leyenda de cada tarea:
 - **A7 · readme-badges** — P1 · S · PUL — Badges de CI, versión PyPI, licencia, Python soportado, imagen GHCR.
 - **A8 · readme-capturas** — P1 · M · PUL+IMP-2 — Capturas (claro/oscuro) del resumen, línea temporal, ATT&CK y
   página de un informe, generadas automáticamente con Playwright sobre el caso demo (`scripts/screenshots.py`)
-  para que no se queden viejas; GIF corto de `forense demo` → web.
+  para que no se queden viejas; GIF corto de `sabueso demo` → web.
 - **A9 · readme-diagrama** — P2 · S · PUL — Diagrama del flujo (evidencia → extracción → módulos → hallazgos →
   revisión → informe/STIX) en SVG o Mermaid.
 - **A10 · readme-adelgazar** — P1 · M · PUL — Dejar el README en ~250 líneas: qué es, por qué, instalación,
   inicio rápido, tabla de módulos resumida y enlaces; el detalle pasa a la documentación de referencia (A11).
 - **A11 · readme-comparativa** — P3 · S · PUL — Tabla honesta frente a herramientas afines (Plaso, KAPE+EZTools,
-  Autopsy, Velociraptor): qué hace cada una y cuándo usar Forense-Framework junto a ellas.
+  Autopsy, Velociraptor): qué hace cada una y cuándo usar Sabueso-Framework junto a ellas.
 
 ### A.3 Documentación de referencia (0.5)
 
@@ -153,7 +153,7 @@ Leyenda de cada tarea:
   artefactos, opciones, tipos de registro, códigos de hallazgo con su severidad y técnica ATT&CK.
 - **A15 · docs-hallazgos** — P1 · M · IMP-1 — Catálogo de todos los códigos de hallazgo con: qué significa, por qué
   dispara, falsos positivos habituales, cómo confirmarlo y referencia ATT&CK. Base para la guía del analista.
-- **A16 · docs-formato-caso** — P2 · M · IMP-1 — Especificación del formato de caso (`forense.db`, tablas,
+- **A16 · docs-formato-caso** — P2 · M · IMP-1 — Especificación del formato de caso (`sabueso.db`, tablas,
   custodia, carpetas) y garantías de compatibilidad, para que terceros puedan leerlo.
 - **A17 · docs-guias** — P2 · L · PUL — Tutoriales paso a paso: "Mi primer caso", "Intrusión con RDP",
   "Ransomware", "Fuga de información por USB", "Análisis de memoria", "Playbook propio", "Trabajar con MISP".
@@ -166,10 +166,10 @@ Leyenda de cada tarea:
 
 ## Eje B — Calidad de código y arquitectura
 
-- **B1 · cli-paquete** — P1 · L · IMP-1 — Dividir `forense/cli.py` en `forense/cli/` (un archivo por grupo de
+- **B1 · cli-paquete** — P1 · L · IMP-1 — Dividir `sabueso/cli.py` en `sabueso/cli/` (un archivo por grupo de
   órdenes: caso, evidencia, análisis, revisión, exportación, informe, automatización, utilidades) sin cambiar
   comportamiento; los e2e existentes son la red de seguridad.
-- **B2 · web-blueprints** — P1 · L · IMP-2 — Dividir `forense/web/__init__.py` en blueprints (casos, evidencias,
+- **B2 · web-blueprints** — P1 · L · IMP-2 — Dividir `sabueso/web/__init__.py` en blueprints (casos, evidencias,
   análisis, hallazgos, línea temporal, informes, API) con fábrica de app intacta.
 - **B3 · tipado-estricto** — P1 · L · PUL — mypy (o pyright) en CI: primero `core/` y `parsers/` en modo estricto,
   después el resto; `py.typed` en el paquete.
@@ -179,7 +179,7 @@ Leyenda de cada tarea:
   (`core/migrations/0002_*.py`), cada una con test que abre un caso de la versión anterior real (fixtures
   `tests/data/cases/v0.4/`), y registro en custodia de la migración aplicada.
 - **B6 · plugins-entry-points** — P1 · M · IMP-1 — Descubrir módulos externos por `importlib.metadata`
-  (`forense.modules` entry point) con aislamiento de errores: un plugin roto no tumba la herramienta; `doctor` los
+  (`sabueso.modules` entry point) con aislamiento de errores: un plugin roto no tumba la herramienta; `doctor` los
   lista; los textos del plugin traen sus propios locales.
 - **B7 · contrato-modulo-v2** — P2 · M · IMP-1 — Declarar en el módulo metadatos hoy implícitos: tipos de registro
   que produce, códigos de hallazgo con severidad y técnica ATT&CK por defecto, artefactos que consume; sirve a A14,
@@ -192,7 +192,7 @@ Leyenda de cada tarea:
   locales.
 - **B11 · formato** — P2 · S · PUL — Adoptar `ruff format` en un único commit de formato (con `.git-blame-ignore-revs`).
 - **B12 · deuda-heuristicas** — P2 · M · IMP-1 — Extraer listas de herramientas ofensivas, rutas sospechosas y
-  dominios legítimos a datos versionados (`forense/data/*.yaml`) actualizables sin tocar código.
+  dominios legítimos a datos versionados (`sabueso/data/*.yaml`) actualizables sin tocar código.
 
 ---
 
@@ -307,8 +307,8 @@ licencia en `tests/data/README.md`. Sin muestra real, la tarea queda **bloqueada
   orden de volatilidad.
 - **E8 · recoleccion-remota** — P3 · L · IMP-1 — Recolección vía SMB/WinRM sobre equipos del dominio con
   credenciales explícitas y custodia por equipo.
-- **E9 · adquisicion-imagen** — P3 · L · IMP-1 — `forense adquirir` para crear E01/raw con verificación y
-  metadatos (útil en Linux/forense en caliente), sin pretender sustituir a herramientas certificadas.
+- **E9 · adquisicion-imagen** — P3 · L · IMP-1 — `sabueso adquirir` para crear E01/raw con verificación y
+  metadatos (útil en Linux/sabueso en caliente), sin pretender sustituir a herramientas certificadas.
 - **E10 · vss-diferencias** — P2 · M · IMP-1 — Vista de diferencias entre instantáneas (qué cambió entre VSS1 y
   el volumen actual) como hallazgos y en la línea temporal.
 
@@ -325,7 +325,7 @@ licencia en `tests/data/README.md`. Sin muestra real, la tarea queda **bloqueada
 - **F4 · memoria-linux-mac** — P2 · L · IMP-1 — Volcados Linux y macOS (Volatility 3 + ISF) para el eje J.
 - **F5 · memoria-memprocfs** — P3 · L · IMP-1 — Backend alternativo MemProcFS para análisis rápidos en Windows.
 - **F6 · memoria-simbolos-offline** — P2 · S · IMP-1 — Empaquetar y verificar un almacén de símbolos ISF offline
-  (`forense memoria simbolos descargar DIR`) para laboratorios aislados.
+  (`sabueso memoria simbolos descargar DIR`) para laboratorios aislados.
 - **F7 · memoria-timeline** — P2 · M · IMP-1 — Eventos de memoria con marcas de tiempo (creación de procesos,
   conexiones) en la superlínea con su fuente.
 
@@ -337,7 +337,7 @@ licencia en `tests/data/README.md`. Sin muestra real, la tarea queda **bloqueada
   `temporal`, `temporal_ordered`) de la especificación 2.0.
 - **G2 · sigma-pipelines** — P1 · M · IMP-1 — Mapeo de campos por fuente (pipelines) para aplicar Sigma también a
   registros no EVTX (PSReadLine, tareas, servicios del registro, logs de IIS, Linux auditd).
-- **G3 · sigma-cobertura** — P2 · S · IMP-1 — `forense sigma check` informa de qué campos/modificadores no se
+- **G3 · sigma-cobertura** — P2 · S · IMP-1 — `sabueso sigma check` informa de qué campos/modificadores no se
   soportan por regla; objetivo: ≥ 95 % de las reglas Windows de SigmaHQ cargables.
 - **G4 · sigma-reglas-propias** — P2 · M · IMP-1 — Ampliar las 15 reglas integradas a ~50 de alto valor y bajo
   ruido, cada una con test positivo y negativo sobre EVTX real.
@@ -443,7 +443,7 @@ detecciones ATT&CK (matrices Linux y macOS).
 ### K.1 Producción y equipo (0.8)
 
 - **K1 · web-wsgi** — P0 (para 0.8) · M · IMP-2+PUL — Servidor de producción (waitress en Windows, gunicorn en
-  Linux) por defecto en `forense web`; el servidor de desarrollo solo con `--dev`. Actualizar Docker.
+  Linux) por defecto en `sabueso web`; el servidor de desarrollo solo con `--dev`. Actualizar Docker.
 - **K2 · web-usuarios** — P1 · L · IMP-2 — Cuentas locales con contraseña (hash argon2/scrypt), sesión con cookie
   segura y caducidad; el analista de la custodia es el usuario autenticado, no un campo libre.
 - **K3 · web-roles** — P1 · M · IMP-2 — Roles: lector, analista, responsable (puede cerrar caso, firmar informe),
@@ -500,7 +500,7 @@ detecciones ATT&CK (matrices Linux y macOS).
   (máximo de filas, solo hallazgos confirmados…), registrado en custodia.
 - **L7 · informe-redaccion** — P2 · M · IMP-2 — Anonimización/redacción de datos personales (nombres de usuario,
   correos, IP internas) para informes que se comparten fuera (RGPD).
-- **L8 · informe-verificador** — P2 · S · IMP-2 — `forense verificar-informe INFORME --sig --pub` independiente del
+- **L8 · informe-verificador** — P2 · S · IMP-2 — `sabueso verificar-informe INFORME --sig --pub` independiente del
   caso, para que un tercero (juzgado, cliente) verifique sin tener el caso.
 - **L9 · informe-graficos** — P3 · M · IMP-2 — Nuevos gráficos: mapa de calor de actividad por hora/día, cronología
   de fases ATT&CK tipo Gantt, flujo de movimiento lateral.
@@ -511,7 +511,7 @@ detecciones ATT&CK (matrices Linux y macOS).
 
 - **M1 · api-rest** — P1 · L · IMP-2 — API REST versionada (`/api/v1`) con tokens por usuario: casos, evidencias,
   análisis, hallazgos, revisiones, informes; especificación OpenAPI publicada en la documentación.
-- **M2 · cliente-python** — P2 · M · IMP-2 — Cliente Python mínimo (`forense.client`) y ejemplos de notebooks
+- **M2 · cliente-python** — P2 · M · IMP-2 — Cliente Python mínimo (`sabueso.client`) y ejemplos de notebooks
   (Jupyter) para análisis ad hoc sobre un caso.
 - **M3 · export-timesketch** — P1 · M · IMP-1 — Exportar la línea temporal en formato JSONL/CSV de Timesketch (y
   subida opcional con su API).
@@ -526,7 +526,7 @@ detecciones ATT&CK (matrices Linux y macOS).
 - **M8 · playbooks-condicionales** — P2 · M · IMP-1 — Pasos condicionales en playbooks (`if: findings.critical > 0`)
   y paso `notify` explícito; validación de esquema del YAML con mensajes localizados.
 - **M9 · vigilar-servicio** — P2 · M · IMP-1+PUL — Instalar `vigilar` como servicio de Windows / unidad systemd
-  (`forense vigilar --instalar-servicio`).
+  (`sabueso vigilar --instalar-servicio`).
 - **M10 · notificaciones-ricas** — P3 · S · IMP-1 — Correo SMTP, plantillas de mensaje y notificación de
   hallazgos críticos en cuanto aparecen (no solo al final).
 - **M11 · ticketing** — P3 · M · IMP-1 — Crear incidencias en TheHive/Jira/ServiceNow con el resumen del caso (red
@@ -567,7 +567,7 @@ detecciones ATT&CK (matrices Linux y macOS).
   corpus guardado.
 - **O3 · sandbox-parsers** — P2 · L · SEG+IMP-1 — Ejecutar parsers de terceros (libyal, pytsk3) en subproceso con
   límites de memoria/tiempo, para que un crash nativo no tumbe el análisis.
-- **O4 · actualizacion-verificada** — P1 · M · SEG+PUL — `forense update` verifica la firma/atestación de la release
+- **O4 · actualizacion-verificada** — P1 · M · SEG+PUL — `sabueso update` verifica la firma/atestación de la release
   (Sigstore, atestaciones de GitHub) antes de instalar; hoy es "self-update sin pin de hash" aceptado.
 - **O5 · sbom-firma-release** — P1 · M · PUL — SBOM CycloneDX, atestaciones de procedencia SLSA y firma Sigstore de
   rueda, exe e imagen Docker en el flujo `release`.
@@ -609,7 +609,7 @@ detecciones ATT&CK (matrices Linux y macOS).
   produce rueda, sdist, exe y Docker; corregir lo que falle.
 - **Q2 · changelog** — P0 · S · PUL — `CHANGELOG.md` (Keep a Changelog) reconstruido desde el historial, y
   generación de notas de release a partir de Conventional Commits.
-- **Q3 · pypi** — P1 · S · PUL — Publicar en PyPI con *trusted publishing*; `pipx install forense-framework` como vía
+- **Q3 · pypi** — P1 · S · PUL — Publicar en PyPI con *trusted publishing*; `pipx install sabueso-framework` como vía
   recomendada en el README.
 - **Q4 · winget-scoop-brew** — P2 · M · PUL — Manifiestos para winget, Scoop y Homebrew.
 - **Q5 · instalador-msi** — P3 · M · PUL — Instalador MSI firmado para despliegues corporativos (GPO/Intune).
@@ -660,7 +660,7 @@ Elementos pequeños que mejoran la percepción de calidad; se pueden ir colando 
 - [ ] Salida de la CLI con colores accesibles y `--no-color`/`NO_COLOR` respetado; `--json` en todas las órdenes de
       consulta.
 - [ ] Barra de progreso en extracción, hashing y triaje (con ETA) en la CLI.
-- [ ] `forense doctor` sugiere el comando exacto para arreglar cada problema.
+- [ ] `sabueso doctor` sugiere el comando exacto para arreglar cada problema.
 - [ ] Estados vacíos de la web con explicación y acción ("Aún no hay análisis: lanza el triaje").
 - [ ] Coherencia terminológica es/en revisada (glosario único: hallazgo/finding, evidencia derivada/derived
       evidence, custodia/custody).

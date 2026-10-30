@@ -1,0 +1,892 @@
+"""Investigation case: evidence, analyses, timeline, findings and chain of custody.
+
+A case is a directory::
+
+    <case>/
+      sabueso.db      SQLite database (WAL): case data, results and custody chain
+      evidence/       verified working copies of evidence (``--copy``)
+      analyses/       files produced by analyses (carved files, bodyfiles...)
+      reports/        generated reports
+      exports/        exported CSV/JSON
+
+Evidence is never written to: it is hashed when registered, opened read-only
+by every module and can be re-verified at any time.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import secrets
+import shutil
+import sqlite3
+import stat
+import sys
+import uuid
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Callable, Iterator, Optional
+
+from sabueso import __version__
+from sabueso.core.custody import ChainOfCustody
+from sabueso.core.errors import CaseError, SabuesoError
+from sabueso.core.hashing import DEFAULT_ALGORITHMS, ProgressCallback, hash_file, hash_tree
+from sabueso.core.review import REVIEW_SCHEMA, ReviewMixin, latest_review_sql
+from sabueso.core.utils import utc_now
+from sabueso.i18n import t
+
+DB_NAME = "sabueso.db"
+LEGACY_DB_NAMES = ("forense.db",)  # cases created before the project was renamed
+SCHEMA_VERSION = 1
+SUBDIRS = ("evidence", "analyses", "reports", "exports")
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS evidence (
+    id TEXT PRIMARY KEY, path TEXT NOT NULL, source TEXT NOT NULL, kind TEXT NOT NULL,
+    size INTEGER NOT NULL, file_count INTEGER NOT NULL, hashes TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '', added_at TEXT NOT NULL, added_by TEXT NOT NULL,
+    copied INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS custody (
+    seq INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, action TEXT NOT NULL, actor TEXT NOT NULL,
+    details TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS analyses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, module TEXT NOT NULL, evidence_id TEXT NOT NULL,
+    status TEXT NOT NULL, started TEXT NOT NULL, finished TEXT, options TEXT NOT NULL DEFAULT '{}',
+    summary TEXT NOT NULL DEFAULT '{}', errors TEXT NOT NULL DEFAULT '[]', artifacts TEXT NOT NULL DEFAULT '[]',
+    actor TEXT NOT NULL, output_dir TEXT NOT NULL DEFAULT '', record_count INTEGER NOT NULL DEFAULT 0,
+    event_count INTEGER NOT NULL DEFAULT 0, finding_count INTEGER NOT NULL DEFAULT 0, results_sha256 TEXT
+);
+CREATE TABLE IF NOT EXISTS records (
+    analysis_id INTEGER NOT NULL, seq INTEGER NOT NULL, artifact TEXT NOT NULL, data TEXT NOT NULL,
+    PRIMARY KEY (analysis_id, seq)
+);
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, analysis_id INTEGER NOT NULL, evidence_id TEXT NOT NULL,
+    timestamp TEXT NOT NULL, source TEXT NOT NULL, type TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
+    path TEXT NOT NULL DEFAULT '', severity TEXT NOT NULL DEFAULT 'info'
+);
+CREATE INDEX IF NOT EXISTS idx_records_artifact ON records(artifact);
+CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_analysis ON events(analysis_id);
+CREATE TABLE IF NOT EXISTS findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, analysis_id INTEGER NOT NULL, evidence_id TEXT NOT NULL,
+    severity TEXT NOT NULL, code TEXT NOT NULL, timestamp TEXT, params TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_findings_analysis ON findings(analysis_id);
+""" + REVIEW_SCHEMA
+
+SEVERITY_ORDER_SQL = ("CASE severity WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 "
+                      "WHEN 'low' THEN 1 ELSE 0 END")
+
+
+@dataclass
+class Evidence:
+    id: str
+    path: str
+    source: str
+    kind: str  # "file" | "directory"
+    size: int
+    file_count: int
+    hashes: dict
+    description: str
+    added_at: str
+    added_by: str
+    copied: bool
+    derived_from: Optional[str] = None  # evidence id this was extracted from (disk images)
+    # Transient (not persisted, not set by from_row): identical content already registered in the
+    # case, so the analyst knows at registration time instead of comparing hashes by hand (H-005).
+    # Registering the same content twice can be legitimate, hence a notice, never a block.
+    duplicate_of: Optional[str] = None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "Evidence":
+        return cls(row["id"], row["path"], row["source"], row["kind"], row["size"], row["file_count"],
+                   json.loads(row["hashes"]), row["description"], row["added_at"], row["added_by"],
+                   bool(row["copied"]), row["derived_from"])
+
+
+@dataclass
+class Verification:
+    evidence_id: str
+    ok: bool
+    expected: dict
+    current: dict
+    error: Optional[str] = None  # i18n code when the evidence could not be read
+
+
+@dataclass
+class Analysis:
+    id: int
+    module: str
+    evidence_id: str
+    status: str  # running | completed | failed | interrupted
+    started: str
+    finished: Optional[str]
+    options: dict
+    summary: dict
+    errors: list
+    artifacts: list
+    actor: str
+    output_dir: str
+    record_count: int
+    event_count: int
+    finding_count: int
+    results_sha256: Optional[str]
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "Analysis":
+        return cls(row["id"], row["module"], row["evidence_id"], row["status"], row["started"], row["finished"],
+                   json.loads(row["options"]), json.loads(row["summary"]), json.loads(row["errors"]),
+                   json.loads(row["artifacts"]), row["actor"], row["output_dir"], row["record_count"],
+                   row["event_count"], row["finding_count"], row["results_sha256"])
+
+
+@dataclass
+class Page:
+    total: int
+    rows: list = field(default_factory=list)
+
+
+def like(text: str) -> str:
+    """LIKE pattern that matches ``text`` literally anywhere (``%`` and ``_`` are not wildcards)."""
+    return "%" + text.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+
+
+def json_like(text: str) -> str:
+    """LIKE pattern for ``text`` inside JSON-encoded data (backslashes and quotes are escaped there)."""
+    return like(json.dumps(text, ensure_ascii=False)[1:-1])
+
+
+@contextmanager
+def transaction(conn: sqlite3.Connection) -> Iterator[None]:
+    """Explicit write transaction (connections run in autocommit mode)."""
+    if conn.in_transaction:
+        yield
+        return
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    conn.execute("COMMIT")
+
+
+class _CaseSink:
+    """Streams module output into the case database."""
+
+    def __init__(self, conn: sqlite3.Connection, analysis_id: int, evidence_id: str) -> None:
+        self.conn = conn
+        self.analysis_id = analysis_id
+        self.evidence_id = evidence_id
+        self.seq = 0
+
+    def add_records(self, items: list[tuple[str, dict]]) -> None:
+        # Stored in the module's field order (for display); hashes use the canonical, key-sorted form.
+        rows = []
+        for artifact, data in items:
+            self.seq += 1
+            rows.append((self.analysis_id, self.seq, artifact,
+                         json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=str)))
+        with transaction(self.conn):
+            self.conn.executemany("INSERT INTO records (analysis_id, seq, artifact, data) VALUES (?,?,?,?)", rows)
+
+    def add_events(self, items: list[dict]) -> None:
+        with transaction(self.conn):
+            self.conn.executemany(
+                "INSERT INTO events (analysis_id, evidence_id, timestamp, source, type, details, path, severity) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                [(self.analysis_id, self.evidence_id, e["timestamp"], e["source"], e["type"], e["details"],
+                  e["path"], e["severity"]) for e in items],
+            )
+
+    def add_findings(self, items: list[dict]) -> None:
+        from sabueso.modules.base import canonical
+
+        with transaction(self.conn):
+            self.conn.executemany(
+                "INSERT INTO findings (analysis_id, evidence_id, severity, code, timestamp, params) "
+                "VALUES (?,?,?,?,?,?)",
+                [(self.analysis_id, self.evidence_id, f["severity"], f["code"], f["timestamp"],
+                  canonical(f["params"])) for f in items],
+            )
+
+
+class Case(ReviewMixin):
+    def __init__(self, root: Path, conn: sqlite3.Connection) -> None:
+        self.root = Path(root)
+        self.conn = conn
+        self.custody = ChainOfCustody(conn)
+
+    # -- lifecycle --------------------------------------------------------
+    @staticmethod
+    def is_case(root: Path) -> bool:
+        return Case.db_path(root).is_file()
+
+    @staticmethod
+    def db_path(root: Path) -> Path:
+        """The case database; a case from before the rename keeps its original file name."""
+        for name in (DB_NAME, *LEGACY_DB_NAMES):
+            if (Path(root) / name).is_file():
+                return Path(root) / name
+        return Path(root) / DB_NAME
+
+    @staticmethod
+    def _connect(db_path: Path) -> sqlite3.Connection:
+        conn = sqlite3.connect(str(db_path), timeout=30, isolation_level=None, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=30000")
+        return conn
+
+    @classmethod
+    def create(cls, root: Path, name: str, investigator: str, description: str = "",
+               reference: str = "", organization: str = "") -> "Case":
+        root = Path(root).resolve()
+        if cls.is_case(root):
+            raise CaseError("error.case_exists", path=str(root))
+        if not name.strip() or not investigator.strip():
+            raise CaseError("error.case_fields_required")
+        root.mkdir(parents=True, exist_ok=True)
+        for sub in SUBDIRS:
+            (root / sub).mkdir(exist_ok=True)
+        conn = cls._connect(root / DB_NAME)
+        conn.executescript(_SCHEMA)
+        _migrate(conn)
+        now = datetime.now(timezone.utc)
+        meta = {
+            "id": f"CASE-{now:%Y%m%d}-{uuid.uuid4().hex[:6].upper()}",
+            "name": name.strip(),
+            "investigator": investigator.strip(),
+            "description": description.strip(),
+            "reference": reference.strip(),
+            "organization": organization.strip(),
+            "created": utc_now(),
+            "framework_version": __version__,
+            "schema_version": str(SCHEMA_VERSION),
+        }
+        with transaction(conn):
+            conn.executemany("INSERT INTO meta (key, value) VALUES (?, ?)", meta.items())
+        case = cls(root, conn)
+        case.custody.append("case_created", meta["investigator"],
+                            {"case_id": meta["id"], "name": meta["name"], "framework_version": __version__})
+        return case
+
+    @classmethod
+    def open(cls, root: Path) -> "Case":
+        root = Path(root).resolve()
+        if not cls.is_case(root):
+            raise CaseError("error.case_not_found", path=str(root))
+        conn = cls._connect(cls.db_path(root))
+        conn.executescript(_SCHEMA)
+        _migrate(conn)
+        return cls(root, conn)
+
+    def close(self) -> None:
+        self.conn.close()
+
+    def __enter__(self) -> "Case":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    # -- metadata ---------------------------------------------------------
+    @property
+    def info(self) -> dict:
+        return {row["key"]: row["value"] for row in self.conn.execute("SELECT key, value FROM meta")}
+
+    @property
+    def name(self) -> str:
+        return self.info.get("name", "")
+
+    def _secret_salt(self) -> str:
+        """Per-case random salt for the fingerprints of secret options (passwords, recovery keys)."""
+        row = self.conn.execute("SELECT value FROM meta WHERE key = 'secret_salt'").fetchone()
+        if row:
+            return row[0]
+        salt = secrets.token_hex(16)
+        with transaction(self.conn):
+            self.conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('secret_salt', ?)", (salt,))
+        return self.conn.execute("SELECT value FROM meta WHERE key = 'secret_salt'").fetchone()[0]
+
+    def actor(self, actor: Optional[str]) -> str:
+        return (actor or "").strip() or self.info.get("investigator", "unknown")
+
+    # -- evidence ---------------------------------------------------------
+    def _next_evidence_id(self) -> str:
+        numbers = [int(row[0][3:]) for row in self.conn.execute("SELECT id FROM evidence")
+                   if row[0].startswith("EV-") and row[0][3:].isdigit()]
+        return f"EV-{max(numbers, default=0) + 1:03d}"
+
+    @staticmethod
+    def _measure(path: Path, progress: Optional[ProgressCallback]) -> tuple[str, dict, int, int]:
+        if path.is_file():
+            done = 0
+
+            def _file_progress(n: int) -> None:
+                nonlocal done
+                done += n
+                if progress:
+                    progress(0, done)
+
+            hashes = hash_file(path, DEFAULT_ALGORITHMS, progress=_file_progress)
+            return "file", hashes, path.stat().st_size, 1
+        if path.is_dir():
+            tree = hash_tree(path, DEFAULT_ALGORITHMS, progress=progress)
+            return "directory", tree.hashes, tree.total_size, tree.file_count
+        raise CaseError("error.evidence_unsupported", path=str(path))
+
+    def add_evidence(self, source: Path, description: str = "", copy: bool = False,
+                     actor: Optional[str] = None, progress: Optional[ProgressCallback] = None,
+                     derived_from: Optional[str] = None, analysis_id: Optional[int] = None) -> Evidence:
+        """Register evidence: hash it and, with ``copy``, make a verified read-only working copy.
+
+        ``derived_from`` registers files produced by the case itself (artifacts extracted from a disk
+        image by analysis ``analysis_id``); they live in the case folder and are made read-only.
+        """
+        source = Path(source).expanduser().resolve()
+        if not source.exists():
+            raise CaseError("error.evidence_missing", path=str(source))
+        inside = source == self.root or self.root in source.parents
+        if inside and not (derived_from and (self.root / "analyses") in source.parents):
+            raise CaseError("error.evidence_inside_case", path=str(source))
+        if source in self.root.parents:  # the folder holding the case: its hash would include sabueso.db
+            raise CaseError("error.evidence_contains_case", path=str(source))
+        if derived_from:
+            self.get_evidence(derived_from)
+            copy = False
+        actor = self.actor(actor)
+        try:
+            kind, hashes, size, count = self._measure(source, progress)
+        except OSError as exc:
+            raise CaseError("error.evidence_unreadable", path=str(source), error=str(exc)) from exc
+
+        # Looked up before the INSERT so the new row cannot match itself; a concurrent identical
+        # registration may slip past this check on the web — the notice is best-effort, integrity
+        # never depends on it.
+        duplicate = self.find_duplicate(hashes)
+        staging = self._copy_evidence(source, kind, hashes, progress) if copy else None
+        if derived_from:
+            _make_read_only(source)
+        # The identifier is taken and the working copy moved into place inside one write transaction,
+        # so two evidence items registered at the same time (web jobs) never get the same ID.
+        with transaction(self.conn):
+            evidence_id = self._next_evidence_id()
+            work_path = source
+            if staging is not None:
+                final_dir = self.root / "evidence" / evidence_id
+                try:
+                    staging.parent.rename(final_dir)
+                except OSError:
+                    _force_rmtree(staging.parent)
+                    raise
+                work_path = final_dir / staging.name
+            try:  # paths inside the case are stored relative to it, so a copied or moved case verifies itself
+                stored_path = work_path.relative_to(self.root).as_posix()
+            except ValueError:
+                stored_path = str(work_path)
+            evidence = Evidence(evidence_id, stored_path, str(source), kind, size, count, hashes,
+                                description.strip(), utc_now(), actor, copy, derived_from)
+            if duplicate is not None:
+                evidence.duplicate_of = duplicate.id
+            self.conn.execute(
+                "INSERT INTO evidence (id, path, source, kind, size, file_count, hashes, description, added_at, "
+                "added_by, copied, derived_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (evidence.id, evidence.path, evidence.source, kind, size, count, json.dumps(hashes),
+                 evidence.description, evidence.added_at, actor, int(copy), derived_from),
+            )
+            details = {"evidence_id": evidence_id, "source": str(source), "path": str(work_path), "kind": kind,
+                       "size": size, "file_count": count, "copied": copy, **hashes}
+            if derived_from:
+                details.update({"derived_from": derived_from, "analysis_id": analysis_id})
+            self.custody.append("evidence_derived" if derived_from else "evidence_added", actor, details)
+        return evidence
+
+    def extract_image(self, evidence_id: str, options: Optional[dict] = None, actor: Optional[str] = None,
+                      progress: Optional[Callable[[str], None]] = None) -> tuple["Analysis", Optional[Evidence]]:
+        """Extract artifacts from a disk image and register them as derived evidence."""
+        analysis = self.run_analysis("image", evidence_id, options, actor, progress)
+        extracted = self.root / analysis.output_dir / "extracted"
+        if not analysis.summary.get("files_extracted") or not extracted.is_dir():
+            return analysis, None
+        source = self.get_evidence(evidence_id)
+        description = t("evidence.derived_description", source=source.description or source.id, analysis=analysis.id)
+        derived = self.add_evidence(extracted, description, actor=actor, derived_from=source.id,
+                                    analysis_id=analysis.id)
+        return analysis, derived
+
+    def _copy_evidence(self, source: Path, kind: str, expected: dict,
+                       progress: Optional[ProgressCallback]) -> Path:
+        """Verified copy into a staging folder (``evidence/.incoming-…``), renamed once the ID is known."""
+        dest_dir = self.root / "evidence" / f".incoming-{uuid.uuid4().hex}"
+        dest = dest_dir / source.name
+        dest_dir.mkdir(parents=True, exist_ok=False)
+        try:
+            if kind == "file":
+                shutil.copy2(source, dest)
+            else:
+                shutil.copytree(source, dest, symlinks=True)
+            _, copied_hashes, _, _ = self._measure(dest, progress)
+            if copied_hashes != expected:
+                raise CaseError("error.copy_mismatch", path=str(dest))
+        except BaseException:
+            _force_rmtree(dest_dir)
+            raise
+        _make_read_only(dest)
+        return dest
+
+    def find_duplicate(self, hashes: dict) -> Optional[Evidence]:
+        """First registered evidence with the same SHA-256, if any (H-005: duplicate notice)."""
+        digest = (hashes or {}).get("sha256")
+        if not digest:
+            return None
+        for existing in self.evidence_list():
+            if existing.hashes.get("sha256") == digest:
+                return existing
+        return None
+
+    def evidence_list(self) -> list[Evidence]:
+        return [Evidence.from_row(r) for r in self.conn.execute("SELECT * FROM evidence ORDER BY id")]
+
+    def get_evidence(self, evidence_id: str) -> Evidence:
+        row = self.conn.execute("SELECT * FROM evidence WHERE id = ?", (evidence_id.upper(),)).fetchone()
+        if row is None:
+            raise CaseError("error.evidence_unknown", evidence=evidence_id)
+        return Evidence.from_row(row)
+
+    def _internal_candidates(self, path: Path) -> Iterator[Path]:
+        """Sub-paths of an old absolute evidence path that may live inside this case folder."""
+        parts = path.parts
+        for marker in ("evidence", "analyses"):
+            for index, part in enumerate(parts):
+                if part == marker and index < len(parts) - 1:
+                    yield Path(*parts[index:])
+
+    def disk_path(self, stored: str) -> Path:
+        """Disk location of a registered evidence path, re-based to this case folder.
+
+        Registrations made from now on store paths relative to the case root, so a copied or
+        moved case verifies its own files instead of the originals they came from (H-007).
+        Old absolute entries resolve in place while the case sits at its original location,
+        or against the copy inside this folder once the case has been moved or duplicated.
+        """
+        path = Path(stored)
+        if not path.is_absolute():
+            # A relative registration always lives inside the case folder (add_evidence stores it
+            # that way); anything else is a tampered or foreign row and must never be read (SEG):
+            # resolve (symlinks included) and require containment in the resolved case root.
+            candidate = (self.root / path).resolve()
+            root = self.root.resolve()
+            if candidate != root and root not in candidate.parents:
+                raise CaseError("error.evidence_path_escapes", path=stored)
+            return candidate
+        if self.root == path or self.root in path.parents:
+            return path
+        for candidate in self._internal_candidates(path):
+            rebased = self.root / candidate
+            if rebased.exists():
+                return rebased
+        return path
+
+    def verify_evidence(self, evidence_id: str, actor: Optional[str] = None,
+                        progress: Optional[ProgressCallback] = None) -> Verification:
+        evidence = self.get_evidence(evidence_id)
+        path = self.disk_path(evidence.path)
+        current: dict = {}
+        error = None
+        if not path.exists():
+            error = "verify.missing"
+        else:
+            try:
+                _, current, _, _ = self._measure(path, progress)
+            except (OSError, SabuesoError):
+                error = "verify.unreadable"
+        ok = error is None and current == evidence.hashes
+        details = {"evidence_id": evidence.id, "result": "ok" if ok else "mismatch" if error is None else "error",
+                   "sha256": current.get("sha256")}
+        registered = Path(evidence.path)
+        if registered.is_absolute() and path != registered:
+            details["path"] = str(path)  # verification was re-based: the registered location no longer applies
+        self.custody.append("evidence_verified", self.actor(actor), details)
+        return Verification(evidence.id, ok, evidence.hashes, current, error)
+
+    def last_verifications(self) -> dict[str, dict]:
+        """Latest verification result of each evidence item, from the chain of custody."""
+        last: dict[str, dict] = {}
+        for entry in self.custody.entries():
+            if entry.action == "evidence_verified":
+                last[entry.details.get("evidence_id")] = {"result": entry.details.get("result"),
+                                                          "timestamp": entry.timestamp, "actor": entry.actor}
+        return last
+
+    # -- analyses ---------------------------------------------------------
+    def run_analysis(self, module_name: str, evidence_id: str, options: Optional[dict] = None,
+                     actor: Optional[str] = None, progress: Optional[Callable[[str], None]] = None) -> Analysis:
+        from sabueso.modules.base import get_module, mask_secret
+
+        module = get_module(module_name)
+        evidence = self.get_evidence(evidence_id)
+        target = self.disk_path(evidence.path)
+        module.check_target(target)
+        parsed = module.parse_options(options)
+        actor = self.actor(actor)
+        secret_names = {o.name for o in module.options if o.kind == "secret"}
+        salt = self._secret_salt() if any(parsed.get(k) not in (None, "") for k in secret_names) else ""
+        stored_options = {k: mask_secret(v, salt) if k in secret_names else (str(v) if v is not None else None)
+                          for k, v in parsed.items()}
+
+        cur = self.conn.execute(
+            "INSERT INTO analyses (module, evidence_id, status, started, options, actor) VALUES (?,?,?,?,?,?)",
+            (module.name, evidence.id, "running", utc_now(), json.dumps(stored_options, ensure_ascii=False), actor),
+        )
+        analysis_id = cur.lastrowid
+        output_dir = self.root / "analyses" / f"{analysis_id:04d}_{module.name}"
+        self.conn.execute("UPDATE analyses SET output_dir = ? WHERE id = ?",
+                          (output_dir.relative_to(self.root).as_posix(), analysis_id))
+        sink = _CaseSink(self.conn, analysis_id, evidence.id)
+        try:
+            ctx = module.run(target, output_dir, options, sink=sink, evidence_id=evidence.id, progress=progress)
+        except BaseException as exc:
+            error = exc.message("en") if isinstance(exc, SabuesoError) else f"{type(exc).__name__}: {exc}"
+            self.conn.execute(
+                "UPDATE analyses SET status = 'failed', finished = ?, errors = ? WHERE id = ?",
+                (utc_now(), json.dumps([{"path": str(target), "error": error}], ensure_ascii=False), analysis_id),
+            )
+            self.custody.append("analysis_failed", actor, {
+                "analysis_id": analysis_id, "module": module.name, "evidence_id": evidence.id, "error": error,
+            })
+            raise
+        self.conn.execute(
+            "UPDATE analyses SET status = 'completed', finished = ?, summary = ?, errors = ?, artifacts = ?, "
+            "record_count = ?, event_count = ?, finding_count = ?, results_sha256 = ? WHERE id = ?",
+            (utc_now(), json.dumps(ctx.summary, ensure_ascii=False, default=str),
+             json.dumps(ctx.errors, ensure_ascii=False), json.dumps(ctx.artifacts, ensure_ascii=False),
+             ctx.counts["records"], ctx.counts["events"], ctx.counts["findings"], ctx.results_sha256, analysis_id),
+        )
+        self.custody.append("analysis_completed", actor, {
+            "analysis_id": analysis_id, "module": module.name, "evidence_id": evidence.id,
+            "options": stored_options, "records": ctx.counts["records"], "events": ctx.counts["events"],
+            "findings": ctx.counts["findings"], "errors": len(ctx.errors), "results_sha256": ctx.results_sha256,
+        })
+        return self.get_analysis(analysis_id)
+
+    def triage(self, evidence_id: str, actor: Optional[str] = None,
+               progress: Optional[Callable[[str], None]] = None,
+               options: Optional[dict[str, dict]] = None) -> list[tuple[str, Optional[Analysis], str]]:
+        """Run every triage module that finds artifacts in the evidence.
+
+        Disk images are extracted first (the modules then run on the derived
+        evidence); memory dumps and Volatility outputs go to the ``memory``
+        module. ``options`` gives per-module options (``{"evtx": {...}}``).
+        Returns ``(module, analysis or None, error code)`` per module; a failing
+        module does not stop the others.
+        """
+        from sabueso.image import evidence_kind
+        from sabueso.modules.base import available_modules
+
+        options = options or {}
+        evidence = self.get_evidence(evidence_id)
+        target = self.disk_path(evidence.path)
+        results: list[tuple[str, Optional[Analysis], str]] = []
+        kind = evidence_kind(target)
+        if kind in ("memory", "volatility"):
+            if progress:
+                progress("memory")
+            try:
+                return [("memory", self.run_analysis("memory", evidence.id, options.get("memory"), actor,
+                                                     progress), "")]
+            except Exception:  # noqa: BLE001 - recorded as a failed analysis
+                return [("memory", None, "triage.failed")]
+        if kind == "disk_image":
+            if progress:
+                progress("image")
+            try:
+                analysis, derived = self.extract_image(evidence.id, options.get("image"), actor=actor,
+                                                       progress=progress)
+            except Exception:  # noqa: BLE001 - recorded as a failed analysis
+                return [("image", None, "triage.failed")]
+            results.append(("image", analysis, ""))
+            if derived is None:
+                return results
+            evidence, target = derived, self.disk_path(derived.path)
+        for module in available_modules():
+            if not module.triage:
+                continue
+            try:
+                module.check_target(target)
+                if not module.discover(target):
+                    results.append((module.name, None, "triage.no_artifacts"))
+                    continue
+            except (SabuesoError, OSError):
+                results.append((module.name, None, "triage.not_applicable"))
+                continue
+            if progress:
+                progress(module.name)
+            try:
+                results.append((module.name, self.run_analysis(module.name, evidence.id, options.get(module.name),
+                                                               actor=actor, progress=progress), ""))
+            except Exception:  # noqa: BLE001 - recorded as a failed analysis in the case
+                results.append((module.name, None, "triage.failed"))
+        return results
+
+    def derived_evidence(self, evidence_id: str) -> list[Evidence]:
+        return [e for e in self.evidence_list() if e.derived_from == evidence_id]
+
+    def analyses(self) -> list[Analysis]:
+        return [Analysis.from_row(r) for r in self.conn.execute("SELECT * FROM analyses ORDER BY id")]
+
+    def get_analysis(self, analysis_id: int) -> Analysis:
+        try:
+            row = self.conn.execute("SELECT * FROM analyses WHERE id = ?", (int(analysis_id),)).fetchone()
+        except (OverflowError, ValueError):
+            row = None
+        if row is None:
+            raise CaseError("error.analysis_unknown", analysis=analysis_id)
+        return Analysis.from_row(row)
+
+    def mark_interrupted(self) -> int:
+        """Flag analyses left 'running' by a crashed process."""
+        cur = self.conn.execute("UPDATE analyses SET status = 'interrupted' WHERE status = 'running'")
+        return cur.rowcount
+
+    def delete_analysis(self, analysis_id: int, actor: Optional[str] = None) -> None:
+        analysis = self.get_analysis(analysis_id)
+        if analysis.status == "running":
+            raise CaseError("error.analysis_running", analysis=analysis.id)
+        if analysis.output_dir:
+            folder = (self.root / analysis.output_dir).resolve()
+            dependent = [e.id for e in self.evidence_list()
+                         if (p := self.disk_path(e.path).resolve()) == folder or folder in p.parents]
+            if dependent:
+                raise CaseError("error.analysis_has_derived", analysis=analysis.id, evidence=", ".join(dependent))
+        with transaction(self.conn):
+            for table in ("records", "events", "findings"):
+                self.conn.execute(f"DELETE FROM {table} WHERE analysis_id = ?", (analysis.id,))
+            self.conn.execute("DELETE FROM analyses WHERE id = ?", (analysis.id,))
+            self.custody.append("analysis_deleted", self.actor(actor), {
+                "analysis_id": analysis.id, "module": analysis.module, "evidence_id": analysis.evidence_id,
+                "results_sha256": analysis.results_sha256,
+            })
+        if analysis.output_dir:
+            _force_rmtree(self.root / analysis.output_dir)
+
+    def verify_results(self, analysis_id: int) -> bool:
+        """Recompute the results hash of an analysis from the database."""
+        from sabueso.modules.base import canonical, combine_result_hashes, item_line, record_line
+
+        analysis = self.get_analysis(analysis_id)
+        records, events, findings = hashlib.sha256(), hashlib.sha256(), hashlib.sha256()
+        for row in self.conn.execute(
+                "SELECT artifact, data FROM records WHERE analysis_id = ? ORDER BY seq", (analysis.id,)):
+            records.update(record_line(row["artifact"], canonical(json.loads(row["data"]))))
+        for row in self.conn.execute(
+                "SELECT timestamp, source, type, details, path, severity FROM events WHERE analysis_id = ? "
+                "ORDER BY id", (analysis.id,)):
+            events.update(item_line(dict(row)))
+        for row in self.conn.execute(
+                "SELECT code, severity, timestamp, params FROM findings WHERE analysis_id = ? ORDER BY id",
+                (analysis.id,)):
+            findings.update(item_line({"code": row["code"], "severity": row["severity"],
+                                       "timestamp": row["timestamp"], "params": json.loads(row["params"])}))
+        digest = combine_result_hashes(records.hexdigest(), events.hexdigest(), findings.hexdigest())
+        return digest == analysis.results_sha256
+
+    # -- querying -----------------------------------------------------------
+    def records(self, analysis_id: int, artifact: Optional[str] = None, search: str = "",
+                offset: int = 0, limit: Optional[int] = 100) -> Page:
+        where, params = ["analysis_id = ?"], [int(analysis_id)]
+        if artifact:
+            where.append("artifact = ?")
+            params.append(artifact)
+        if search:
+            where.append("data LIKE ? ESCAPE '!'")
+            params.append(json_like(search))
+        clause = " AND ".join(where)
+        total = self.conn.execute(f"SELECT COUNT(*) FROM records WHERE {clause}", params).fetchone()[0]
+        sql = f"SELECT seq, artifact, data FROM records WHERE {clause} ORDER BY seq"
+        rows = self.conn.execute(sql + _limit(limit, offset), params).fetchall()
+        return Page(total, [(r["artifact"], json.loads(r["data"])) for r in rows])
+
+    def record_artifacts(self, analysis_id: int) -> list[tuple[str, int]]:
+        return [(r[0], r[1]) for r in self.conn.execute(
+            "SELECT artifact, COUNT(*) FROM records WHERE analysis_id = ? GROUP BY artifact ORDER BY artifact",
+            (int(analysis_id),))]
+
+    def _event_query(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
+                     source: Optional[str] = None, evidence_id: Optional[str] = None,
+                     min_severity: Optional[str] = None, bookmarked: bool = False) -> tuple[str, str, list]:
+        """FROM clause, WHERE clause and parameters of the timeline filters."""
+        where, params = ["1=1"], []
+        if start:
+            where.append("e.timestamp >= ?")
+            params.append(start)
+        if end:
+            where.append("e.timestamp <= ?")
+            params.append(end)
+        if search:
+            where.append("(e.details LIKE ?1 ESCAPE '!' OR e.path LIKE ?1 ESCAPE '!' OR e.type LIKE ?1 ESCAPE '!' "
+                         "OR rv.note LIKE ?1 ESCAPE '!')".replace("?1", "?"))
+            params += [like(search)] * 4
+        if source:
+            where.append("e.source = ?")
+            params.append(source)
+        if evidence_id:
+            where.append("e.evidence_id = ?")
+            params.append(evidence_id)
+        if min_severity:
+            from sabueso.modules.base import SEVERITY_RANK
+
+            where.append(f"{SEVERITY_ORDER_SQL.replace('severity', 'e.severity')} >= ?")
+            params.append(SEVERITY_RANK.get(min_severity, 0))
+        if bookmarked:
+            where.append("rv.status = 'bookmarked'")
+        source_sql = f"events e LEFT JOIN {latest_review_sql('event')} rv ON rv.target_id = e.id"
+        return source_sql, " AND ".join(where), params
+
+    def event_histogram(self, start: Optional[str] = None, end: Optional[str] = None, **filters: object
+                        ) -> tuple[list[tuple[str, int, int]], Optional[str], Optional[str], int]:
+        """Rows ``(time, events, events of medium+ severity)`` of the filtered timeline, its first and last
+        time, and the resolution of the rows in seconds (per minute, hour or day depending on the span)."""
+        source_sql, clause, params = self._event_query(start, end, **filters)
+        first, last = self.conn.execute(f"SELECT MIN(e.timestamp), MAX(e.timestamp) FROM {source_sql} "
+                                        f"WHERE {clause}", params).fetchone()
+        if not first:
+            return [], None, None, 3600
+        low, high = (start or first)[:19], (end or last)[:19]
+        try:
+            span = (datetime.fromisoformat(high) - datetime.fromisoformat(low)).total_seconds()
+        except ValueError:
+            span = 86400 * 365
+        width, suffix, resolution = ((16, ":00Z", 60) if span <= 2 * 86400 else
+                                     (13, ":00:00Z", 3600) if span <= 62 * 86400 else (10, "T00:00:00Z", 86400))
+        rows = self.conn.execute(
+            f"SELECT substr(e.timestamp, 1, {width}) || '{suffix}', COUNT(*), "
+            f"SUM(CASE WHEN e.severity IN ('medium', 'high', 'critical') THEN 1 ELSE 0 END) "
+            f"FROM {source_sql} WHERE {clause} GROUP BY 1 ORDER BY 1", params).fetchall()
+        return [(r[0], r[1], r[2] or 0) for r in rows], first, last, resolution
+
+    def events(self, start: Optional[str] = None, end: Optional[str] = None, search: str = "",
+               source: Optional[str] = None, evidence_id: Optional[str] = None, min_severity: Optional[str] = None,
+               bookmarked: bool = False, offset: int = 0, limit: Optional[int] = 200) -> Page:
+        """Timeline events; each row carries ``bookmark`` (the analyst's latest mark) or None."""
+        source_sql, clause, params = self._event_query(start, end, search, source, evidence_id, min_severity,
+                                                       bookmarked)
+        total = self.conn.execute(f"SELECT COUNT(*) FROM {source_sql} WHERE {clause}", params).fetchone()[0]
+        rows = self.conn.execute(
+            f"SELECT e.*, rv.status AS review_status, rv.note AS review_note, rv.actor AS review_actor, "
+            f"rv.timestamp AS review_timestamp FROM {source_sql} WHERE {clause} ORDER BY e.timestamp, e.id"
+            + _limit(limit, offset), params
+        ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            status = item.pop("review_status")
+            review = {"status": status, "note": item.pop("review_note"), "actor": item.pop("review_actor"),
+                      "timestamp": item.pop("review_timestamp")}
+            item["bookmark"] = review if status == "bookmarked" else None
+            result.append(item)
+        return Page(total, result)
+
+    def iter_events(self, **filters: object) -> Iterator[dict]:
+        offset = 0
+        while True:
+            page = self.events(offset=offset, limit=5000, **filters)
+            yield from page.rows
+            if len(page.rows) < 5000:
+                return
+            offset += 5000
+
+    def findings(self, min_severity: Optional[str] = None, analysis_id: Optional[int] = None,
+                 evidence_id: Optional[str] = None, review_status: Optional[str] = None) -> list[dict]:
+        """Findings by severity. Each one carries ``review`` with the analyst's latest verdict.
+
+        ``review_status``: confirmed, false_positive or needs_review (not yet reviewed).
+        """
+        severity_sql = SEVERITY_ORDER_SQL.replace("severity", "f.severity")
+        where, params = ["1=1"], []
+        if min_severity:
+            from sabueso.modules.base import SEVERITY_RANK
+
+            where.append(f"{severity_sql} >= ?")
+            params.append(SEVERITY_RANK.get(min_severity, 0))
+        if analysis_id is not None:
+            where.append("f.analysis_id = ?")
+            params.append(int(analysis_id))
+        if evidence_id:
+            where.append("f.evidence_id = ?")
+            params.append(evidence_id)
+        if review_status:
+            where.append("COALESCE(rv.status, 'needs_review') = ?")
+            params.append(review_status)
+        rows = self.conn.execute(
+            f"SELECT f.*, COALESCE(rv.status, 'needs_review') AS review_status, rv.note AS review_note, "
+            f"rv.actor AS review_actor, rv.timestamp AS review_timestamp FROM findings f "
+            f"LEFT JOIN {latest_review_sql('finding')} rv ON rv.target_id = f.id WHERE {' AND '.join(where)} "
+            f"ORDER BY {severity_sql} DESC, COALESCE(f.timestamp, '9999'), f.id", params
+        ).fetchall()
+        result = []
+        for row in rows:
+            item = dict(row)
+            item["params"] = json.loads(item["params"])
+            item["review"] = {"status": item.pop("review_status"), "note": item.pop("review_note") or "",
+                              "actor": item.pop("review_actor"), "timestamp": item.pop("review_timestamp")}
+            result.append(item)
+        return result
+
+    def stats(self) -> dict:
+        severity = {r[0]: r[1] for r in self.conn.execute("SELECT severity, COUNT(*) FROM findings GROUP BY severity")}
+        span = self.conn.execute("SELECT MIN(timestamp), MAX(timestamp) FROM events").fetchone()
+        return {
+            "evidence": self.conn.execute("SELECT COUNT(*) FROM evidence").fetchone()[0],
+            "analyses": self.conn.execute("SELECT COUNT(*) FROM analyses").fetchone()[0],
+            "events": self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0],
+            "findings": sum(severity.values()),
+            "findings_by_severity": severity,
+            "first_event": span[0],
+            "last_event": span[1],
+        }
+
+    def event_sources(self) -> list[str]:
+        return [r[0] for r in self.conn.execute("SELECT DISTINCT source FROM events ORDER BY source")]
+
+
+def _limit(limit: Optional[int], offset: int) -> str:
+    if limit is None:
+        return ""
+    return f" LIMIT {int(limit)} OFFSET {max(0, int(offset))}"
+
+
+def _make_read_only(path: Path) -> None:
+    targets = [path] if path.is_file() else [Path(r) / f for r, _, files in os.walk(path) for f in files]
+    for target in targets:
+        if not target.is_symlink():
+            target.chmod(stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH)
+
+
+def _force_rmtree(path: Path) -> None:
+    def _retry(func, target, _exc):  # read-only files cannot be removed on Windows
+        os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+        func(target)
+
+    if not path.exists():
+        return
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_retry)
+    else:
+        shutil.rmtree(path, onerror=_retry)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring cases created by older versions up to the current schema."""
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_records_artifact ON records(artifact)")
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(evidence)")}
+    if "derived_from" not in columns:
+        conn.execute("ALTER TABLE evidence ADD COLUMN derived_from TEXT")

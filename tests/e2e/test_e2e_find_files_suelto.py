@@ -23,7 +23,7 @@ def test_triaje_sobre_ruido_con_herramienta_incrustada(tmp_path) -> None:
     proc = run("-c", str(case), "triaje", "EV-001", timeout=300)
     assert proc.returncode == 0, proc.stderr
 
-    conn = sqlite3.connect(case / "forense.db")
+    conn = sqlite3.connect(case / "sabueso.db")
     rows = conn.execute("select id, severity, code from findings").fetchall()
     conn.close()
     assert rows == [], f"triage fabricated findings out of noise: {rows}"
@@ -44,7 +44,7 @@ def test_triaje_prosa_con_nombre_de_herramienta(tmp_path) -> None:
     proc = run("-c", str(case), "triaje", "EV-001", timeout=300)
     assert proc.returncode == 0, proc.stderr
 
-    conn = sqlite3.connect(case / "forense.db")
+    conn = sqlite3.connect(case / "sabueso.db")
     rows = conn.execute("select id, severity, code from findings").fetchall()
     conn.close()
     assert rows == [], f"prose fabricated psreadline findings: {rows}"

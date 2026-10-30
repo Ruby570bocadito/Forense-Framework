@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from forense.cli import EXIT_ERROR, EXIT_INTEGRITY, EXIT_OK, main
+from sabueso.cli import EXIT_ERROR, EXIT_INTEGRITY, EXIT_OK, main
 
 
 def test_full_workflow_in_spanish(tmp_path, evidence_dir, capsys):
@@ -50,7 +50,7 @@ def test_verify_reports_tampering(tmp_path, evidence_dir, capsys):
     assert main(["verify", "-c", case]) == EXIT_INTEGRITY
     assert "[FAIL] Evidence EV-001" in capsys.readouterr().out
 
-    db = sqlite3.connect(tmp_path / "case" / "forense.db")
+    db = sqlite3.connect(tmp_path / "case" / "sabueso.db")
     db.execute("UPDATE custody SET actor = 'someone else' WHERE seq = 1")
     db.commit()
     db.close()
@@ -120,15 +120,15 @@ def test_report_sign_option(tmp_path, evidence_dir, capsys, monkeypatch):
     """`informe --firmar` offers the web's signing path on the CLI (H-010)."""
     from conftest import make_signing_key
 
-    from forense.core.case import Case
-    from forense.report import signing
+    from sabueso.core.case import Case
+    from sabueso.report import signing
 
     case = str(tmp_path / "case")
     main(["new", case, "-n", "x", "-i", "y"])
     main(["evidence", "add", str(evidence_dir), "-c", case])
     pem, pub = make_signing_key(tmp_path)
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
-    monkeypatch.setenv("FORENSE_SIGN_PUB", str(pub))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_PUB", str(pub))
     assert main(["-c", case, "informe", "--firmar", "-L", "es"]) == EXIT_OK
     reports = tmp_path / "case" / "reports"
     html = sorted(reports.glob("*.html"))[-1]
@@ -150,7 +150,7 @@ def test_report_without_sign_makes_no_sig(tmp_path, evidence_dir, capsys, monkey
     main(["new", case, "-n", "x", "-i", "y"])
     main(["evidence", "add", str(evidence_dir), "-c", case])
     pem, _ = make_signing_key(tmp_path)
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
     assert main(["-c", case, "report"]) == EXIT_OK
     reports = tmp_path / "case" / "reports"
     assert reports.glob("*.html") and not list(reports.glob("*.sig"))
@@ -177,14 +177,14 @@ def _web_args(tmp_path, **overrides):
 
 def test_web_without_password_warns_on_loopback_start(tmp_path, monkeypatch, capsys):
     """Petition of TEST: starting without a password must be announced even on loopback."""
-    from forense import cli as cli_mod
-    from forense.i18n import set_language
+    from sabueso import cli as cli_mod
+    from sabueso.i18n import set_language
 
-    monkeypatch.setenv("FORENSE_LANG", "es")
+    monkeypatch.setenv("SABUESO_LANG", "es")
     set_language(None)  # reset ContextVar so detect_language() re-reads the env
-    monkeypatch.delenv("FORENSE_WEB_PASSWORD", raising=False)
+    monkeypatch.delenv("SABUESO_WEB_PASSWORD", raising=False)
     seen = {}
-    monkeypatch.setattr("forense.web.run_server",
+    monkeypatch.setattr("sabueso.web.run_server",
                         lambda workspace, host, port, password: seen.update(host=host, password=password))
     assert cli_mod.cmd_web(_web_args(tmp_path)) == cli_mod.EXIT_OK
     err = capsys.readouterr().err
@@ -193,21 +193,21 @@ def test_web_without_password_warns_on_loopback_start(tmp_path, monkeypatch, cap
 
 
 def test_web_network_warning_preserved(tmp_path, monkeypatch, capsys):
-    from forense import cli as cli_mod
-    from forense.i18n import set_language
+    from sabueso import cli as cli_mod
+    from sabueso.i18n import set_language
 
-    monkeypatch.setenv("FORENSE_LANG", "es")
+    monkeypatch.setenv("SABUESO_LANG", "es")
     set_language(None)
-    monkeypatch.delenv("FORENSE_WEB_PASSWORD", raising=False)
-    monkeypatch.setattr("forense.web.run_server", lambda *a, **k: None)
+    monkeypatch.delenv("SABUESO_WEB_PASSWORD", raising=False)
+    monkeypatch.setattr("sabueso.web.run_server", lambda *a, **k: None)
     assert cli_mod.cmd_web(_web_args(tmp_path, host="0.0.0.0")) == cli_mod.EXIT_OK
     err = capsys.readouterr().err
     assert "red sin contraseña" in err
 
 
 def test_web_with_password_is_quiet(tmp_path, monkeypatch, capsys):
-    from forense import cli as cli_mod
+    from sabueso import cli as cli_mod
 
-    monkeypatch.setattr("forense.web.run_server", lambda *a, **k: None)
+    monkeypatch.setattr("sabueso.web.run_server", lambda *a, **k: None)
     assert cli_mod.cmd_web(_web_args(tmp_path, password="s3cret", host="0.0.0.0")) == cli_mod.EXIT_OK
     assert capsys.readouterr().err == ""

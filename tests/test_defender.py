@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from forense.core.attack import techniques_for
-from forense.modules.base import ResultSink, get_module
-from forense.parsers.defender import decode_text, parse_detection_history, parse_mplog
+from sabueso.core.attack import techniques_for
+from sabueso.modules.base import ResultSink, get_module
+from sabueso.parsers.defender import decode_text, parse_detection_history, parse_mplog
 
 LOG = (
     "2026-09-14T03:06:10.512Z DETECTION_ADD#1 HackTool:Win32/Mimikatz!pz file:C:\\Tools\\mimikatz.exe PidTid: 5208\r\n"

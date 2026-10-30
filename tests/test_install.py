@@ -1,4 +1,4 @@
-"""Installation helpers: `forense doctor`, configuration presets, health endpoint, frozen builds."""
+"""Installation helpers: `sabueso doctor`, configuration presets, health endpoint, frozen builds."""
 
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ import sys
 
 import pytest
 
-from forense import doctor
-from forense.cli import EXIT_ERROR, EXIT_OK, main
-from forense.core.config import load_config, set_config, write_template
-from forense.parsers import volatility
-from forense.web import create_app
+from sabueso import doctor
+from sabueso.cli import EXIT_ERROR, EXIT_OK, main
+from sabueso.core.config import load_config, set_config, write_template
+from sabueso.parsers import volatility
+from sabueso.web import create_app
 
 
 @pytest.fixture(autouse=True)
 def _isolated_config(tmp_path, monkeypatch):
-    monkeypatch.setenv("FORENSE_CONFIG", str(tmp_path / "config.yaml"))
-    monkeypatch.setenv("FORENSE_WORKSPACE", str(tmp_path / "cases"))
+    monkeypatch.setenv("SABUESO_CONFIG", str(tmp_path / "config.yaml"))
+    monkeypatch.setenv("SABUESO_WORKSPACE", str(tmp_path / "cases"))
     set_config(None)
     yield
     set_config(None)
@@ -37,7 +37,7 @@ def test_doctor_reports_every_dependency(capsys):
 
 def test_doctor_json_and_failure(monkeypatch, capsys):
     monkeypatch.setattr(doctor, "DEPENDENCIES", doctor.DEPENDENCIES + (
-        ("forense_no_such_module", "no-such-dist", "doctor.purpose.evtx", True),))
+        ("sabueso_no_such_module", "no-such-dist", "doctor.purpose.evtx", True),))
     assert main(["doctor", "--json"]) == EXIT_ERROR
     report = json.loads(capsys.readouterr().out)
     broken = [c for c in report["checks"] if c["status"] == "error"]
@@ -79,6 +79,6 @@ def test_volatility_command_in_a_frozen_build(monkeypatch):
     assert volatility.volatility_command("/opt/vol/vol.py") == ["/usr/bin/python3", "/opt/vol/vol.py"]
     assert volatility.volatility_command("C:\\vol\\vol.exe") == ["C:\\vol\\vol.exe"]
     command = volatility.volatility_command()
-    assert command is None or sys.executable not in command  # never "forense.exe -c ..."
+    assert command is None or sys.executable not in command  # never "sabueso.exe -c ..."
     monkeypatch.setattr(volatility.shutil, "which", lambda name: None)
     assert volatility.volatility_command("/opt/vol/vol.py") is None

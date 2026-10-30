@@ -9,17 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from forense.core.errors import ModuleError
-from forense.core.timezone import WindowsTimeZone
-from forense.demo.builders import HiveBuilder
-from forense.image import Extractor, _stream_dest, filesystems, open_image
-from forense.modules.base import ResultSink, get_module
-from forense.modules.windows.psreadline import parse_history
-from forense.modules.windows.setupapi import classify, parse_log
-from forense.modules.windows.tasks import parse_task
-from forense.modules.windows.wintimeline import application, clipboard_text
-from forense.modules.windows.wmi import scan_repository
-from forense.parsers.usnjrnl import FILE_CREATE, FILE_DELETE, build_record, iter_records
+from sabueso.core.errors import ModuleError
+from sabueso.core.timezone import WindowsTimeZone
+from sabueso.demo.builders import HiveBuilder
+from sabueso.image import Extractor, _stream_dest, filesystems, open_image
+from sabueso.modules.base import ResultSink, get_module
+from sabueso.modules.windows.psreadline import parse_history
+from sabueso.modules.windows.setupapi import classify, parse_log
+from sabueso.modules.windows.tasks import parse_task
+from sabueso.modules.windows.wintimeline import application, clipboard_text
+from sabueso.modules.windows.wmi import scan_repository
+from sabueso.parsers.usnjrnl import FILE_CREATE, FILE_DELETE, build_record, iter_records
 
 DATA = Path(__file__).parent / "data"
 T = datetime(2026, 9, 14, 3, 0, tzinfo=timezone.utc)

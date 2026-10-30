@@ -20,15 +20,15 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Lint
-        run: ruff check forense tests
+        run: ruff check sabueso tests
       - name: Test
         run: python -m pytest -q
       - name: Demo smoke test
         run: |
-          forense doctor
-          forense demo demo-run -a CI
-          forense -c demo-run/case_demo verify
-          forense -c demo-run/case_demo report --lang es
+          sabueso doctor
+          sabueso demo demo-run -a CI
+          sabueso -c demo-run/case_demo verify
+          sabueso -c demo-run/case_demo report --lang es
 
   pdf:
     name: PDF with a real browser
@@ -41,13 +41,13 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Demo case
-        run: forense demo demo-run -a CI
+        run: sabueso demo demo-run -a CI
       - name: PDF report
         env:
-          FORENSE_BROWSER: google-chrome
+          SABUESO_BROWSER: google-chrome
         run: |
           google-chrome --version
-          forense -c demo-run/case_demo report --lang es --pdf -o informe.html
+          sabueso -c demo-run/case_demo report --lang es --pdf -o informe.html
           test -s informe.pdf
           head -c 5 informe.pdf | grep -q "%PDF-"
 
@@ -66,15 +66,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\forense" -Workspace "$env:RUNNER_TEMP\cases" -NoShortcut
-          & "$env:RUNNER_TEMP\forense\bin\forense.cmd" --version
+          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\sabueso" -Workspace "$env:RUNNER_TEMP\cases" -NoShortcut
+          & "$env:RUNNER_TEMP\sabueso\bin\sabueso.cmd" --version
           if ($LASTEXITCODE) { exit 1 }
-          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\forense" -Uninstall
-          if (Test-Path "$env:RUNNER_TEMP\forense") { throw "not uninstalled" }
+          ./install/install.ps1 -Prefix "$env:RUNNER_TEMP\sabueso" -Uninstall
+          if (Test-Path "$env:RUNNER_TEMP\sabueso") { throw "not uninstalled" }
       - name: Linux installer
         if: runner.os == 'Linux'
         run: |
-          sh install/install.sh --prefix "$RUNNER_TEMP/forense" --bin-dir "$RUNNER_TEMP/bin" --workspace "$RUNNER_TEMP/cases"
-          "$RUNNER_TEMP/bin/forense" --version
-          sh install/install.sh --prefix "$RUNNER_TEMP/forense" --bin-dir "$RUNNER_TEMP/bin" --uninstall
-          test ! -e "$RUNNER_TEMP/forense"
+          sh install/install.sh --prefix "$RUNNER_TEMP/sabueso" --bin-dir "$RUNNER_TEMP/bin" --workspace "$RUNNER_TEMP/cases"
+          "$RUNNER_TEMP/bin/sabueso" --version
+          sh install/install.sh --prefix "$RUNNER_TEMP/sabueso" --bin-dir "$RUNNER_TEMP/bin" --uninstall
+          test ! -e "$RUNNER_TEMP/sabueso"

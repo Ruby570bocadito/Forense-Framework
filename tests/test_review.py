@@ -6,10 +6,10 @@ import re
 
 import pytest
 
-from forense.cli import EXIT_OK, main
-from forense.core.errors import CaseError
-from forense.report import generate_report
-from forense.web import create_app
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.errors import CaseError
+from sabueso.report import generate_report
+from sabueso.web import create_app
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ def test_cli_review_commands(tmp_path, capsys):
 
 
 def test_web_review_flow(tmp_path, demo):
-    from forense.core.case import Case
+    from sabueso.core.case import Case
 
     with Case.create(tmp_path / "ws" / "c1", "Web", "W") as case:
         evidence = case.add_evidence(demo["triage"])

@@ -1,4 +1,4 @@
-"""MISP JSON import into `ioc` watchlists (`forense intel misp`)."""
+"""MISP JSON import into `ioc` watchlists (`sabueso intel misp`)."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from forense.cli import EXIT_ERROR, EXIT_OK, main
-from forense.core.errors import ForenseError
-from forense.core.intel import MispImport, import_misp, import_opencti, write_watchlist
-from forense.modules import get_module
-from forense.modules.base import ResultSink
-from forense.modules.generic.ioc import load_watchlist
+from sabueso.cli import EXIT_ERROR, EXIT_OK, main
+from sabueso.core.errors import SabuesoError
+from sabueso.core.intel import MispImport, import_misp, import_opencti, write_watchlist
+from sabueso.modules import get_module
+from sabueso.modules.base import ResultSink
+from sabueso.modules.generic.ioc import load_watchlist
 
 
 def _attr(kind: str, value: str, deleted: bool = False) -> dict:
@@ -58,7 +58,7 @@ def test_every_ioc_type_is_mapped(tmp_path):
 
     out = write_watchlist(result, tmp_path / "watchlist.txt")
     lines = out.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("# Forense watchlist generated from a MISP export")
+    assert lines[0].startswith("# Sabueso watchlist generated from a MISP export")
     assert "# misp: e1 | Phishing kit | 2026-10-20" in lines
     body = [line for line in lines if not line.startswith("#")]
     assert body == sorted(result.indicators)
@@ -91,33 +91,33 @@ def test_all_export_shapes_and_cross_event_dedup(tmp_path):
 
 def test_broken_inputs_are_rejected_without_output(tmp_path, monkeypatch):
     missing = tmp_path / "nope.json"
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_misp(missing)
     assert exc.value.code == "error.intel_input_missing"
 
     broken = tmp_path / "broken.json"
     broken.write_text('{"Event": {"uuid": "x", "Attribute": [', encoding="utf-8")
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_misp(broken)
     assert exc.value.code == "error.intel_misp_invalid"
 
     for payload in ({"Other": 1}, '"just a string"', [{"Event": None}], {"response": "not a list"}):
         bad = tmp_path / "bad.json"
         bad.write_text(json.dumps(payload), encoding="utf-8")
-        with pytest.raises(ForenseError) as exc:
+        with pytest.raises(SabuesoError) as exc:
             import_misp(bad)
         assert exc.value.code == "error.intel_misp_invalid"
 
     empty = tmp_path / "empty.json"
     empty.write_text(json.dumps({"Event": _event(attributes=(_attr("comment", "no"),))}), encoding="utf-8")
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_misp(empty)
     assert exc.value.code == "error.intel_misp_empty"
 
     big = tmp_path / "big.json"
     big.write_text('{"a": 123456}', encoding="utf-8")  # 13 bytes, beyond the patched 4-byte limit
-    monkeypatch.setattr("forense.core.intel.MAX_INTEL_BYTES", 4)
-    with pytest.raises(ForenseError) as exc:
+    monkeypatch.setattr("sabueso.core.intel.MAX_INTEL_BYTES", 4)
+    with pytest.raises(SabuesoError) as exc:
         import_misp(big)
     assert exc.value.code == "error.intel_misp_too_large"
     assert not (tmp_path / "big.watchlist.txt").exists()
@@ -199,7 +199,7 @@ def test_multiline_values_never_reach_the_watchlist(tmp_path):
     assert load_watchlist(watchlist) == {"evil.example"}
 
 
-# --- OpenCTI STIX 2.1 bundles (``forense intel opencti``) ---------------------
+# --- OpenCTI STIX 2.1 bundles (``sabueso intel opencti``) ---------------------
 
 
 def _indicator(pattern: str, ident: str = "indicator--00000000-0000-4000-8000-000000000001",
@@ -261,7 +261,7 @@ def test_every_stix_path_is_imported(tmp_path):
 
     out = write_watchlist(result, tmp_path / "watchlist.txt")
     lines = out.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith("# Forense watchlist generated from an OpenCTI STIX bundle")
+    assert lines[0].startswith("# Sabueso watchlist generated from an OpenCTI STIX bundle")
     assert load_watchlist(out) == {i.lower() for i in result.indicators}
 
 
@@ -330,13 +330,13 @@ def test_opencti_multiline_literal_is_skipped(tmp_path):
 
 
 def test_opencti_broken_inputs_are_rejected(tmp_path, monkeypatch):
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_opencti(tmp_path / "nope.json")
     assert exc.value.code == "error.intel_input_missing"
 
     broken = tmp_path / "broken.json"
     broken.write_text('{"type": "bundle", "objects": [', encoding="utf-8")
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_opencti(broken)
     assert exc.value.code == "error.intel_opencti_invalid"
 
@@ -344,7 +344,7 @@ def test_opencti_broken_inputs_are_rejected(tmp_path, monkeypatch):
                     '{"type": "bundle", "objects": []}', "[]"):
         bad = tmp_path / "bad.json"
         bad.write_text(payload, encoding="utf-8")
-        with pytest.raises(ForenseError) as exc:
+        with pytest.raises(SabuesoError) as exc:
             import_opencti(bad)
         assert exc.value.code == "error.intel_opencti_invalid"
 
@@ -352,14 +352,14 @@ def test_opencti_broken_inputs_are_rejected(tmp_path, monkeypatch):
     only_identity.write_text(json.dumps(
         _bundle({"type": "identity", "id": "identity--00000000-0000-4000-8000-00000000b1e6",
                  "name": "A"})), encoding="utf-8")
-    with pytest.raises(ForenseError) as exc:
+    with pytest.raises(SabuesoError) as exc:
         import_opencti(only_identity)
     assert exc.value.code == "error.intel_opencti_empty"
 
     big = tmp_path / "big.json"
     big.write_text('{"objects": [1]}', encoding="utf-8")  # 16 bytes, beyond the patched 4-byte limit
-    monkeypatch.setattr("forense.core.intel.MAX_INTEL_BYTES", 4)
-    with pytest.raises(ForenseError) as exc:
+    monkeypatch.setattr("sabueso.core.intel.MAX_INTEL_BYTES", 4)
+    with pytest.raises(SabuesoError) as exc:
         import_opencti(big)
     assert exc.value.code == "error.intel_opencti_too_large"
     assert not (tmp_path / "big.watchlist.txt").exists()

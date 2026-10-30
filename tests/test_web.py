@@ -9,10 +9,10 @@ from pathlib import Path
 import pytest
 from conftest import make_signing_key
 
-import forense.report
-import forense.web
-from forense.core.case import Case
-from forense.web import create_app
+import sabueso.report
+import sabueso.web
+from sabueso.core.case import Case
+from sabueso.web import create_app
 
 
 @pytest.fixture
@@ -118,7 +118,7 @@ def test_evidence_upload_announces_duplicate(client, workspace, evidence_dir, tm
 
 
 def test_bulk_review_flow(tmp_path):
-    from forense.cli import EXIT_OK, main
+    from sabueso.cli import EXIT_OK, main
 
     root = tmp_path / "ws"
     assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
@@ -147,7 +147,7 @@ def test_bulk_review_flow(tmp_path):
 
 
 def test_bulk_review_edges(tmp_path):
-    from forense.cli import EXIT_OK, main
+    from sabueso.cli import EXIT_OK, main
 
     root = tmp_path / "ws"
     assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
@@ -257,8 +257,8 @@ def test_no_external_resources(client):
     sneak into templates or static files (fonts, CDNs, analytics), and the CSP itself must
     keep ``default-src 'self'`` with nothing that would allow an external connection.
     """
-    roots = [Path(forense.web.__file__).parent / "templates", Path(forense.report.__file__).parent / "templates",
-             Path(forense.web.__file__).parent / "static"]
+    roots = [Path(sabueso.web.__file__).parent / "templates", Path(sabueso.report.__file__).parent / "templates",
+             Path(sabueso.web.__file__).parent / "static"]
     for root in roots:
         for path in root.rglob("*"):
             if path.suffix not in (".html", ".css", ".js", ".svg"):
@@ -285,19 +285,19 @@ def test_password_protection(workspace):
 def test_no_password_warning(client):
     page = client.get("/c/case1/").get_data(as_text=True)
     assert 'class="auth-warning" role="status"' in page
-    assert "FORENSE_WEB_PASSWORD" in page
+    assert "SABUESO_WEB_PASSWORD" in page
     es = client.get("/c/case1/?lang=es").get_data(as_text=True)
     assert "Interfaz sin contraseña" in es
     assert "Interfaz sin contraseña" not in page  # default language is English
 
 
 def test_web_report_signing(client, workspace, monkeypatch):
-    from forense.report import signing
+    from sabueso.report import signing
 
     keys = workspace / "keys"
     keys.mkdir(exist_ok=True)
     pem, _ = make_signing_key(keys)
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
     token = _token(client, "/c/case1/reports")
     page = client.get("/c/case1/reports").get_data(as_text=True)
     assert 'name="sign"' in page and 'verify-signature' not in page  # checkbox on, nothing signed yet
@@ -322,7 +322,7 @@ def test_web_verify_signature_rejects_traversal(client, workspace, monkeypatch):
     keys = workspace / "keys"
     keys.mkdir(exist_ok=True)
     pem, _ = make_signing_key(keys)
-    monkeypatch.setenv("FORENSE_SIGN_KEY", str(pem))
+    monkeypatch.setenv("SABUESO_SIGN_KEY", str(pem))
     token = _token(client, "/c/case1/reports")
     assert client.post("/c/case1/reports/case.db/verify-signature", data={"csrf_token": token}).status_code == 404
     assert client.post("/c/case1/reports/../../case.db/verify-signature",
@@ -332,10 +332,10 @@ def test_web_verify_signature_rejects_traversal(client, workspace, monkeypatch):
 
 
 def test_findings_and_execution_pagination(tmp_path, monkeypatch):
-    from forense.cli import EXIT_OK, main
-    from forense.core.attack import techniques_for
+    from sabueso.cli import EXIT_OK, main
+    from sabueso.core.attack import techniques_for
 
-    monkeypatch.setattr("forense.web.PAGE_SIZE", 2)
+    monkeypatch.setattr("sabueso.web.PAGE_SIZE", 2)
     root = tmp_path / "ws"
     assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
     app = create_app(root)
@@ -372,7 +372,7 @@ def test_accessibility_workspace_pages(client):
 
 
 def test_accessibility_timeline_header(tmp_path):
-    from forense.cli import EXIT_OK, main
+    from sabueso.cli import EXIT_OK, main
 
     root = tmp_path / "ws"
     assert main(["demo", str(root), "-a", "Tester"]) == EXIT_OK
@@ -449,7 +449,7 @@ def test_saved_filters_timeline_names_escaped_and_limit(client, workspace):
                        follow_redirects=True).get_data(as_text=True)
     assert "&lt;b&gt;Med&lt;/b&gt;" in page  # chip names are escaped like every other value
     assert "/c/case1/timeline?severity=medium" in page
-    from forense.web import filters as filters_store
+    from sabueso.web import filters as filters_store
 
     with Case.open(workspace / "case1") as case:
         for i in range(filters_store.MAX_FILTERS - 1):
@@ -462,7 +462,7 @@ def test_saved_filters_timeline_names_escaped_and_limit(client, workspace):
 
 
 def test_saved_filters_store_tolerates_damage(tmp_path):
-    from forense.web import filters as filters_store
+    from sabueso.web import filters as filters_store
 
     (tmp_path / "ui").mkdir()
     (tmp_path / "ui" / "saved_filters.json").write_text("{broken", encoding="utf-8")

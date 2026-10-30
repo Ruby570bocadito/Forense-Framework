@@ -8,14 +8,14 @@ from pathlib import Path
 import pytest
 import pytsk3
 
-from forense.cli import EXIT_OK, main
-from forense.core.case import Case
-from forense.core.errors import ForenseError
-from forense.image import filesystems, find_image, is_disk_image, open_image, shadow_copies
-from forense.modules.base import ResultSink, get_module, mask_secret
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.case import Case
+from sabueso.core.errors import SabuesoError
+from sabueso.image import filesystems, find_image, is_disk_image, open_image, shadow_copies
+from sabueso.modules.base import ResultSink, get_module, mask_secret
 
 DATA = Path(__file__).parent / "data"  # VHDX, VMDK, QCOW2 and VSS samples come from dfvfs (Apache-2.0)
-EXTERNAL = Path(os.environ.get("FORENSE_TEST_DATA", "/nonexistent"))  # optional dfvfs test_data checkout
+EXTERNAL = Path(os.environ.get("SABUESO_TEST_DATA", "/nonexistent"))  # optional dfvfs test_data checkout
 
 
 def unpack(tmp_path: Path, *names: str) -> Path:
@@ -40,7 +40,7 @@ def test_differencing_vhdx_uses_its_parent(tmp_path):
     del fs, partition
     img.close()  # Windows cannot delete a file that is still open
     (tmp_path / "ntfs-parent.vhdx").unlink()
-    with pytest.raises(ForenseError, match="parent"):
+    with pytest.raises(SabuesoError, match="parent"):
         open_image(child)
 
 
@@ -107,7 +107,7 @@ def test_cli_image_options(tmp_path, capsys, monkeypatch):
 
 
 @pytest.mark.skipif(not (EXTERNAL / "bdetogo.raw").exists(), reason="BitLocker sample not available")
-def test_bitlocker_to_go(tmp_path):  # pragma: no cover - needs FORENSE_TEST_DATA=<dfvfs>/test_data
+def test_bitlocker_to_go(tmp_path):  # pragma: no cover - needs SABUESO_TEST_DATA=<dfvfs>/test_data
     image = EXTERNAL / "bdetogo.raw"
     sink = ResultSink()
     ctx = get_module("image").run(image, tmp_path / "locked", {}, sink=sink)

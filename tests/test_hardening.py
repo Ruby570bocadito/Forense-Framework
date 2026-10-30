@@ -12,15 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from forense.cli import EXIT_ERROR, EXIT_OK, main
-from forense.core.case import Case, CaseError
-from forense.core.utils import range_end, stamped_path, ts_to_iso
-from forense.demo import builders as b
-from forense.image import Extractor, evidence_kind, safe_name
-from forense.modules.base import AnalysisContext, ResultSink, clean, mask_secret
-from forense.parsers.regf import REG_BINARY, RegistryError, RegistryHive
-from forense.sigma.engine import _value_matcher
-from forense.web import create_app
+from sabueso.cli import EXIT_ERROR, EXIT_OK, main
+from sabueso.core.case import Case, CaseError
+from sabueso.core.utils import range_end, stamped_path, ts_to_iso
+from sabueso.demo import builders as b
+from sabueso.image import Extractor, evidence_kind, safe_name
+from sabueso.modules.base import AnalysisContext, ResultSink, clean, mask_secret
+from sabueso.parsers.regf import REG_BINARY, RegistryError, RegistryHive
+from sabueso.sigma.engine import _value_matcher
+from sabueso.web import create_app
 
 T = datetime(2024, 3, 1, 10, 0, tzinfo=timezone.utc)
 
@@ -154,7 +154,7 @@ def test_cli_timeline_to_date_is_inclusive_and_bad_dates_are_reported(tmp_path, 
 def test_cli_reports_a_damaged_case_database(tmp_path, capsys):
     case = tmp_path / "case"
     assert main(["new", str(case), "-n", "Broken", "-i", "Ana"]) == EXIT_OK
-    (case / "forense.db").write_bytes(b"this is not a database" * 100)
+    (case / "sabueso.db").write_bytes(b"this is not a database" * 100)
     capsys.readouterr()
     assert main(["-c", str(case), "info"]) == EXIT_ERROR
     assert "damaged" in capsys.readouterr().err
@@ -283,6 +283,6 @@ def test_dns_rebinding_hosts_are_rejected_without_password(web):
 
 def test_healthz_and_password_skip_host_guard(web):
     client = create_app(web).test_client()
-    assert client.get("/healthz", headers={"Host": "forense-svc.cluster"}).status_code == 200
+    assert client.get("/healthz", headers={"Host": "sabueso-svc.cluster"}).status_code == 200
     guarded = create_app(web, password="s3cret").test_client()
     assert guarded.get("/", headers={"Host": "evil.com"}).status_code == 401  # auth governs, not the guard

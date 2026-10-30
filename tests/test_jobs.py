@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from forense.core.case import Case
-from forense.web.jobs import Job, JobCancelled, JobManager, Progress
+from sabueso.core.case import Case
+from sabueso.web.jobs import Job, JobCancelled, JobManager, Progress
 
 
 def _case(tmp_path):

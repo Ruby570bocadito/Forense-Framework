@@ -1,4 +1,4 @@
-"""Webhook notifications after automation, and `forense update`."""
+"""Webhook notifications after automation, and `sabueso update`."""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from forense import __version__, update
-from forense.automation import auto
-from forense.cli import EXIT_ERROR, EXIT_OK, main
-from forense.core.case import Case
-from forense.core.config import load_config, set_config
-from forense.core.errors import ForenseError
-from forense.notify import detect_format, payload
+from sabueso import __version__, update
+from sabueso.automation import auto
+from sabueso.cli import EXIT_ERROR, EXIT_OK, main
+from sabueso.core.case import Case
+from sabueso.core.config import load_config, set_config
+from sabueso.core.errors import SabuesoError
+from sabueso.notify import detect_format, payload
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def webhook():
 
 @pytest.fixture(autouse=True)
 def _config(tmp_path, monkeypatch):
-    monkeypatch.setenv("FORENSE_CONFIG", str(tmp_path / "none.yaml"))
+    monkeypatch.setenv("SABUESO_CONFIG", str(tmp_path / "none.yaml"))
     set_config(None)
     yield
     set_config(None)
@@ -58,7 +58,7 @@ def test_formats_are_detected_from_the_url():
     assert detect_format("https://chat.example.org/hooks/abc") == "slack"  # Mattermost
     assert detect_format("https://contoso.webhook.office.com/webhookb2/x") == "teams"
     assert detect_format("https://discord.com/api/webhooks/1/x") == "discord"
-    assert detect_format("https://siem.example.org/forense") == "json"
+    assert detect_format("https://siem.example.org/sabueso") == "json"
     facts = {"case": "C", "case_id": "ID", "status": "ok", "findings": {"critical": 1, "high": 0, "medium": 0},
              "total_findings": 1, "top_findings": [], "steps": [], "reports": [], "path": "/x", "evidence": [],
              "exports": []}
@@ -69,16 +69,16 @@ def test_formats_are_detected_from_the_url():
 
 def test_automation_sends_a_notification(tmp_path, evidence_dir, webhook):
     url, received = webhook
-    config = _config_with(tmp_path, webhook=f"{url}/forense", format="json", min_severity="info")
+    config = _config_with(tmp_path, webhook=f"{url}/sabueso", format="json", min_severity="info")
     result = auto([evidence_dir], new_case=tmp_path / "case", playbook="triage", config=config)
     assert result.steps[-1].step == "notify" and result.steps[-1].status == "ok"
     path, body = received[0]
-    assert path == "/forense" and body["event"] == "automation_finished" and body["case_id"].startswith("CASE-")
+    assert path == "/sabueso" and body["event"] == "automation_finished" and body["case_id"].startswith("CASE-")
     assert "Análisis automático terminado" in body["text"]  # language of the configuration
     with Case.open(result.case_path) as case:
         entry = case.custody.entries()[-1]
         assert entry.action == "notification_sent" and entry.details["destination"] == "127.0.0.1"
-        assert "forense" not in json.dumps(entry.details)  # the URL (and its token) is not stored
+        assert "sabueso" not in json.dumps(entry.details)  # the URL (and its token) is not stored
         assert case.custody.verify() == []
 
 
@@ -117,10 +117,10 @@ def test_update_check_and_upgrade(monkeypatch):
     pip_info = update.UpdateInfo("0.1.0", "99.1.0", "dev", "pip")
     command = update.upgrade(pip_info, run=lambda cmd, check: calls.append(cmd) or SimpleNamespace(returncode=0))
     assert command[1:4] == ["-m", "pip", "install"] and command[-1].endswith("/archive/refs/heads/dev.zip")
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         update.upgrade(pip_info, run=lambda cmd, check: SimpleNamespace(returncode=1))
     for mode, code in (("frozen", "error.update_frozen"), ("development", "error.update_development")):
-        with pytest.raises(ForenseError) as exc:
+        with pytest.raises(SabuesoError) as exc:
             update.upgrade(update.UpdateInfo("0.1.0", "99.1.0", "dev", mode))
         assert exc.value.code == code
 
@@ -132,7 +132,7 @@ def test_upgrade_keeps_the_volatility_extra(monkeypatch):
     info = update.UpdateInfo("0.1.0", "99.1.0", "dev", "pip")
     command = update.upgrade(info, run=lambda cmd, check: calls.append(cmd) or SimpleNamespace(returncode=0))
     # built by parts: this sequence has been "eaten" twice by text layers between the analyst and the disk
-    extra = "forense-framework[" + "m" + "emory]"
+    extra = "sabueso-framework[" + "m" + "emory]"
     assert command[-1] == f"{extra} @ https://github.com/{update.REPOSITORY}/archive/refs/heads/dev.zip"
     assert command[:4] == [sys.executable, "-m", "pip", "install"]
 

@@ -1,13 +1,13 @@
-# docker compose up -d   ->  http://127.0.0.1:8765  (user: any, password: FORENSE_WEB_PASSWORD)
+# docker compose up -d   ->  http://127.0.0.1:8765  (user: any, password: SABUESO_WEB_PASSWORD)
 services:
-  forense:
+  sabueso:
     build: .
-    image: forense-framework
+    image: sabueso-framework
     ports:
       - "127.0.0.1:8765:8765"
     environment:
-      FORENSE_WEB_PASSWORD: ${FORENSE_WEB_PASSWORD:-change-me}
-      FORENSE_LANG: ${FORENSE_LANG:-es}
+      SABUESO_WEB_PASSWORD: ${SABUESO_WEB_PASSWORD:-change-me}
+      SABUESO_LANG: ${SABUESO_LANG:-es}
     volumes:
       - ./cases:/cases
       - ./config:/config

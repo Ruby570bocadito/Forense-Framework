@@ -3,14 +3,14 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "forense-framework"
+name = "sabueso-framework"
 dynamic = ["version"]
 description = "Windows digital forensics framework: cases, chain of custody, artifact analysis, timeline, web UI and reports (ES/EN)."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-authors = [{ name = "Forense-Framework contributors" }]
+authors = [{ name = "Sabueso-Framework contributors" }]
 dependencies = [
     "evtx>=0.8",                      # Windows event logs (Rust parser, prebuilt wheels)
     "Flask>=2.3",                     # web interface (brings Jinja2, also used for reports)
@@ -28,7 +28,7 @@ dependencies = [
     "yara-x>=0.10",                   # YARA rules
     "cryptography>=42",               # detached Ed25519 signatures of reports
 ]
-keywords = ["forensics", "dfir", "windows", "evtx", "registry", "timeline", "chain of custody", "forense"]
+keywords = ["forensics", "dfir", "windows", "evtx", "registry", "timeline", "chain of custody", "sabueso", "forense"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -44,16 +44,16 @@ dev = ["pytest>=7", "ruff>=0.5"]
 memory = ["volatility3>=2.7"]
 
 [project.scripts]
-forense = "forense.cli:main"
+sabueso = "sabueso.cli:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "forense.__version__" }
+version = { attr = "sabueso.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["forense*"]
+include = ["sabueso*"]
 
 [tool.setuptools.package-data]
-forense = ["locales/*.json", "report/templates/*.html", "web/templates/*.html", "web/static/*", "sigma/rules/*.yml"]
+sabueso = ["locales/*.json", "report/templates/*.html", "web/templates/*.html", "web/static/*", "sigma/rules/*.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

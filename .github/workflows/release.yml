@@ -26,8 +26,8 @@ jobs:
       - name: Check the wheel installs and contains its data
         run: |
           python -m pip install dist/*.whl
-          forense --version
-          forense doctor
+          sabueso --version
+          sabueso doctor
           python -c "import zipfile, glob; n = zipfile.ZipFile(glob.glob('dist/*.whl')[0]).namelist(); assert any('sigma/rules/' in x for x in n) and any('web/templates/' in x for x in n)"
       - uses: actions/upload-artifact@v4
         with:
@@ -44,11 +44,11 @@ jobs:
       - name: Build
         run: |
           python -m pip install . pyinstaller
-          pyinstaller packaging/forense.spec --noconfirm
+          pyinstaller packaging/sabueso.spec --noconfirm
       - name: Smoke test
         shell: pwsh
         run: |
-          $exe = "dist\forense\forense.exe"
+          $exe = "dist\sabueso\sabueso.exe"
           & $exe --version
           & $exe doctor
           if ($LASTEXITCODE) { exit 1 }
@@ -60,12 +60,12 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $version = (python -c "import forense; print(forense.__version__)")
-          Compress-Archive -Path dist\forense -DestinationPath "forense-$version-windows-x64.zip"
+          $version = (python -c "import sabueso; print(sabueso.__version__)")
+          Compress-Archive -Path dist\sabueso -DestinationPath "sabueso-$version-windows-x64.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: forense-*-windows-x64.zip
+          path: sabueso-*-windows-x64.zip
 
   container:
     if: startsWith(github.ref, 'refs/tags/')

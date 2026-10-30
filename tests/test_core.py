@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from forense.core.case import Case
-from forense.core.custody import GENESIS
-from forense.core.errors import CaseError, ModuleError
-from forense.core.hashing import hash_bytes, hash_file, hash_tree
-from forense.core.heuristics import autostart_suspicion, is_suspicious_location, suspicious_command_rules
-from forense.core.signatures import check_extension
-from forense.core.utils import (
+from sabueso.core.case import Case
+from sabueso.core.custody import GENESIS
+from sabueso.core.errors import CaseError, ModuleError
+from sabueso.core.hashing import hash_bytes, hash_file, hash_tree
+from sabueso.core.heuristics import autostart_suspicion, is_suspicious_location, suspicious_command_rules
+from sabueso.core.signatures import check_extension
+from sabueso.core.utils import (
     FileTooLarge,
     filetime_to_dt,
     find_files,
@@ -24,7 +24,7 @@ from forense.core.utils import (
     read_capped,
     webkit_to_dt,
 )
-from forense.demo.builders import build_png, build_zip, to_filetime
+from sabueso.demo.builders import build_png, build_zip, to_filetime
 
 
 # -- utilities ---------------------------------------------------------------------
@@ -189,7 +189,7 @@ def test_legacy_absolute_paths_are_re_based(tmp_path, evidence_dir):
     with Case.create(tmp_path / "c1", "C1", "Tester") as case:
         case.add_evidence(evidence_dir / "a.txt", copy=True)
         legacy = str(case.root / "evidence" / "EV-001" / "a.txt")  # the absolute path old cases stored
-        db = sqlite3.connect(case.root / "forense.db")
+        db = sqlite3.connect(case.root / "sabueso.db")
         db.execute("UPDATE evidence SET path = ? WHERE id = 'EV-001'", (legacy,))
         db.commit()
         db.close()
@@ -254,7 +254,7 @@ def test_custody_chain_detects_tampering(case):
     assert entries[0].prev_hash == GENESIS and entries[1].prev_hash == entries[0].hash
     assert case.custody.verify() == []
 
-    db = sqlite3.connect(case.root / "forense.db")
+    db = sqlite3.connect(case.root / "sabueso.db")
     db.execute("UPDATE custody SET actor = 'Mallory' WHERE seq = 2")
     db.commit()
     db.close()
@@ -264,7 +264,7 @@ def test_custody_chain_detects_tampering(case):
 def test_custody_detects_deleted_entry(case):
     for i in range(3):
         case.custody.append("export_created", "Bob", {"n": i})
-    db = sqlite3.connect(case.root / "forense.db")
+    db = sqlite3.connect(case.root / "sabueso.db")
     db.execute("DELETE FROM custody WHERE seq = 2")
     db.commit()
     db.close()
@@ -278,7 +278,7 @@ def test_analysis_results_hash_and_tampering(case, evidence_dir):
     analysis = case.run_analysis("inventory", evidence.id, {"hashes": "md5,sha256"})
     assert analysis.status == "completed" and analysis.record_count == 2
     assert case.verify_results(analysis.id)
-    db = sqlite3.connect(case.root / "forense.db")
+    db = sqlite3.connect(case.root / "sabueso.db")
     db.execute("UPDATE records SET data = replace(data, 'a.txt', 'z.txt') WHERE analysis_id = ?", (analysis.id,))
     db.commit()
     db.close()
@@ -298,7 +298,7 @@ def test_analysis_option_validation(case, evidence_dir):
 
 
 def test_failed_analysis_is_recorded(case, evidence_dir, monkeypatch):
-    from forense.modules.generic.inventory import InventoryModule
+    from sabueso.modules.generic.inventory import InventoryModule
 
     evidence = case.add_evidence(evidence_dir)
 
@@ -370,7 +370,7 @@ def test_psreadline_short_tool_names_need_the_exe_suffix(case, tmp_path):
 
 
 def test_exports_are_logged(case, evidence_dir, tmp_path):
-    from forense.core import exports
+    from sabueso.core import exports
 
     evidence = case.add_evidence(evidence_dir)
     analysis = case.run_analysis("inventory", evidence.id)
@@ -385,7 +385,7 @@ def test_exports_are_logged(case, evidence_dir, tmp_path):
 def test_csv_export_neutralises_spreadsheet_formulas(tmp_path):
     import csv
 
-    from forense.core.utils import write_csv
+    from sabueso.core.utils import write_csv
 
     path = tmp_path / "x.csv"
     write_csv(path, [{"title": '=HYPERLINK("http://x")', "number": "-5", "cmd": "-enc AAAA", "plain": "ok"}])
@@ -397,7 +397,7 @@ def test_csv_export_neutralises_spreadsheet_formulas(tmp_path):
 def test_user_from_path_uses_the_innermost_profile():
     from pathlib import PureWindowsPath
 
-    from forense.core.utils import user_from_path
+    from sabueso.core.utils import user_from_path
 
     path = PureWindowsPath("C:/Users/analyst/cases/ev/C/Users/maria/AppData/Roaming/x.txt")
     assert user_from_path(path) == "maria"

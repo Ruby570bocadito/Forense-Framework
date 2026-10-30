@@ -5,11 +5,11 @@ import textwrap
 
 import pytest
 
-from forense.core.errors import ModuleError
-from forense.modules.base import ResultSink, get_module
-from forense.modules.windows import memory as memory_module
-from forense.modules.windows.memory import _external, _lookalike
-from forense.parsers.volatility import find_outputs, parse_output
+from sabueso.core.errors import ModuleError
+from sabueso.modules.base import ResultSink, get_module
+from sabueso.modules.windows import memory as memory_module
+from sabueso.modules.windows.memory import _external, _lookalike
+from sabueso.parsers.volatility import find_outputs, parse_output
 
 
 def run(target, out, **options):

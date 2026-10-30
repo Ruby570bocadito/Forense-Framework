@@ -9,13 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from forense.cli import EXIT_OK, main
-from forense.modules import get_module
-from forense.modules.base import AnalysisContext, ResultSink
-from forense.parsers.evtx import WinEvent
-from forense.sigma import BUILTIN_RULES, SigmaRuleSet
-from forense.sigma.download import extract_windows_rules
-from forense.sigma.engine import SigmaError, _base64offset, compile_rule
+from sabueso.cli import EXIT_OK, main
+from sabueso.modules import get_module
+from sabueso.modules.base import AnalysisContext, ResultSink
+from sabueso.parsers.evtx import WinEvent
+from sabueso.sigma import BUILTIN_RULES, SigmaRuleSet
+from sabueso.sigma.download import extract_windows_rules
+from sabueso.sigma.engine import SigmaError, _base64offset, compile_rule
 
 DATA = Path(__file__).parent / "data"
 
@@ -154,7 +154,7 @@ def _event(event_id: int, channel: str = "Security", **data) -> WinEvent:
 
 
 def test_evtx_module_raises_sigma_findings(tmp_path):
-    from forense.modules.windows.evtx import EvtxModule, _State
+    from sabueso.modules.windows.evtx import EvtxModule, _State
 
     module = EvtxModule()
     ctx = AnalysisContext(tmp_path, tmp_path, module.parse_options({}), ResultSink(), module="evtx")

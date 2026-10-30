@@ -1,7 +1,13 @@
-# Forense-Framework
+<p align="center"><img src="sabueso/web/static/logo.svg" width="96" alt=""></p>
 
-[![CI](https://github.com/Ruby570bocadito/Forense-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Forense-Framework/actions/workflows/tests.yml)
-[![Licencia](https://img.shields.io/github/license/Ruby570bocadito/Forense-Framework)](LICENSE)
+# Sabueso-Framework
+
+> **Sigue el rastro. Las conclusiones, tuyas.**
+> Sabueso olfatea la evidencia de un Windows comprometido y te trae indicios —cada uno con la regla que lo disparó y
+> su cadena de custodia—; el veredicto lo firma el perito.
+
+[![CI](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml)
+[![Licencia](https://img.shields.io/github/license/Ruby570bocadito/Sabueso-Framework)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)
 
 **Framework de análisis forense digital centrado en Windows**: gestión de casos, cadena de custodia verificable,
@@ -14,8 +20,8 @@ web con panel gráfico y CLI, e informes periciales en HTML y **PDF** en **espa�
 > 🇬🇧 English version: [README.en.md](README.en.md)
 
 ```
-forense demo ./laboratorio          # crea un escenario de intrusión ficticio y lo analiza
-forense web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
+sabueso demo ./laboratorio          # crea un escenario de intrusión ficticio y lo analiza
+sabueso web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 ```
 
 ---
@@ -51,7 +57,7 @@ forense web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 | **La evidencia nunca se modifica** | Todo se abre en solo lectura. Con `--copiar` se trabaja sobre una copia verificada por hash y marcada como de solo lectura. Las imágenes de disco se leen sin montarlas. Las bases de datos SQLite (navegadores) se copian a una carpeta temporal antes de abrirlas. |
 | **Identificación por hash** | Cada evidencia se registra con MD5, SHA-1 y SHA-256. Para un directorio se calcula el hash de un manifiesto ordenado de todos sus archivos, así que cualquier alta, baja, cambio de nombre o modificación lo altera. |
 | **Cadena de custodia a prueba de manipulación** | Cada acción (alta de evidencia, evidencia derivada, verificación, análisis, revisión, exportación, informe, borrado) queda en un registro encadenado por SHA-256. Si se altera una entrada, se rompe la cadena. |
-| **Resultados verificables** | Cada análisis guarda el SHA-256 de todos sus resultados. `forense verificar` recalcula hashes de evidencias, custodia y resultados. |
+| **Resultados verificables** | Cada análisis guarda el SHA-256 de todos sus resultados. `sabueso verificar` recalcula hashes de evidencias, custodia y resultados. |
 | **Trazabilidad de lo derivado** | Lo que se extrae de una imagen se registra como evidencia derivada, con su propio hash y enlazada a la imagen y al análisis que la produjo. |
 | **Reproducibilidad** | Se registra qué módulo se ejecutó, con qué opciones, sobre qué evidencia, quién lo hizo y cuándo (UTC). Las salidas de herramientas externas (Volatility) se guardan íntegras. |
 | **Hallazgos ≠ conclusiones** | Las detecciones son indicios con la regla que los disparó. El analista los confirma o descarta, y las conclusiones del informe las redacta él. |
@@ -60,14 +66,14 @@ Referencias metodológicas: RFC 3227, ISO/IEC 27037, ISO/IEC 27042 y UNE 71506.
 
 ## Instalación
 
-Elija la opción que mejor le encaje. En todas, `forense doctor` comprueba después que todo funciona.
+Elija la opción que mejor le encaje. En todas, `sabueso doctor` comprueba después que todo funciona.
 
-**1. Instalador para Windows** (sin permisos de administrador). Crea un entorno aislado en `%LOCALAPPDATA%\Forense`,
-añade `forense` al PATH, crea la carpeta de casos `Documentos\Forense`, la configuración y un acceso directo en el
+**1. Instalador para Windows** (sin permisos de administrador). Crea un entorno aislado en `%LOCALAPPDATA%\Sabueso`,
+añade `sabueso` al PATH, crea la carpeta de casos `Documentos\Sabueso`, la configuración y un acceso directo en el
 menú Inicio que abre la interfaz web:
 
 ```powershell
-irm https://raw.githubusercontent.com/Ruby570bocadito/Forense-Framework/main/install/install.ps1 | iex
+irm https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.ps1 | iex
 # o desde una copia del repositorio:
 powershell -ExecutionPolicy Bypass -File install\install.ps1 -WithMemory     # -WithMemory añade Volatility 3
 ```
@@ -75,23 +81,23 @@ powershell -ExecutionPolicy Bypass -File install\install.ps1 -WithMemory     # -
 Opciones: `-Workspace D:\Casos`, `-InstallPython` (instala Python 3.12 con winget si falta), `-NoShortcut`,
 `-Uninstall` (no toca los casos).
 
-**2. Instalador para Linux y macOS** (en `~/.local/share/forense`, enlaza `~/.local/bin/forense`):
+**2. Instalador para Linux y macOS** (en `~/.local/share/sabueso`, enlaza `~/.local/bin/sabueso`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ruby570bocadito/Forense-Framework/main/install/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.sh | sh
 sh install/install.sh --with-memory --workspace ~/Casos     # desde una copia del repositorio
 ```
 
-**3. Ejecutable para Windows sin Python**: descargue `forense-<versión>-windows-x64.zip` de
-[Releases](https://github.com/Ruby570bocadito/Forense-Framework/releases), descomprímalo y ejecute
-`forense\forense.exe`. Útil en equipos de laboratorio aislados (se puede llevar en un USB). Para memoria RAM necesita
+**3. Ejecutable para Windows sin Python**: descargue `sabueso-<versión>-windows-x64.zip` de
+[Releases](https://github.com/Ruby570bocadito/Sabueso-Framework/releases), descomprímalo y ejecute
+`sabueso\sabueso.exe`. Útil en equipos de laboratorio aislados (se puede llevar en un USB). Para memoria RAM necesita
 además Python con `volatility3` o la ruta de `vol.exe` (`-o vol_path=`).
 
 **4. Docker** (interfaz web, CLI y PDF con Chromium incluido):
 
 ```bash
-docker compose up -d                       # http://127.0.0.1:8765, contraseña en FORENSE_WEB_PASSWORD
-docker run --rm -v "$PWD/casos:/cases" -v "/ruta/evidencias:/evidence:ro" ghcr.io/ruby570bocadito/forense-framework \
+docker compose up -d                       # http://127.0.0.1:8765, contraseña en SABUESO_WEB_PASSWORD
+docker run --rm -v "$PWD/casos:/cases" -v "/ruta/evidencias:/evidence:ro" ghcr.io/ruby570bocadito/sabueso-framework \
        auto /evidence/portatil.E01 --new /cases/portatil
 ```
 
@@ -100,11 +106,11 @@ Las evidencias se montan en solo lectura (`:ro`). `docker build --build-arg WITH
 **5. Manual con pip** (Python 3.10 o superior):
 
 ```bash
-git clone https://github.com/Ruby570bocadito/Forense-Framework.git
-cd Forense-Framework
+git clone https://github.com/Ruby570bocadito/Sabueso-Framework.git
+cd Sabueso-Framework
 python -m venv .venv && . .venv/bin/activate      # Windows: py -3 -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -e ".[memory]"                         # sin [memory] no se instala Volatility 3
-forense doctor
+sabueso doctor
 ```
 
 Todas las dependencias tienen binarios precompilados para Windows, Linux y macOS: `evtx` (EVTX), `Flask` (web e
@@ -112,34 +118,34 @@ informes), `PyYAML` (Sigma, configuración), `olefile` (Jump Lists), `libscca-py
 (SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python` y `libqcow-python` (discos virtuales),
 `libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) y `yara-x` (YARA). Los PDF
 usan Microsoft Edge (presente en todo Windows 10/11), Chrome o Chromium; otro navegador se indica con
-`FORENSE_BROWSER`.
+`SABUESO_BROWSER`.
 
-Para actualizar: `forense update` (`actualizar`) comprueba la versión publicada y, si hay una nueva, la instala en el
+Para actualizar: `sabueso update` (`actualizar`) comprueba la versión publicada y, si hay una nueva, la instala en el
 mismo entorno (`--check` solo comprueba). En el ejecutable de Windows indica dónde descargar la nueva versión.
 
-`forense doctor` (`diagnostico`) lista cada componente con su versión y para qué sirve, avisa de lo que falta
+`sabueso doctor` (`diagnostico`) lista cada componente con su versión y para qué sirve, avisa de lo que falta
 (Volatility, navegador para PDF, listas de inteligencia que no existen, carpeta de casos sin permiso de escritura…) y
 termina con error si falta algo imprescindible; `--json` da el resultado para scripts.
 
-El idioma se elige con `-L es|en` (en cualquier posición), con la variable `FORENSE_LANG`, en la configuración o, si no
+El idioma se elige con `-L es|en` (en cualquier posición), con la variable `SABUESO_LANG`, en la configuración o, si no
 hay ninguna, según la configuración regional del sistema.
 
 ## Configuración
 
-`forense config init` crea un archivo comentado (`%APPDATA%\Forense\config.yaml` en Windows,
-`~/.config/forense/config.yaml` en Linux/macOS, o el de `FORENSE_CONFIG` / `--config`). Las opciones de la línea de
+`sabueso config init` crea un archivo comentado (`%APPDATA%\Sabueso\config.yaml` en Windows,
+`~/.config/sabueso/config.yaml` en Linux/macOS, o el de `SABUESO_CONFIG` / `--config`). Las opciones de la línea de
 órdenes siempre tienen prioridad.
 
 ```yaml
 analyst: "R. García"            # nombre por defecto en la cadena de custodia
 language: es
 organization: "CERT Ejemplo"
-workspace: 'D:\Casos'           # carpeta de casos de la web, forense auto y forense watch
+workspace: 'D:\Casos'           # carpeta de casos de la web, sabueso auto y sabueso watch
 intel:
   hash_lists: ['D:\intel\malware_sha256.txt']
   watchlists: ['D:\intel\iocs.txt']
   yara_rules: ['D:\intel\yara']
-  sigma_rules: 'D:\intel\sigma'  # forense sigma download D:\intel\sigma
+  sigma_rules: 'D:\intel\sigma'  # sabueso sigma download D:\intel\sigma
   sigma_min_level: medium
 image: {vss: true}               # extraer también de las instantáneas de volumen
 memory: {symbols: 'D:\symbols', offline: false}
@@ -149,12 +155,12 @@ notify: {webhook: 'https://contoso.webhook.office.com/…', min_severity: high}
 web: {host: 127.0.0.1, port: 8765}
 ```
 
-`forense config show` muestra la configuración efectiva y `forense config path` dónde está.
+`sabueso config show` muestra la configuración efectiva y `sabueso config path` dónde está.
 
 ## Inicio rápido
 
 ```bash
-forense demo ./laboratorio -a "Tu nombre"
+sabueso demo ./laboratorio -a "Tu nombre"
 ```
 
 Genera un escenario **ficticio**: el equipo `WS-CONTAB01` comprometido. Incluye una recolección de triaje (colmenas,
@@ -170,11 +176,11 @@ inyectado en `explorer.exe`, un comando codificado en el portapapeles, un USB, a
 del espacio libre del registro, el servicio de PsExec y un valor `Run` que el atacante eliminó.
 
 ```bash
-forense -c laboratorio/case_demo hallazgos
-forense -c laboratorio/case_demo cronologia --desde 2026-09-14T02:00 --hasta 2026-09-14T05:00
-forense -c laboratorio/case_demo mitre --resumen        # tácticas ATT&CK y borrador del relato
-forense -c laboratorio/case_demo informe --pdf
-forense web -w laboratorio --abrir
+sabueso -c laboratorio/case_demo hallazgos
+sabueso -c laboratorio/case_demo cronologia --desde 2026-09-14T02:00 --hasta 2026-09-14T05:00
+sabueso -c laboratorio/case_demo mitre --resumen        # tácticas ATT&CK y borrador del relato
+sabueso -c laboratorio/case_demo informe --pdf
+sabueso web -w laboratorio --abrir
 ```
 
 ## Flujo de trabajo con la CLI
@@ -183,67 +189,67 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 
 | Español | English | Para qué sirve |
 |---|---|---|
-| `forense nuevo DIR -n NOMBRE -i INVESTIGADOR [-r REFERENCIA] [-o ORGANIZACIÓN]` | `new` | Crear un caso |
-| `forense -c CASO info` | `info` | Resumen del caso |
-| `forense -c CASO evidencia agregar RUTA [--copiar] [-d DESCRIPCIÓN]` | `evidence add [--copy]` | Registrar una evidencia (calcula los hashes) |
-| `forense -c CASO evidencia listar` / `verificar [ID]` | `evidence list` / `verify` | Listar evidencias o verificar su integridad |
-| `forense modulos` | `modules` | Módulos disponibles y sus opciones |
-| `forense -c CASO triaje EV-001` | `triage` | Ejecutar todos los módulos que encuentren artefactos (si es una imagen, primero extrae) |
-| `forense -c CASO imagen EV-001 [--verificar] [--vss] [--bitlocker-recuperacion -] [-p PATRÓN] [--todo] [--triaje]` | `image` | Extraer los artefactos de una imagen como evidencia derivada |
-| `forense recolectar DESTINO [--origen \\.\C:] [--volatil] [--agregar-al-caso]` | `collect` | Recolección en vivo en Windows |
-| `forense -c CASO analizar MÓDULO EV-001 [-o clave=valor]` | `analyze` | Ejecutar un módulo concreto (`todas` = todas las evidencias) |
-| `forense -c CASO analisis` / `mostrar N [--artefacto X]` | `analyses` / `show` | Ver los análisis y sus registros |
-| `forense -c CASO hallazgos [--severidad high] [--estado confirmado]` | `findings` | Hallazgos ordenados por severidad, con su estado de revisión |
-| `forense -c CASO revisar N confirmado\|falso_positivo\|pendiente [-n NOTA]` | `review` | Revisar un hallazgo |
-| `forense -c CASO destacar N [-n NOTA] [--quitar]` | `bookmark` | Marcar un evento de la línea temporal |
-| `forense -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas); `--archivo` lee un archivo existente |
-| `forense -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
-| `forense -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
-| `forense -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1; los destinos se aceptan en es/en |
-| `forense -c CASO mitre [--resumen]` | `attack` | Técnicas MITRE ATT&CK observadas o borrador del relato del incidente |
-| `forense -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
-| `forense -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
-| `forense -c CASO informe [--verificar] [--pdf] [--firmar] [-L en]` | `report` | Informe HTML autocontenido (y PDF), con firma Ed25519 opcional (`--firmar`) |
-| `forense auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
-| `forense vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
-| `forense config [show\|init\|path]` | `config` | Configuración |
-| `forense correlacionar [-w ESPACIO] [--tipo T] [--json]` | `correlate` | Elementos compartidos entre casos |
-| `forense intel misp EXPORT.json [-o SALIDA]` | `inteligencia` | Convertir una exportación JSON de MISP en una lista de vigilancia para el módulo `ioc` y la correlación |
-| `forense doctor` | `diagnostico` | Comprobar la instalación |
-| `forense update [--check]` | `actualizar` | Buscar e instalar una versión nueva |
-| `forense -c CASO notificar` | `notify` | Enviar el resumen al webhook configurado |
-| `forense sigma check RUTA` / `sigma download DIR` | `sigma` | Validar reglas Sigma o descargar las de SigmaHQ |
-| `forense web [-w ESPACIO] [--puerto 8765] [--clave X] [--abrir]` | `web` | Interfaz web |
+| `sabueso nuevo DIR -n NOMBRE -i INVESTIGADOR [-r REFERENCIA] [-o ORGANIZACIÓN]` | `new` | Crear un caso |
+| `sabueso -c CASO info` | `info` | Resumen del caso |
+| `sabueso -c CASO evidencia agregar RUTA [--copiar] [-d DESCRIPCIÓN]` | `evidence add [--copy]` | Registrar una evidencia (calcula los hashes) |
+| `sabueso -c CASO evidencia listar` / `verificar [ID]` | `evidence list` / `verify` | Listar evidencias o verificar su integridad |
+| `sabueso modulos` | `modules` | Módulos disponibles y sus opciones |
+| `sabueso -c CASO triaje EV-001` | `triage` | Ejecutar todos los módulos que encuentren artefactos (si es una imagen, primero extrae) |
+| `sabueso -c CASO imagen EV-001 [--verificar] [--vss] [--bitlocker-recuperacion -] [-p PATRÓN] [--todo] [--triaje]` | `image` | Extraer los artefactos de una imagen como evidencia derivada |
+| `sabueso recolectar DESTINO [--origen \\.\C:] [--volatil] [--agregar-al-caso]` | `collect` | Recolección en vivo en Windows |
+| `sabueso -c CASO analizar MÓDULO EV-001 [-o clave=valor]` | `analyze` | Ejecutar un módulo concreto (`todas` = todas las evidencias) |
+| `sabueso -c CASO analisis` / `mostrar N [--artefacto X]` | `analyses` / `show` | Ver los análisis y sus registros |
+| `sabueso -c CASO hallazgos [--severidad high] [--estado confirmado]` | `findings` | Hallazgos ordenados por severidad, con su estado de revisión |
+| `sabueso -c CASO revisar N confirmado\|falso_positivo\|pendiente [-n NOTA]` | `review` | Revisar un hallazgo |
+| `sabueso -c CASO destacar N [-n NOTA] [--quitar]` | `bookmark` | Marcar un evento de la línea temporal |
+| `sabueso -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas); `--archivo` lee un archivo existente |
+| `sabueso -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
+| `sabueso -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
+| `sabueso -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1; los destinos se aceptan en es/en |
+| `sabueso -c CASO mitre [--resumen]` | `attack` | Técnicas MITRE ATT&CK observadas o borrador del relato del incidente |
+| `sabueso -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
+| `sabueso -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
+| `sabueso -c CASO informe [--verificar] [--pdf] [--firmar] [-L en]` | `report` | Informe HTML autocontenido (y PDF), con firma Ed25519 opcional (`--firmar`) |
+| `sabueso auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
+| `sabueso vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
+| `sabueso config [show\|init\|path]` | `config` | Configuración |
+| `sabueso correlacionar [-w ESPACIO] [--tipo T] [--json]` | `correlate` | Elementos compartidos entre casos |
+| `sabueso intel misp EXPORT.json [-o SALIDA]` | `inteligencia` | Convertir una exportación JSON de MISP en una lista de vigilancia para el módulo `ioc` y la correlación |
+| `sabueso doctor` | `diagnostico` | Comprobar la instalación |
+| `sabueso update [--check]` | `actualizar` | Buscar e instalar una versión nueva |
+| `sabueso -c CASO notificar` | `notify` | Enviar el resumen al webhook configurado |
+| `sabueso sigma check RUTA` / `sigma download DIR` | `sigma` | Validar reglas Sigma o descargar las de SigmaHQ |
+| `sabueso web [-w ESPACIO] [--puerto 8765] [--clave X] [--abrir]` | `web` | Interfaz web |
 
-Opciones comunes: `-c/--caso` (o la variable `FORENSE_CASE`), `-a/--analista` (quién figura en la custodia; por
+Opciones comunes: `-c/--caso` (o la variable `SABUESO_CASE`), `-a/--analista` (quién figura en la custodia; por
 defecto el de la configuración), `-L/--idioma` y `--config ARCHIVO`. En `cronologia`, `--hasta 2026-09-14` incluye el
 día completo.
 
 Ejemplo completo (PowerShell):
 
 ```powershell
-forense nuevo ./2026-017 -n "Intrusión servidor de ficheros" -i "R. García" -r "EXP-2026/017"
-forense -c ./2026-017 evidencia agregar E:\adquisiciones\FS01.E01 -d "Disco de FS01 (FTK Imager)"
-forense -c ./2026-017 imagen EV-001 --verificar --triaje
-forense -c ./2026-017 evidencia agregar E:\adquisiciones\FS01.mem -d "Memoria RAM de FS01"
-forense -c ./2026-017 analizar memory EV-003
-forense -c ./2026-017 analizar hashset EV-002 -o hash_list=C:\intel\malware_sha256.txt
-forense -c ./2026-017 analizar yara EV-002 -o rules=C:\intel\yara
-forense -c ./2026-017 hallazgos --severidad medium
-forense -c ./2026-017 revisar 12 confirmado -n "Coincide con el 4688 del controlador de dominio"
+sabueso nuevo ./2026-017 -n "Intrusión servidor de ficheros" -i "R. García" -r "EXP-2026/017"
+sabueso -c ./2026-017 evidencia agregar E:\adquisiciones\FS01.E01 -d "Disco de FS01 (FTK Imager)"
+sabueso -c ./2026-017 imagen EV-001 --verificar --triaje
+sabueso -c ./2026-017 evidencia agregar E:\adquisiciones\FS01.mem -d "Memoria RAM de FS01"
+sabueso -c ./2026-017 analizar memory EV-003
+sabueso -c ./2026-017 analizar hashset EV-002 -o hash_list=C:\intel\malware_sha256.txt
+sabueso -c ./2026-017 analizar yara EV-002 -o rules=C:\intel\yara
+sabueso -c ./2026-017 hallazgos --severidad medium
+sabueso -c ./2026-017 revisar 12 confirmado -n "Coincide con el 4688 del controlador de dominio"
 notepad conclusiones.md   # redacte las conclusiones antes; --archivo las lee como entrada
-forense -c ./2026-017 conclusiones --archivo conclusiones.md
-forense -c ./2026-017 informe --verificar
+sabueso -c ./2026-017 conclusiones --archivo conclusiones.md
+sabueso -c ./2026-017 informe --verificar
 ```
 
 ## Automatización
 
-`forense auto` registra la evidencia (en un caso existente con `-c`, en uno nuevo con `--nuevo`, o en la carpeta de
+`sabueso auto` registra la evidencia (en un caso existente con `-c`, en uno nuevo con `--nuevo`, o en la carpeta de
 casos de la configuración), ejecuta un **playbook** y deja el informe y las exportaciones listos:
 
 ```powershell
-forense auto E:\adquisiciones\PC-042.E01 --nuevo D:\Casos\PC-042 -i "R. García"
-forense -c D:\Casos\2026-017 auto E:\adquisiciones\FS01.mem          # añadir al caso y analizar
+sabueso auto E:\adquisiciones\PC-042.E01 --nuevo D:\Casos\PC-042 -i "R. García"
+sabueso -c D:\Casos\2026-017 auto E:\adquisiciones\FS01.mem          # añadir al caso y analizar
 ```
 
 | Playbook | Pasos |
@@ -264,9 +270,9 @@ steps:
   - export: [findings, stix]
 ```
 
-**Carpeta vigilada**: `forense vigilar D:\Entrada -w D:\Casos` crea un caso por cada archivo o carpeta que se deje en
+**Carpeta vigilada**: `sabueso vigilar D:\Entrada -w D:\Casos` crea un caso por cada archivo o carpeta que se deje en
 `D:\Entrada` y lo procesa con el playbook. Espera a que la copia termine (tamaño y fecha estables entre dos
-comprobaciones), ignora `.part`/`.tmp`, recuerda lo procesado en `D:\Casos\.forense-watch.json` y un elemento que
+comprobaciones), ignora `.part`/`.tmp`, recuerda lo procesado en `D:\Casos\.sabueso-watch.json` y un elemento que
 falle no detiene a los demás. `--una-vez` procesa lo que haya y termina (útil en una tarea programada).
 
 En la web, el botón **Automático** de cada evidencia ejecuta el playbook en segundo plano.
@@ -275,7 +281,7 @@ En la web, el botón **Automático** de cada evidencia ejecuta el playbook en se
 `vigilar` o el botón de la web) se envía un resumen —caso, pasos fallidos, hallazgos más graves e informe— a Microsoft
 Teams, Slack, Mattermost, Discord o cualquier servicio que acepte JSON (el formato se deduce de la URL o se fija con
 `notify.format`). Cada envío queda en la cadena de custodia con el servidor de destino (no la URL, que suele llevar un
-token). `forense -c CASO notificar` envía uno de prueba; si el webhook falla, el análisis no se ve afectado.
+token). `sabueso -c CASO notificar` envía uno de prueba; si el webhook falla, el análisis no se ve afectado.
 
 ## Imágenes de disco y recolección en vivo
 
@@ -287,9 +293,9 @@ las particiones MBR/GPT y los sistemas de archivos con The Sleuth Kit, **sin mon
 también los archivos bloqueados (`$MFT`, colmenas, SRUM, EVTX) y los flujos alternativos como `$UsnJrnl:$J`.
 
 ```bash
-forense -c CASO evidencia agregar portatil.E01
-forense -c CASO imagen EV-001 --verificar      # comprueba los MD5/SHA-1 de adquisición y extrae
-forense -c CASO triaje EV-002                  # EV-002 = artefactos extraídos (evidencia derivada)
+sabueso -c CASO evidencia agregar portatil.E01
+sabueso -c CASO imagen EV-001 --verificar      # comprueba los MD5/SHA-1 de adquisición y extrae
+sabueso -c CASO triaje EV-002                  # EV-002 = artefactos extraídos (evidencia derivada)
 ```
 
 - `--verificar` recalcula los hashes del medio y los compara con los guardados en el E01; si no coinciden se genera un
@@ -314,8 +320,8 @@ En un Windows en funcionamiento (como administrador), `recolectar` lee el **volu
 Sleuth Kit para copiar los artefactos bloqueados, sin depender de VSS ni de herramientas externas:
 
 ```powershell
-forense recolectar E:\recoleccion_PC01 --volatil
-forense -c E:\caso recolectar E:\recoleccion_PC01 --agregar-al-caso --copiar
+sabueso recolectar E:\recoleccion_PC01 --volatil
+sabueso -c E:\caso recolectar E:\recoleccion_PC01 --agregar-al-caso --copiar
 ```
 
 - Copia el mismo perfil de triaje a `DESTINO\C\…` y escribe `manifest.csv` (ruta, tamaño, SHA-256, MD5, fechas y
@@ -333,9 +339,9 @@ El módulo `memory` analiza volcados de memoria de Windows con **Volatility 3**:
 
 ```bash
 pip install -e ".[memory]"
-forense -c CASO evidencia agregar PC01.raw
-forense -c CASO analizar memory EV-003                       # descarga los símbolos de Microsoft si hace falta
-forense -c CASO analizar memory EV-003 -o symbols=D:\symbols -o offline=si -o plugins=pslist,psscan,netscan
+sabueso -c CASO evidencia agregar PC01.raw
+sabueso -c CASO analizar memory EV-003                       # descarga los símbolos de Microsoft si hace falta
+sabueso -c CASO analizar memory EV-003 -o symbols=D:\symbols -o offline=si -o plugins=pslist,psscan,netscan
 ```
 
 - Volatility se ejecuta como proceso aparte y su salida JSON se guarda íntegra en la carpeta del análisis.
@@ -350,7 +356,7 @@ forense -c CASO analizar memory EV-003 -o symbols=D:\symbols -o offline=si -o pl
 
 ## Ejecución de programas
 
-`forense -c CASO ejecucion` (y la página **Ejecución** de la web) reúne en una fila por programa todo lo que dicen
+`sabueso -c CASO ejecucion` (y la página **Ejecución** de la web) reúne en una fila por programa todo lo que dicen
 Prefetch, Amcache, ShimCache, BAM, UserAssist, SRUM, la línea de tiempo de Windows, los eventos 4688/Sysmon 1, RunMRU,
 Microsoft Defender y la memoria. Cada fuente escribe las rutas a su manera (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`,
 `%ProgramFiles%`, GUID de carpetas conocidas…); se normalizan para unirlas y obtener primera y última ejecución, número
@@ -375,7 +381,7 @@ Cada hallazgo se relaciona con técnicas de **MITRE ATT&CK** por su tipo (persis
 herramientas que nombra (mimikatz → T1003, rclone → T1567.002, AnyDesk → T1219) y por las etiquetas de las reglas
 Sigma. Con eso:
 
-- `forense mitre` y la página **ATT&CK** muestran la matriz de tácticas y técnicas observadas, con la primera vez que
+- `sabueso mitre` y la página **ATT&CK** muestran la matriz de tácticas y técnicas observadas, con la primera vez que
   aparecen y los hallazgos que las respaldan (enlazados). Los hallazgos de gravedad baja o descartados no cuentan; los
   confirmados, siempre.
 - **Relato del incidente**: la secuencia de fases en orden de la cadena de ataque y un **borrador** de narración
@@ -387,39 +393,39 @@ Sigma. Con eso:
 
 ### Correlación entre casos
 
-`forense correlacionar -w ESPACIO` (y la página **Correlación entre casos** de la web, enlazada desde la lista de
+`sabueso correlacionar -w ESPACIO` (y la página **Correlación entre casos** de la web, enlazada desde la lista de
 casos) busca lo que comparten los casos de un espacio de trabajo: indicadores de compromiso, **dispositivos USB por
 número de serie** (el mismo pendrive en dos equipos), direcciones IP (conexiones en memoria, inicios de sesión de red y
 RDP, destinos RDP, rutas UNC), nombres de equipo y cuentas de dominio de inicios de sesión remotos. Con
 `-c CASO` muestra solo lo de ese caso, y su página de resumen incluye un panel **Visto en otros casos**. El índice de
-cada caso se guarda en `ESPACIO/.forense-correlation` y solo se rehace cuando cambia su cadena de custodia; los casos
+cada caso se guarda en `ESPACIO/.sabueso-correlation` y solo se rehace cuando cambia su cadena de custodia; los casos
 nunca se modifican. Opciones: `--tipo usb`, `--minimo 3`, `--json`.
 
 ### Importar inteligencia de MISP
 
-`forense intel misp` convierte una **exportación JSON de MISP** —un evento, el conjunto `response` de la API o una
+`sabueso intel misp` convierte una **exportación JSON de MISP** —un evento, el conjunto `response` de la API o una
 lista de eventos— en una **lista de vigilancia** para el módulo [`ioc`](#módulos-de-análisis): un indicador por línea,
 con la procedencia de cada evento origen como comentario `#` (UUID, título y fecha). La importación **nunca toca la
 red**: exporta los eventos desde tu instancia de MISP y dale el fichero al comando, así que ni la URL de la instancia
 ni la clave de API llegan al caso.
 
 ```powershell
-forense intel misp C:\intel\EXPORT.json -o C:\intel\misp.watchlist.txt
-forense -c CASO analizar ioc EV-002 -o watchlist=C:\intel\misp.watchlist.txt
+sabueso intel misp C:\intel\EXPORT.json -o C:\intel\misp.watchlist.txt
+sabueso -c CASO analizar ioc EV-002 -o watchlist=C:\intel\misp.watchlist.txt
 ```
 
 - Tipos MISP admitidos: md5, sha1, sha256 y sha512 (también `filename|hash`: solo el hash, que es lo único seguro de
   comparar), ip-src e ip-dst con o sin `|port`, domain y hostname (y sus formas `|ip`), url, uri, link, email (origen
   y destino), filename, regkey y user-agent. Los atributos borrados se excluyen, los duplicados se descartan y los
   tipos desconocidos se cuentan y se reportan como omitidos: nunca se adivinan.
-- La lista resultante también sirve para `forense auto` y `forense vigilar` con la clave `intel.watchlists` de la
+- La lista resultante también sirve para `sabueso auto` y `sabueso vigilar` con la clave `intel.watchlists` de la
   [configuración](#configuración), y sus hallazgos `ioc.watchlist_match` alimentan la correlación entre casos.
 - Una exportación sin indicadores utilizables es un error localizado (y la salida nunca puede pisar al fichero de
   entrada).
 
 ## Informes
 
-`forense informe` genera un HTML autocontenido (sin scripts ni recursos externos) y `--pdf` también el PDF, ambos con
+`sabueso informe` genera un HTML autocontenido (sin scripts ni recursos externos) y `--pdf` también el PDF, ambos con
 su SHA-256 en la cadena de custodia. Estructura:
 
 1. Portada con los datos del caso y aviso de confidencialidad, e índice.
@@ -434,15 +440,15 @@ su SHA-256 en la cadena de custodia. Estructura:
 
 El PDF sale en A4 con el ID del caso y «página x / y» en el pie, sin cortar filas entre páginas; el navegador que lo
 imprime se lanza en modo headless con `--no-sandbox`. La página **Informes** de la web genera cualquiera de los dos en
-el idioma que elija y, si la variable `FORENSE_SIGN_KEY` apunta a la clave privada del analista (PEM Ed25519), puede
+el idioma que elija y, si la variable `SABUESO_SIGN_KEY` apunta a la clave privada del analista (PEM Ed25519), puede
 **firmar digitalmente** el informe; en la CLI, `informe --firmar` hace lo mismo (con `--pdf` también en el PDF). En
 ambos casos se guarda una firma desacoplada `.sig` junto al informe y la cadena de custodia registra la huella de la
-clave pública (`FORENSE_SIGN_PUB`), con la que se puede verificar después.
+clave pública (`SABUESO_SIGN_PUB`), con la que se puede verificar después.
 
 ## Interfaz web
 
 ```bash
-forense web -w ./casos            # http://127.0.0.1:8765
+sabueso web -w ./casos            # http://127.0.0.1:8765
 ```
 
 - **Espacio de trabajo**: lista de casos y alta de casos nuevos.
@@ -464,7 +470,7 @@ forense web -w ./casos            # http://127.0.0.1:8765
 - Selector **ES/EN** y campo **Analista**: el nombre se registra en cada acción de la custodia.
 
 Seguridad: escucha solo en `127.0.0.1` por defecto, todos los formularios llevan token CSRF, envía cabeceras de
-seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` o `FORENSE_WEB_PASSWORD` (HTTP Basic); si arranca
+seguridad (CSP, `X-Frame-Options`) y admite contraseña con `--clave` o `SABUESO_WEB_PASSWORD` (HTTP Basic); si arranca
 sin contraseña, la interfaz muestra un aviso permanente hasta que se configure. Si la
 expones en red, ponla detrás de HTTPS. `--abrir` abre el navegador al arrancar; `/healthz` responde sin contraseña para
 las comprobaciones de estado de contenedores.
@@ -507,7 +513,7 @@ tardar). Severidades: crítico, alto, medio, bajo e informativo.
 Qué se puede registrar como evidencia:
 
 - **Imágenes de disco** (E01, raw, VHD/VHDX, VMDK, QCOW2) y **volcados de memoria**.
-- **Recolecciones de triaje**: la de `forense recolectar`, [KAPE](https://www.kroll.com/kape) (target `KapeTriage`),
+- **Recolecciones de triaje**: la de `sabueso recolectar`, [KAPE](https://www.kroll.com/kape) (target `KapeTriage`),
   Velociraptor o CyLR. Se registra la carpeta completa.
 - **Imágenes montadas en solo lectura** (Arsenal Image Mounter, `ewfmount`).
 - **Artefactos sueltos**: un `.evtx`, una colmena, un `$MFT`, un `SRUDB.dat`, una carpeta de Prefetch…
@@ -518,9 +524,9 @@ Qué se puede registrar como evidencia:
 DCSync, PsExec, pass-the-hash, borrado de instantáneas…) y las que le indiques:
 
 ```bash
-forense sigma download ./sigma                 # reglas Windows de SigmaHQ
-forense sigma check ./sigma                    # cuántas son compatibles
-forense -c CASO analizar evtx EV-001 -o sigma_rules=./sigma -o sigma_min_level=high
+sabueso sigma download ./sigma                 # reglas Windows de SigmaHQ
+sabueso sigma check ./sigma                    # cuántas son compatibles
+sabueso -c CASO analizar evtx EV-001 -o sigma_rules=./sigma -o sigma_min_level=high
 ```
 
 El motor admite selecciones, palabras clave, comodines, los modificadores habituales (`contains`, `startswith`,
@@ -528,7 +534,7 @@ El motor admite selecciones, palabras clave, comodines, los modificadores habitu
 condiciones (`and`, `or`, `not`, paréntesis, `1 of`, `all of`, `them`). `process_creation` se evalúa sobre Sysmon 1
 y sobre el 4688 de Security.
 
-**YARA** (motor YARA-X): `forense -c CASO analizar yara EV-002 -o rules=C:\intel\yara`. La severidad del hallazgo se
+**YARA** (motor YARA-X): `sabueso -c CASO analizar yara EV-002 -o rules=C:\intel\yara`. La severidad del hallazgo se
 toma del metadato `severity` de la regla.
 
 ## Integridad y cadena de custodia
@@ -538,7 +544,7 @@ custody(seq, timestamp, action, actor, details, prev_hash, hash)
 hash = SHA-256(JSON canónico de {seq, timestamp, action, actor, details, prev_hash})
 ```
 
-- `forense -c CASO custodia --verificar` detecta entradas modificadas, borradas o reordenadas.
+- `sabueso -c CASO custodia --verificar` detecta entradas modificadas, borradas o reordenadas.
 - El **hash de cabecera** (el de la última entrada) aparece en el informe y en `custodia`. Anótalo fuera del caso (en el
   acta, un correo o el expediente) para anclar la cadena: así ni siquiera quien reescriba la base de datos entera podrá
   ocultar la manipulación.
@@ -553,7 +559,7 @@ Estructura de un caso:
 
 ```
 caso/
-├── forense.db     SQLite (WAL): caso, evidencias, custodia, resultados, eventos, hallazgos y revisiones
+├── sabueso.db     SQLite (WAL): caso, evidencias, custodia, resultados, eventos, hallazgos y revisiones
 ├── evidence/      copias de trabajo verificadas (--copiar), en solo lectura
 ├── analyses/      archivos generados (artefactos extraídos, salidas de Volatility, carving, bodyfile…)
 ├── reports/       informes HTML y PDF
@@ -585,7 +591,7 @@ caso/
 ## Arquitectura y cómo crear un módulo
 
 ```
-forense/
+sabueso/
 ├── core/        caso (SQLite), revisión, custodia, hashing, firmas, heurísticas, zona horaria, ejecución, exportaciones, correlación, indicadores STIX e importación de inteligencia
 ├── parsers/     regf (+ logs de transacciones y celdas borradas), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
 │                Defender, shell items, Jump Lists, Volatility
@@ -598,8 +604,8 @@ forense/
 ├── collector.py recolección en vivo
 ├── automation.py  auto y vigilar (playbooks)
 ├── notify.py      notificaciones al terminar la automatización
-├── update.py      forense update: busca e instala una versión nueva
-├── doctor.py      forense doctor: diagnóstico de la instalación
+├── update.py      sabueso update: busca e instala una versión nueva
+├── doctor.py      sabueso doctor: diagnóstico de la instalación
 ├── i18n.py        textos es/en
 ├── charts.py      gráficos SVG para web e informe (sin JavaScript)
 ├── presentation.py  salida compartida de CLI, web e informe
@@ -616,8 +622,8 @@ mostrarlos, por lo que el mismo caso se puede revisar o informar en cualquiera d
 Un módulo nuevo:
 
 ```python
-from forense.core.utils import find_files, read_capped, relative_name
-from forense.modules.base import AnalysisContext, Module, Option, register
+from sabueso.core.utils import find_files, read_capped, relative_name
+from sabueso.modules.base import AnalysisContext, Module, Option, register
 
 MAX_EXAMPLE_SIZE = 64 * 1024 * 1024  # tope del ejemplo, como el resto de módulos
 
@@ -650,7 +656,7 @@ class ExampleModule(Module):
         ctx.summary["entries"] = n
 ```
 
-Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `locales/es.json` y `locales/en.json`
+Después se importa en `sabueso/modules/__init__.py` y se añaden sus textos a `locales/es.json` y `locales/en.json`
 (`module.example.title`, `.description`, `.opt.*`, `finding.example.suspicious.title/.description`,
 `artifact.example_entry`, `etype.example_entry`). Los tests de `tests/test_i18n.py` avisan si falta alguna traducción.
 
@@ -685,7 +691,7 @@ Después se importa en `forense/modules/__init__.py` y se añaden sus textos a `
 
 La hoja de ruta completa, por versiones y prioridades, vive en [docs/ROADMAP.md](docs/ROADMAP.md); lo próximo de aquí:
 
-- Importación de inteligencia desde OpenCTI/TAXII (la de MISP ya está disponible: `forense intel misp`)
+- Importación de inteligencia desde OpenCTI/TAXII (la de MISP ya está disponible: `sabueso intel misp`)
 - Más artefactos: BITS (`qmgr.db`; falta una muestra real con licencia)
 - Linux y macOS como sistemas analizados
 
@@ -694,12 +700,12 @@ La hoja de ruta completa, por versiones y prioridades, vive en [docs/ROADMAP.md]
 ```bash
 pip install -e ".[dev]"
 python -m pytest -q        # tests (artefactos reales en tests/data; el resto se genera de forma sintética)
-ruff check forense tests   # estilo
+ruff check sabueso tests   # estilo
 ```
 
 La CI ejecuta los tests en Linux y Windows con Python 3.10 y 3.12, una prueba completa con el escenario de
 demostración y los dos instaladores (instalar, ejecutar y desinstalar). Al publicar una etiqueta `v*`, el flujo
-`release` construye la rueda y el sdist, el ejecutable de Windows (PyInstaller, `packaging/forense.spec`, probado con
+`release` construye la rueda y el sdist, el ejecutable de Windows (PyInstaller, `packaging/sabueso.spec`, probado con
 la demo y un PDF) y la imagen Docker en GitHub Container Registry, y los adjunta a la versión. El origen y la licencia de los datos de prueba están en [tests/data/README.md](tests/data/README.md).
 
 ## Licencia

@@ -7,11 +7,11 @@ import shutil
 
 import pytest
 
-from forense.cli import EXIT_OK, main
-from forense.core import correlation
-from forense.core.case import Case
-from forense.core.correlation import CACHE_DIR, correlate, index_case, workspace_indexes
-from forense.web import create_app
+from sabueso.cli import EXIT_OK, main
+from sabueso.core import correlation
+from sabueso.core.case import Case
+from sabueso.core.correlation import CACHE_DIR, correlate, index_case, workspace_indexes
+from sabueso.web import create_app
 
 
 @pytest.fixture(scope="module")
@@ -25,7 +25,7 @@ def workspace(tmp_path_factory):
     with Case.create(ws / "case_c", "Unrelated", "Tester"):
         pass
     (ws / "broken").mkdir()
-    (ws / "broken" / "forense.db").write_bytes(b"not a database" * 100)
+    (ws / "broken" / "sabueso.db").write_bytes(b"not a database" * 100)
     return ws
 
 

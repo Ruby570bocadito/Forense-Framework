@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from forense.core.case import Case
-from forense.demo import generate_demo
-from forense.i18n import set_language
+from sabueso.core.case import Case
+from sabueso.demo import generate_demo
+from sabueso.i18n import set_language
 
 DATA = Path(__file__).parent / "data"
 

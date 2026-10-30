@@ -1,4 +1,4 @@
-"""Configuration file, playbooks, `forense auto` and the watched drop folder."""
+"""Configuration file, playbooks, `sabueso auto` and the watched drop folder."""
 
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ from pathlib import Path
 
 import pytest
 
-from forense.automation import BUILTIN_PLAYBOOKS, STATE_FILE, auto, load_playbook, module_options, watch
-from forense.cli import EXIT_OK, main
-from forense.core.case import Case
-from forense.core.config import DEFAULTS, Config, load_config, set_config, write_template
-from forense.core.errors import ForenseError
-from forense.web import create_app
+from sabueso.automation import BUILTIN_PLAYBOOKS, STATE_FILE, auto, load_playbook, module_options, watch
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.case import Case
+from sabueso.core.config import DEFAULTS, Config, load_config, set_config, write_template
+from sabueso.core.errors import SabuesoError
+from sabueso.web import create_app
 
 
 @pytest.fixture(autouse=True)
 def _reset_config(tmp_path, monkeypatch):
-    monkeypatch.setenv("FORENSE_CONFIG", str(tmp_path / "no-config.yaml"))  # never the examiner's own file
+    monkeypatch.setenv("SABUESO_CONFIG", str(tmp_path / "no-config.yaml"))  # never the examiner's own file
     set_config(None)
     yield
     set_config(None)
@@ -45,21 +45,21 @@ def test_config_defaults_merge_and_paths(tmp_path, monkeypatch):
 def test_config_errors_and_template(tmp_path):
     bad = tmp_path / "bad.yaml"
     bad.write_text("analyst: [unclosed", encoding="utf-8")
-    with pytest.raises(ForenseError) as info:
+    with pytest.raises(SabuesoError) as info:
         load_config(bad)
     assert info.value.code == "error.config_invalid"
     bad.write_text("- a list\n- not a mapping\n", encoding="utf-8")
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         load_config(bad)
     path = write_template(tmp_path / "sub" / "config.yaml")
     assert load_config(path).value("web.port") == 8765
-    with pytest.raises(ForenseError):
+    with pytest.raises(SabuesoError):
         write_template(path)
     write_template(path, overwrite=True)
 
 
 def test_cli_config_and_analyst_default(tmp_path, capsys):
-    path = tmp_path / "forense.yaml"
+    path = tmp_path / "sabueso.yaml"
     assert main(["config", "init", str(path)]) == EXIT_OK
     path.write_text(path.read_text(encoding="utf-8").replace('analyst: ""', 'analyst: "Config Analyst"'),
                     encoding="utf-8")
@@ -68,7 +68,7 @@ def test_cli_config_and_analyst_default(tmp_path, capsys):
     case = tmp_path / "case"
     assert main(["--config", str(path), "new", str(case), "-n", "Cfg", "-i", "Ana"]) == EXIT_OK
     with Case.open(case) as opened:
-        opened.add_evidence(tmp_path / "forense.yaml", actor=None)
+        opened.add_evidence(tmp_path / "sabueso.yaml", actor=None)
     assert main(["--config", str(path), "-c", str(case), "analyze", "inventory", "EV-001"]) == EXIT_OK
     with Case.open(case) as opened:
         assert opened.analyses()[0].actor == "Config Analyst"
@@ -82,9 +82,9 @@ def test_playbooks(tmp_path):
     assert load_playbook(str(custom))[0] == {"modules": {"inventory": {"hashes": "md5"}}}
     for content in ("steps: []\n", "nothing: here\n", "steps: [\n"):
         custom.write_text(content, encoding="utf-8")
-        with pytest.raises(ForenseError):
+        with pytest.raises(SabuesoError):
             load_playbook(str(custom))
-    with pytest.raises(ForenseError) as info:
+    with pytest.raises(SabuesoError) as info:
         load_playbook("no-such-playbook")
     assert info.value.code == "error.playbook_unknown"
 

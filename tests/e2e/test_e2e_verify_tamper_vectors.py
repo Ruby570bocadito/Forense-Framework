@@ -1,4 +1,4 @@
-"""E2E: ``forense verificar`` catches tampered custody entries and analysis results.
+"""E2E: ``sabueso verificar`` catches tampered custody entries and analysis results.
 
 The evidence vector is covered by ``test_e2e_verify_exit_codes``; the other two
 integrity vectors documented in the README (chain of custody, results hash) get
@@ -18,7 +18,7 @@ from _cli import make_demo_lab, run
 
 @pytest.fixture(scope="module")
 def demo_lab(tmp_path_factory) -> Path:
-    """A fresh ``forense demo`` lab shared by the tests of this module."""
+    """A fresh ``sabueso demo`` lab shared by the tests of this module."""
     return make_demo_lab(tmp_path_factory.mktemp("e2e-tamper-vectors"))
 
 
@@ -32,7 +32,7 @@ def _case_with_records(parent: Path, lab: Path) -> Path:
     assert proc.returncode == 0, proc.stderr
     proc = run("-c", str(case), "triage", "EV-001", timeout=300)
     assert proc.returncode == 0, proc.stderr
-    db = sqlite3.connect(case / "forense.db")
+    db = sqlite3.connect(case / "sabueso.db")
     try:
         rows = db.execute("SELECT COUNT(*) FROM records").fetchone()[0]
     finally:
@@ -43,7 +43,7 @@ def _case_with_records(parent: Path, lab: Path) -> Path:
 
 def _tamper_one_row(case: Path, sql: str) -> None:
     """Apply one UPDATE to the case database (the way an attacker with the file would)."""
-    db = sqlite3.connect(case / "forense.db")
+    db = sqlite3.connect(case / "sabueso.db")
     try:
         assert db.execute(sql).rowcount == 1, f"tampering UPDATE matched no row: {sql}"
         db.commit()

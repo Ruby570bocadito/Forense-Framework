@@ -6,12 +6,12 @@ import random
 import struct
 from datetime import datetime, timezone
 
-from forense.core.attack import techniques_for
-from forense.demo import builders as b
-from forense.i18n import t
-from forense.modules.base import ResultSink, get_module
-from forense.parsers.regf import BASE_BLOCK_SIZE, RegistryError, RegistryHive
-from forense.parsers.regf_deleted import cells, recover_deleted
+from sabueso.core.attack import techniques_for
+from sabueso.demo import builders as b
+from sabueso.i18n import t
+from sabueso.modules.base import ResultSink, get_module
+from sabueso.parsers.regf import BASE_BLOCK_SIZE, RegistryError, RegistryHive
+from sabueso.parsers.regf_deleted import cells, recover_deleted
 
 T = datetime(2026, 9, 14, 3, 0, tzinfo=timezone.utc)
 

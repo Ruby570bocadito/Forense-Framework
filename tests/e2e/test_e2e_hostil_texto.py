@@ -53,7 +53,7 @@ def test_informe_y_csv_con_texto_hostil(tmp_path) -> None:
 
     # The case stays intact: custody verifies after all of the above.
     assert run("-c", str(case), "verificar").returncode == 0
-    conn = sqlite3.connect(case / "forense.db")
+    conn = sqlite3.connect(case / "sabueso.db")
     findings = conn.execute("select count(*) from findings where severity='critical'").fetchone()[0]
     conn.close()
     assert findings >= 1  # sanity: the demo case really had findings to export

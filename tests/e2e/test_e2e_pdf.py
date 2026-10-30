@@ -51,7 +51,7 @@ def test_informe_pdf_navegador_falso_genera_pdf(tmp_path) -> None:
     browser = _fake_browser(tmp_path, FAKE_OK)
     out = tmp_path / "informe"
     proc = run("-L", "en", "-c", str(case), "informe", "--pdf", "-o", str(out / "i.html"),
-               env={"FORENSE_BROWSER": browser})
+               env={"SABUESO_BROWSER": browser})
     assert proc.returncode == 0, proc.stderr
     assert "Traceback" not in proc.stderr
     pdf = out / "i.pdf"
@@ -66,7 +66,7 @@ def test_informe_pdf_navegador_sin_salida(tmp_path) -> None:
     case = _case_with_evtx(tmp_path, "pdf-vacio")
     out = tmp_path / "informe"
     proc = run("-L", "es", "-c", str(case), "informe", "--pdf", "-o", str(out / "i.html"),
-               env={"FORENSE_BROWSER": "/bin/true"})
+               env={"SABUESO_BROWSER": "/bin/true"})
     assert proc.returncode == 1
     assert "Traceback" not in proc.stderr
     assert "No se pudo generar el PDF" in proc.stderr, proc.stderr
@@ -76,14 +76,14 @@ def test_informe_pdf_navegador_sin_salida(tmp_path) -> None:
 def test_informe_pdf_sin_navegador_mensaje_limpio(tmp_path) -> None:
     # Reachable only where no PDF browser is discoverable (CI runners with one skip this).
     probe = subprocess.run(
-        [sys.executable, "-c", "from forense.report.pdf import find_browser; print(find_browser() or 'NONE')"],
+        [sys.executable, "-c", "from sabueso.report.pdf import find_browser; print(find_browser() or 'NONE')"],
         capture_output=True, text=True, timeout=60)
     if probe.stdout.strip() != "NONE":
         pytest.skip("a PDF browser is installed on this machine; the no-browser path is not reachable")
     case = _case_with_evtx(tmp_path, "pdf-ninguno")
     out = tmp_path / "informe"
     proc = run("-L", "es", "-c", str(case), "informe", "--pdf", "-o", str(out / "i.html"),
-               env={"FORENSE_BROWSER": None})
+               env={"SABUESO_BROWSER": None})
     assert proc.returncode == 1
     assert "Traceback" not in proc.stderr
     assert "no se encontró Edge, Chrome ni Chromium" in proc.stderr, proc.stderr

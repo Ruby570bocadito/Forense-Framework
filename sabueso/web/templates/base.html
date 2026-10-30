@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Sabueso-Framework{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+</head>
+<body>
+<a class="skip-link" href="#content">{{ _('common.skip_to_content') }}</a>
+{% if not auth_enabled %}<div class="auth-warning" role="status">{{ _('web.no_auth_warning') }}</div>{% endif %}
+{% from "_macros.html" import icon with context %}
+<header class="topbar">
+  <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Sabueso<span>-Framework</span></span></a>
+  {% if slug is defined %}<span class="case-name">/ {{ case.name }} <span class="mono">({{ case.id }})</span></span>{% endif %}
+  <span class="spacer"></span>
+  {% if slug is defined %}
+  <form method="get" action="{{ url_for('search', slug=slug) }}" role="search" class="global-search">
+    <input type="search" name="q" value="{{ query if query is defined else '' }}" placeholder="{{ _('web.search_case') }}" aria-label="{{ _('web.search_case') }}">
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('set_analyst') }}" title="{{ _('web.analyst_help') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="analyst" value="{{ analyst }}" placeholder="{{ _('web.analyst') }}" aria-label="{{ _('web.analyst') }}">
+    <button class="secondary small" type="submit">{{ _('common.save') }}</button>
+  </form>
+  <span class="lang">{% for code in languages %}<a href="?lang={{ code }}" hreflang="{{ code }}" class="{{ 'active' if code == lang }}" aria-current="{{ 'true' if code == lang else 'false' }}">{{ code | upper }}</a>{% endfor %}</span>
+</header>
+<div class="shell {{ '' if slug is defined else 'no-nav' }}">
+  {% if slug is defined %}
+  <nav class="side" aria-label="{{ _('nav.main') }}">
+    {% set here = request.endpoint %}
+    <a href="{{ url_for('dashboard', slug=slug) }}" class="{{ 'active' if here == 'dashboard' }}" aria-current="{{ 'page' if here == 'dashboard' else 'false' }}">{{ icon('dashboard') }}{{ _('nav.dashboard') }}</a>
+    <a href="{{ url_for('evidence', slug=slug) }}" class="{{ 'active' if here == 'evidence' }}" aria-current="{{ 'page' if here == 'evidence' else 'false' }}">{{ icon('evidence') }}{{ _('nav.evidence') }}</a>
+    <a href="{{ url_for('analyses', slug=slug) }}" class="{{ 'active' if here in ('analyses', 'analysis') }}" aria-current="{{ 'page' if here in ('analyses', 'analysis') else 'false' }}">{{ icon('analyses') }}{{ _('nav.analyses') }}</a>
+    <div class="group">{{ _('nav.group_investigation') }}</div>
+    <a href="{{ url_for('findings', slug=slug) }}" class="{{ 'active' if here == 'findings' }}" aria-current="{{ 'page' if here == 'findings' else 'false' }}">{{ icon('findings') }}{{ _('nav.findings') }}</a>
+    <a href="{{ url_for('attack', slug=slug) }}" class="{{ 'active' if here == 'attack' }}" aria-current="{{ 'page' if here == 'attack' else 'false' }}">{{ icon('attack') }}{{ _('nav.attack') }}</a>
+    <a href="{{ url_for('timeline', slug=slug) }}" class="{{ 'active' if here == 'timeline' }}" aria-current="{{ 'page' if here == 'timeline' else 'false' }}">{{ icon('timeline') }}{{ _('nav.timeline') }}</a>
+    <a href="{{ url_for('execution', slug=slug) }}" class="{{ 'active' if here == 'execution' }}" aria-current="{{ 'page' if here == 'execution' else 'false' }}">{{ icon('execution') }}{{ _('nav.execution') }}</a>
+    <div class="group">{{ _('nav.group_documentation') }}</div>
+    <a href="{{ url_for('conclusions', slug=slug) }}" class="{{ 'active' if here == 'conclusions' }}" aria-current="{{ 'page' if here == 'conclusions' else 'false' }}">{{ icon('conclusions') }}{{ _('nav.conclusions') }}</a>
+    <a href="{{ url_for('custody', slug=slug) }}" class="{{ 'active' if here == 'custody' }}" aria-current="{{ 'page' if here == 'custody' else 'false' }}">{{ icon('custody') }}{{ _('nav.custody') }}</a>
+    <a href="{{ url_for('reports', slug=slug) }}" class="{{ 'active' if here == 'reports' }}" aria-current="{{ 'page' if here == 'reports' else 'false' }}">{{ icon('reports') }}{{ _('nav.reports') }}</a>
+  </nav>
+  {% endif %}
+  <main id="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="flash {{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    {% if slug is defined %}
+    <div id="jobs" class="panel jobs" hidden aria-live="polite" data-url="{{ url_for('api_jobs', case=slug) }}"
+         data-stream="{{ url_for('api_jobs_stream', case=slug) }}" data-reload="1"
+         data-cancel-url="{{ url_for('cancel_job', slug=slug, job_id='JOBID') }}" data-csrf="{{ csrf_token }}"
+         data-cancel-label="{{ _('web.cancel_job') }}" data-progress="{{ _('web.job_progress') }}"
+         data-open="{{ _('common.open') }}" data-status-queued="{{ _('job.queued') }}" data-status-running="{{ _('job.running') }}"
+         data-status-done="{{ _('job.done') }}" data-status-failed="{{ _('job.failed') }}" data-status-cancelled="{{ _('job.cancelled') }}">
+      <b>{{ _('web.jobs') }}</b><ul></ul>
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

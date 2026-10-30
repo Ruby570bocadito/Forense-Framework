@@ -21,7 +21,7 @@ import subprocess
 import time
 
 import pytest
-from _cli import forense_path, run
+from _cli import run, sabueso_path
 
 PASSWORD = "pw-e2e"
 COMANDO_HOSTIL = "<script>alert(1)</script> =cmd|'/c calc'!A1"
@@ -49,7 +49,7 @@ def servidor(tmp_path_factory):
 
     port = _free_port()
     server = subprocess.Popen(
-        [forense_path(), "web", "-w", str(ws), "--host", "127.0.0.1", "--port", str(port),
+        [sabueso_path(), "web", "-w", str(ws), "--host", "127.0.0.1", "--port", str(port),
          "--password", PASSWORD],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     deadline = time.time() + 30
@@ -110,7 +110,7 @@ def test_export_html_de_timeline_autonomo_y_escapado(servidor, tmp_path) -> None
     assert "<script>alert(1)" not in html, "hostile evidence text reached the export unescaped"
     assert "&lt;script&gt;alert(1)" in html, "the hostile command must appear escaped"
 
-    conn = sqlite3.connect(ws / "c" / "forense.db")
+    conn = sqlite3.connect(ws / "c" / "sabueso.db")
     row = conn.execute("select details from custody where action='export_created' "
                        "order by seq desc limit 1").fetchone()
     conn.close()

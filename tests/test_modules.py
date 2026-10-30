@@ -8,12 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from forense.core.errors import ModuleError
-from forense.demo import MALWARE
-from forense.demo import builders as b
-from forense.modules import available_modules, get_module
-from forense.modules.base import AnalysisContext, ResultSink
-from forense.parsers.evtx import WinEvent
+from sabueso.core.errors import ModuleError
+from sabueso.demo import MALWARE
+from sabueso.demo import builders as b
+from sabueso.modules import available_modules, get_module
+from sabueso.modules.base import AnalysisContext, ResultSink
+from sabueso.parsers.evtx import WinEvent
 
 DATA = Path(__file__).parent / "data"
 _T0 = datetime(2026, 9, 14, 2, 10, tzinfo=timezone.utc)
@@ -280,7 +280,7 @@ def _event(event_id: int, ts: str, **data) -> WinEvent:
 
 
 def test_evtx_brute_force_followed_by_success(tmp_path):
-    from forense.modules.windows.evtx import EvtxModule, _State
+    from sabueso.modules.windows.evtx import EvtxModule, _State
 
     module = EvtxModule()
     ctx = AnalysisContext(tmp_path, tmp_path, module.parse_options({}), ResultSink(), module="evtx")

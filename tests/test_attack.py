@@ -8,13 +8,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from forense.charts import Bucket, activity_chart, bucketize, count_color, ink_on, nice_ticks, severity_bar, tactic_bars
-from forense.cli import EXIT_OK, main
-from forense.core.attack import TACTICS, TECHNIQUES, attack_matrix, draft_summary, storyline, techniques_for
-from forense.core.case import Case
-from forense.core.overview import case_overview
-from forense.core.stix import build_bundle
-from forense.web import create_app
+from sabueso.charts import Bucket, activity_chart, bucketize, count_color, ink_on, nice_ticks, severity_bar, tactic_bars
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.attack import TACTICS, TECHNIQUES, attack_matrix, draft_summary, storyline, techniques_for
+from sabueso.core.case import Case
+from sabueso.core.overview import case_overview
+from sabueso.core.stix import build_bundle
+from sabueso.web import create_app
 
 
 def _finding(code, severity="high", timestamp="2024-03-01T10:00:00.000000Z", fid=1, review=None, **params):

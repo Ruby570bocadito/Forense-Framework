@@ -4,10 +4,10 @@ import struct
 from datetime import datetime, timezone
 from pathlib import Path
 
-from forense.demo.builders import HiveBuilder
-from forense.modules.base import ResultSink, get_module
-from forense.parsers.regf import RegistryHive
-from forense.parsers.regf_log import build_log_entry, log_files, marvin32, parse_log, recover
+from sabueso.demo.builders import HiveBuilder
+from sabueso.modules.base import ResultSink, get_module
+from sabueso.parsers.regf import RegistryHive
+from sabueso.parsers.regf_log import build_log_entry, log_files, marvin32, parse_log, recover
 
 T = datetime(2026, 9, 14, 2, 0, tzinfo=timezone.utc)
 REG_SZ = 1

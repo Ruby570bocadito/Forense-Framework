@@ -1,4 +1,4 @@
-"""E2E: ``forense correlacionar`` finds shared observables between cases.
+"""E2E: ``sabueso correlacionar`` finds shared observables between cases.
 
 Two cases that analyse the same EVTX must share at least the remote-logon
 observables (IP, host, account) extracted from it; the JSON output is

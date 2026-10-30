@@ -6,11 +6,11 @@ import re
 
 import pytest
 
-from forense.cli import EXIT_OK, main
-from forense.core.case import Case
-from forense.core.execution import build_overview, executable_of, execution_overview, normalize_path
-from forense.report import generate_report
-from forense.web import create_app
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.case import Case
+from sabueso.core.execution import build_overview, executable_of, execution_overview, normalize_path
+from sabueso.report import generate_report
+from sabueso.web import create_app
 
 
 def test_paths_from_every_source_are_normalised():

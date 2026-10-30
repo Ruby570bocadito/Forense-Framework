@@ -1,4 +1,4 @@
-"""Helpers to run the installed ``forense`` CLI as a subprocess.
+"""Helpers to run the installed ``sabueso`` CLI as a subprocess.
 
 Intentionally NOT named ``conftest.py``: ``tests/`` has no ``__init__.py``,
 so a second conftest would shadow the root one and break
@@ -15,11 +15,11 @@ from pathlib import Path
 import pytest
 
 
-def forense_path() -> str:
-    """Path of the installed ``forense`` console script."""
-    exe = shutil.which("forense")
+def sabueso_path() -> str:
+    """Path of the installed ``sabueso`` console script."""
+    exe = shutil.which("sabueso")
     if not exe:
-        pytest.fail("the 'forense' console script is not on PATH (pip install -e .)")
+        pytest.fail("the 'sabueso' console script is not on PATH (pip install -e .)")
     return exe
 
 
@@ -35,7 +35,7 @@ def run(*args: str, timeout: int = 120, env: dict[str, str] | None = None) -> su
         else:
             child[key] = value
     return subprocess.run(
-        [forense_path(), *args],
+        [sabueso_path(), *args],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -45,7 +45,7 @@ def run(*args: str, timeout: int = 120, env: dict[str, str] | None = None) -> su
 
 
 def make_demo_lab(parent: Path) -> Path:
-    """Generate a fresh ``forense demo`` lab (fast, offline)."""
+    """Generate a fresh ``sabueso demo`` lab (fast, offline)."""
     lab = parent / "lab"
     proc = run("demo", str(lab), timeout=300)
     assert proc.returncode == 0, proc.stderr

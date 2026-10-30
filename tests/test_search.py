@@ -6,11 +6,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from forense.charts import bucketize
-from forense.cli import EXIT_OK, main
-from forense.core.case import Case, json_like, like
-from forense.core.search import search_case
-from forense.web import create_app
+from sabueso.charts import bucketize
+from sabueso.cli import EXIT_OK, main
+from sabueso.core.case import Case, json_like, like
+from sabueso.core.search import search_case
+from sabueso.web import create_app
 
 
 @pytest.fixture(scope="module")
