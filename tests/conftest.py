@@ -12,7 +12,10 @@ DATA = Path(__file__).parent / "data"
 
 
 @pytest.fixture(autouse=True)
-def _english():
+def _english(monkeypatch):
+    # the CLI and the e2e subprocesses detect the language again: pin it so a Spanish Windows does not change it
+    monkeypatch.setenv("SABUESO_LANG", "en")
+    monkeypatch.delenv("FORENSE_LANG", raising=False)
     set_language("en")
     yield
     set_language(None)
