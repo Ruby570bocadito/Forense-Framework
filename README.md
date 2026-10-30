@@ -707,11 +707,14 @@ regresión. Resultados actuales ([detalle y método](docs/VALIDACION.md)):
 
 ## Hoja de ruta
 
-La hoja de ruta completa, por versiones y prioridades, vive en [docs/ROADMAP.md](docs/ROADMAP.md); lo próximo de aquí:
+El plan vigente, en una página, está en [TODO.md](TODO.md). Lo próximo:
 
-- Importación de inteligencia desde OpenCTI/TAXII (la de MISP ya está disponible: `sabueso intel misp`)
-- Más artefactos: BITS (`qmgr.db`; falta una muestra real con licencia)
-- Linux y macOS como sistemas analizados
+- Primera versión publicada (v0.4.1) con rueda, ejecutable de Windows, imagen Docker y PyPI.
+- Lo que la [validación con casos reales](docs/VALIDACION.md) dejó pendiente: papelera y registros `.evt` de
+  Windows XP, red desde el registro, clientes de correo e IRC, y una imagen moderna de Windows 10/11.
+- Rendimiento de Sigma con paquetes grandes de reglas.
+
+La hoja de ruta extensa original está archivada en [docs/archivo/ROADMAP.md](docs/archivo/ROADMAP.md).
 
 ## Desarrollo
 

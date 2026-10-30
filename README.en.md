@@ -697,11 +697,14 @@ Current results ([details and method](docs/VALIDACION.md), in Spanish):
 
 ## Roadmap
 
-The full roadmap, by versions and priorities, lives in [docs/ROADMAP.md](docs/ROADMAP.md); coming next:
+The current plan, on one page, is in [TODO.md](TODO.md) (in Spanish). Coming next:
 
-- Intelligence import from OpenCTI/TAXII (the MISP one is already available: `sabueso intel misp`)
-- More artifacts: BITS (`qmgr.db`; a licensed real sample is still needed)
-- Linux and macOS as analysed systems
+- First published release (v0.4.1) with wheel, Windows executable, Docker image and PyPI.
+- What the [validation with real cases](docs/VALIDACION.md) left open: Windows XP recycle bin and `.evt` logs,
+  network settings from the registry, mail and IRC clients, and a modern Windows 10/11 image.
+- Sigma performance with large rule packs.
+
+The original long roadmap is archived in [docs/archivo/ROADMAP.md](docs/archivo/ROADMAP.md).
 
 ## Development
 
