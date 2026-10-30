@@ -382,6 +382,37 @@ def test_exports_are_logged(case, evidence_dir, tmp_path):
     assert [e.action for e in case.custody.entries()][-3:] == ["export_created"] * 3
 
 
+def test_timesketch_export(case, evidence_dir, tmp_path):
+    """JSONL that Timesketch imports as is: message, datetime and timestamp_desc on every line."""
+    from sabueso.core import exports
+
+    evidence = case.add_evidence(evidence_dir)
+    analysis = case.run_analysis("inventory", evidence.id)
+    case.bookmark_event(case.events(limit=1).rows[0]["id"], "key event", "Tester")
+    path = exports.export_timesketch(case, tmp_path / "ts.jsonl")
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert len(lines) == analysis.event_count
+    for line in lines:
+        assert line["message"] and line["timestamp_desc"]
+        assert datetime.fromisoformat(line["datetime"]).timestamp() == pytest.approx(line["timestamp"] / 1e6)
+    assert sum("bookmark" in line["tag"] for line in lines) == 1
+    entry = case.custody.entries()[-1]
+    assert entry.action == "export_created" and entry.details["kind"] == "timesketch"
+
+
+def test_timesketch_export_includes_findings(demo, tmp_path):
+    from sabueso.core import exports
+
+    with Case.create(tmp_path / "c", "T", "Tester") as case:
+        evidence = case.add_evidence(demo["triage"])
+        case.run_analysis("registry", evidence.id)
+        path = exports.export_timesketch(case, tmp_path / "ts.jsonl")
+        dated = [f for f in case.findings() if f["timestamp"]]
+    findings = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if "sabueso_finding" in line]
+    assert dated and len(findings) == len(dated)
+    assert all(f["data_type"].startswith("sabueso:finding:") for f in findings)
+
+
 def test_csv_export_neutralises_spreadsheet_formulas(tmp_path):
     import csv
 

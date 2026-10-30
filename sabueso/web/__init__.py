@@ -869,4 +869,9 @@ def _mark_interrupted(workspace: Path) -> None:
 def run_server(workspace: Path, host: str = "127.0.0.1", port: int = 8765, password: Optional[str] = None) -> None:
     app = create_app(workspace, password)
     print(t("web.listening", url=f"http://{host}:{port}/", workspace=str(workspace)))
-    app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
+    try:
+        from waitress import serve
+    except ImportError:  # a source checkout without the dependency installed: Flask's own server still works
+        app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
+        return
+    serve(app, host=host, port=port, threads=8, ident="Sabueso")

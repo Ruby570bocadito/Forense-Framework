@@ -211,3 +211,16 @@ def test_web_with_password_is_quiet(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("sabueso.web.run_server", lambda *a, **k: None)
     assert cli_mod.cmd_web(_web_args(tmp_path, password="s3cret", host="0.0.0.0")) == cli_mod.EXIT_OK
     assert capsys.readouterr().err == ""
+
+
+def test_web_is_served_by_waitress(monkeypatch, tmp_path):
+    """The web interface runs on a production WSGI server, not Flask's development one."""
+    import waitress
+
+    from sabueso.web import run_server
+
+    calls = {}
+    monkeypatch.setattr(waitress, "serve", lambda app, **options: calls.update(app=app, **options))
+    run_server(tmp_path, "127.0.0.1", 9999, password="pw")
+    assert calls["host"] == "127.0.0.1" and calls["port"] == 9999 and calls["threads"] >= 4
+    assert calls["app"].name.startswith("sabueso")

@@ -213,6 +213,8 @@ def _exports(case: Case, kinds: list[str], actor: Optional[str]) -> list[Path]:
             from sabueso.core.stix import export_stix
 
             paths.append(export_stix(case, stamped_path(folder, "iocs", ".stix.json"), actor=actor))
+        elif kind == "timesketch":
+            paths.append(exports.export_timesketch(case, stamped_path(folder, "timesketch", ".jsonl"), actor=actor))
         elif kind in functions:
             paths.append(functions[kind](case, stamped_path(folder, kind, ".csv"), "csv", actor=actor))
     return paths

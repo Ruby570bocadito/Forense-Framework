@@ -14,6 +14,7 @@ authors = [{ name = "Sabueso-Framework contributors" }]
 dependencies = [
     "evtx>=0.8",                      # Windows event logs (Rust parser, prebuilt wheels)
     "Flask>=2.3",                     # web interface (brings Jinja2, also used for reports)
+    "waitress>=3.0",                  # production WSGI server for the web interface (pure Python)
     "PyYAML>=6.0",                    # Sigma rules
     "olefile>=0.46",                  # automatic jump lists (OLE compound files)
     "libscca-python>=20240427",       # Prefetch, including Windows 10/11 compressed files

@@ -438,6 +438,7 @@ _EXPORT_WHAT = {
     "findings": "findings", "hallazgos": "findings",
     "execution": "execution", "ejecucion": "execution",
     "stix": "stix",
+    "timesketch": "timesketch",
     "custody": "custody", "custodia": "custody",
 }
 
@@ -454,7 +455,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         raise SabuesoError("error.export_what", what=args.what, options=t("cli.export_targets"))
     args.what = what
     with _open_case(args) as case:
-        fmt = "json" if args.what == "stix" else args.format or Path(args.output).suffix.lstrip(".").lower() or "csv"
+        fmt = "json" if args.what in ("stix", "timesketch") else             args.format or Path(args.output).suffix.lstrip(".").lower() or "csv"
         if fmt not in exports.FORMATS:
             raise SabuesoError("error.export_format", format=fmt)
         output = Path(args.output)
@@ -472,6 +473,8 @@ def cmd_export(args: argparse.Namespace) -> int:
             from sabueso.core.stix import export_stix
 
             path = export_stix(case, output, actor=args.analyst)
+        elif args.what == "timesketch":
+            path = exports.export_timesketch(case, output, actor=args.analyst)
         else:
             path = exports.export_custody(case, output, fmt, actor=args.analyst)
         _out(t("cli.exported", path=str(path)))

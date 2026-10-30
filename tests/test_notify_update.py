@@ -146,3 +146,16 @@ def test_cli_update(monkeypatch, capsys):
     assert "99.0.0" in capsys.readouterr().out
     monkeypatch.setattr(update, "check", lambda refs: update.UpdateInfo(__version__, None, None, "pip"))
     assert main(["update"]) == EXIT_ERROR
+
+
+def test_simulated_upgrade_leaves_the_launcher_alone(monkeypatch, tmp_path):
+    """A stand-in pip run must not rename the real sabueso.exe: nothing would write a new one (this test suite
+    used to leave its own virtual environment without a launcher)."""
+    launcher = tmp_path / "sabueso.exe"
+    launcher.write_bytes(b"MZ")
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "python.exe"))
+    monkeypatch.setattr(sys, "platform", "win32")
+    info = update.UpdateInfo("0.1.0", "99.1.0", "main", "pip")
+    update.upgrade(info, run=lambda cmd, check: SimpleNamespace(returncode=0))
+    assert launcher.is_file() and not (tmp_path / "sabueso.exe.old").exists()
+

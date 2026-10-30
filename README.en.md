@@ -114,7 +114,7 @@ pip install -e ".[memory]"                         # without [memory] Volatility
 sabueso doctor
 ```
 
-Every dependency ships prebuilt binaries for Windows, Linux and macOS: `evtx` (EVTX), `Flask` (web and reports),
+Every dependency ships prebuilt binaries for Windows, Linux and macOS: `evtx` (EVTX), `Flask` (web and reports), `waitress` (web server),
 `PyYAML` (Sigma, configuration), `olefile` (Jump Lists), `libscca-python` (Prefetch), `libesedb-python` (SRUM),
 `libewf-python` (E01), `libvhdi-python`, `libvmdk-python` and `libqcow-python` (virtual disks), `libvshadow-python`
 (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) and `yara-x` (YARA). PDFs use Microsoft Edge
@@ -205,11 +205,11 @@ Every command has an English name and a Spanish alias.
 | `sabueso -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions; `--file` reads an existing file |
 | `sabueso -c CASE timeline [--from] [--to] [--search] [--source] [--bookmarked]` | `cronologia` | Super timeline |
 | `sabueso -c CASE execution [--search X] [--suspicious]` | `ejecucion` | Programs executed according to every source |
-| `sabueso -c CASE export {analysis N,timeline,findings,execution,stix,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON or STIX 2.1; target names accepted in English and Spanish |
+| `sabueso -c CASE export {analysis N,timeline,findings,execution,stix,timesketch,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON, STIX 2.1 or JSONL for [Timesketch](https://timesketch.org) (timeline + tagged findings); target names accepted in English and Spanish |
 | `sabueso -c CASE attack [--summary]` | `mitre` | MITRE ATT&CK techniques observed or a draft incident storyline |
 | `sabueso -c CASE custody [--verify]` | `custodia` | Chain of custody |
 | `sabueso -c CASE verify` | `verificar` | Full verification (exit code 2 if anything fails) |
-| `sabueso -c CASE report [--verify] [--pdf] [--sign] [-L es]` | `informe` | Self-contained HTML report (and PDF), optional Ed25519 signature (`--sign`) |
+| `sabueso -c CASE report [--verify] [--pdf] [--sign] [--expert [--scope T]] [-L es]` | `informe` | Self-contained HTML report (and PDF), optional Ed25519 signature (`--sign`); `--expert` makes it an expert witness report (UNE 71506) with purpose, limitations and the expert's declaration |
 | `sabueso auto EVIDENCE… [--new DIR] [-p PLAYBOOK]` | `auto` | From evidence to report in one command |
 | `sabueso watch FOLDER [-w WORKSPACE] [--once]` | `vigilar` | Automatically process whatever is dropped into a folder |
 | `sabueso config [show\|init\|path]` | `configuracion` | Configuration |
@@ -266,7 +266,7 @@ steps:
   - modules: {evtx: {sigma_rules: 'D:\intel\sigma', sigma_min_level: high}}
   - intel
   - report: {languages: [en, es], pdf: true}
-  - export: [findings, stix]
+  - export: [findings, stix, timesketch]
 ```
 
 **Watched folder**: `sabueso watch D:\Inbox -w D:\Cases` creates a case for every file or folder dropped into
@@ -692,7 +692,8 @@ Current results ([details and method](docs/VALIDACION.md), in Spanish):
 - **RDP cache**: tiles are extracted as BMP files, but the container carries no timestamps: they evidence remote
   desktop activity, not when it happened.
 - **Heuristics**: detection rules are leads to prioritise work, not verdicts.
-- The web interface uses Flask's built-in server, meant for local use by one analyst or a small team.
+- The web interface is served by [waitress](https://pypi.org/project/waitress/) (a production WSGI server), but it has
+  a single shared password and no user accounts or locking between analysts: meant for one analyst or a small team.
 
 ## Roadmap
 
@@ -720,5 +721,5 @@ license of the test data are listed in [tests/data/README.md](tests/data/README.
 
 [Apache License 2.0](LICENSE). Dependencies keep their own licenses: libewf, libscca and libesedb (LGPL-3.0+),
 The Sleuth Kit (IPL-1.0 / CPL-1.0) and pytsk3 (Apache-2.0), YARA-X (BSD-3-Clause), evtx (MIT/Apache-2.0), Flask
-(BSD-3-Clause). Volatility 3 is optional, runs as a separate process and is distributed under the Volatility Software
+(BSD-3-Clause), waitress (ZPL-2.1). Volatility 3 is optional, runs as a separate process and is distributed under the Volatility Software
 License.

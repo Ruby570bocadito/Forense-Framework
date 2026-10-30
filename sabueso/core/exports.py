@@ -8,7 +8,7 @@ from typing import Iterable, Optional
 
 from sabueso.core.case import Case
 from sabueso.core.hashing import hash_file
-from sabueso.core.utils import write_csv
+from sabueso.core.utils import parse_datetime, write_csv
 from sabueso.i18n import label, t
 from sabueso.presentation import (
     artifact_label,
@@ -97,3 +97,51 @@ def export_execution(case: Case, path: Path, fmt: str = "csv", lang: Optional[st
         rows.append(row)
     _write(path, rows, fmt, lang)
     return _log(case, path, "execution", len(rows), actor)
+
+
+def _timesketch_time(timestamp: str) -> tuple[str, int]:
+    """Timesketch's ``datetime`` (ISO 8601 with offset) and ``timestamp`` (microseconds since the epoch)."""
+    moment = parse_datetime(timestamp)
+    return moment.isoformat(), int(moment.timestamp() * 1_000_000)
+
+
+def export_timesketch(case: Case, path: Path, lang: Optional[str] = None, actor: Optional[str] = None,
+                      **filters: object) -> Path:
+    """Timeline and findings as Timesketch JSONL (``message``, ``datetime``, ``timestamp_desc`` per line).
+
+    Undated items are left out (Timesketch needs a time). Findings carry the ``sabueso_finding`` tag and
+    their severity, bookmarked events the ``bookmark`` tag, so the analyst's work travels with the timeline.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = 0
+    info = case.info
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        def write(item: dict) -> None:
+            nonlocal rows
+            fh.write(json.dumps(item, ensure_ascii=False) + "\n")
+            rows += 1
+
+        for event in case.iter_events(**filters):
+            if not event["timestamp"]:
+                continue
+            when, micros = _timesketch_time(event["timestamp"])
+            write({
+                "message": event["details"] or event_type_label(event["type"], lang), "datetime": when,
+                "timestamp": micros, "timestamp_desc": event_type_label(event["type"], lang),
+                "data_type": f"sabueso:event:{event['type']}", "evidence": event["evidence_id"],
+                "source": event["source"], "path": event["path"], "severity": event["severity"] or "info",
+                "case_id": info.get("id"), "tag": ["bookmark"] if event["bookmark"] else [],
+                **({"bookmark_note": event["bookmark"]["note"]} if event["bookmark"] else {}),
+            })
+        for finding in case.findings():
+            if not finding["timestamp"]:
+                continue
+            when, micros = _timesketch_time(finding["timestamp"])
+            write({
+                "message": f"{finding_title(finding, lang)} — {finding_description(finding, lang)}", "datetime": when,
+                "timestamp": micros, "timestamp_desc": t("report.finding", lang).capitalize(),
+                "data_type": f"sabueso:finding:{finding['code']}", "evidence": finding["evidence_id"],
+                "analysis": finding["analysis_id"], "severity": finding["severity"], "case_id": info.get("id"),
+                "review_status": finding["review"]["status"], "tag": ["sabueso_finding", finding["severity"]],
+            })
+    return _log(case, path, "timesketch", rows, actor, filters={k: str(v) for k, v in filters.items() if v})

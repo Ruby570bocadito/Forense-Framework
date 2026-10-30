@@ -17,7 +17,7 @@ NATIVE = ["evtx", "pyscca", "pyesedb", "pytsk3", "pyewf", "pyvhdi", "pyvmdk", "p
           "yara_x", "olefile"]
 
 datas = collect_data_files("sabueso")  # locales, templates, static files, Sigma rules
-hiddenimports = collect_submodules("sabueso") + NATIVE + ["yaml", "flask", "jinja2", "markupsafe"]
+hiddenimports = collect_submodules("sabueso") + NATIVE + ["yaml", "flask", "jinja2", "markupsafe", "waitress"]
 
 a = Analysis(
     ["sabueso_entry.py"],

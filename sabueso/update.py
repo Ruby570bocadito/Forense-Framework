@@ -81,7 +81,9 @@ def upgrade(info: UpdateInfo, run: Callable = subprocess.run) -> list[str]:
     url = f"https://github.com/{REPOSITORY}/archive/refs/heads/{info.ref}.zip"
     spec = f"sabueso-framework[memory] @ {url}" if importlib.util.find_spec("volatility3") else url
     command = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--upgrade", spec]
-    moved = _move_running_launcher()
+    # only a real pip run may move the launcher aside: with a stand-in ``run`` (tests) nothing would write a new
+    # sabueso.exe, and the environment would be left without one
+    moved = _move_running_launcher() if run is subprocess.run else None
     completed = run(command, check=False)  # noqa: S603 - fixed command, URL built from constants
     if getattr(completed, "returncode", 1) != 0:
         if moved and not moved[0].exists():

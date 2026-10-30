@@ -147,7 +147,7 @@
  "cli.evidence_added": "Evidence {id} registered: {files} file(s), {size}",
  "cli.evidence_duplicate": "Warning: content identical to {id} (SHA-256 {hash}); registration proceeds, it can be legitimate.",
  "cli.exported": "Exported to {path} (logged in the chain of custody).",
- "cli.export_targets": "analysis, timeline, findings, execution, stix, custody (Spanish also accepted: analisis, cronologia, hallazgos, ejecucion, custodia)",
+ "cli.export_targets": "analysis, timeline, findings, execution, stix, timesketch, custody (Spanish also accepted: analisis, cronologia, hallazgos, ejecucion, custodia)",
  "cli.hashing": "Hashing {path}…",
  "cli.image_derived": "Derived evidence {id} registered with {files} extracted file(s).",
  "cli.image_hash_mismatch": "WARNING: the image hashes do not match the acquisition hashes.",

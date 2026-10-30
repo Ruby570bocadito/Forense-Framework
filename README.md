@@ -115,7 +115,7 @@ sabueso doctor
 ```
 
 Todas las dependencias tienen binarios precompilados para Windows, Linux y macOS: `evtx` (EVTX), `Flask` (web e
-informes), `PyYAML` (Sigma, configuración), `olefile` (Jump Lists), `libscca-python` (Prefetch), `libesedb-python`
+informes), `waitress` (servidor web), `PyYAML` (Sigma, configuración), `olefile` (Jump Lists), `libscca-python` (Prefetch), `libesedb-python`
 (SRUM), `libewf-python` (E01), `libvhdi-python`, `libvmdk-python` y `libqcow-python` (discos virtuales),
 `libvshadow-python` (VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) y `yara-x` (YARA). Los PDF
 usan Microsoft Edge (presente en todo Windows 10/11), Chrome o Chromium; otro navegador se indica con
@@ -206,11 +206,11 @@ Todas las órdenes tienen nombre en inglés y alias en español.
 | `sabueso -c CASO conclusiones [--texto T \| --archivo F]` | `conclusions` | Ver o redactar las conclusiones (versionadas); `--archivo` lee un archivo existente |
 | `sabueso -c CASO cronologia [--desde] [--hasta] [--buscar] [--fuente] [--destacados]` | `timeline` | Superlínea temporal |
 | `sabueso -c CASO ejecucion [--buscar X] [--sospechosos]` | `execution` | Programas ejecutados según todas las fuentes |
-| `sabueso -c CASO exportar {analysis N,timeline,findings,execution,stix,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON o STIX 2.1; los destinos se aceptan en es/en |
+| `sabueso -c CASO exportar {analysis N,timeline,findings,execution,stix,timesketch,custody} -o ARCHIVO` | `export` | CSV (compatible con Excel), JSON, STIX 2.1 o JSONL para [Timesketch](https://timesketch.org) (línea temporal + hallazgos etiquetados); los destinos se aceptan en es/en |
 | `sabueso -c CASO mitre [--resumen]` | `attack` | Técnicas MITRE ATT&CK observadas o borrador del relato del incidente |
 | `sabueso -c CASO custodia [--verificar]` | `custody` | Cadena de custodia |
 | `sabueso -c CASO verificar` | `verify` | Verificación completa (sale con código 2 si algo falla) |
-| `sabueso -c CASO informe [--verificar] [--pdf] [--firmar] [-L en]` | `report` | Informe HTML autocontenido (y PDF), con firma Ed25519 opcional (`--firmar`) |
+| `sabueso -c CASO informe [--verificar] [--pdf] [--firmar] [--pericial [--objeto T]] [-L en]` | `report` | Informe HTML autocontenido (y PDF), con firma Ed25519 opcional (`--firmar`); `--pericial` lo convierte en dictamen (UNE 71506) con objeto, limitaciones y declaración del art. 335.2 LEC |
 | `sabueso auto EVIDENCIA… [--nuevo DIR] [-p PLAYBOOK]` | `auto` | De la evidencia al informe con una orden |
 | `sabueso vigilar CARPETA [-w ESPACIO] [--una-vez]` | `watch` | Procesar automáticamente lo que se deje en una carpeta |
 | `sabueso config [show\|init\|path]` | `config` | Configuración |
@@ -268,7 +268,7 @@ steps:
   - modules: {evtx: {sigma_rules: 'D:\intel\sigma', sigma_min_level: high}}
   - intel
   - report: {languages: [es, en], pdf: true}
-  - export: [findings, stix]
+  - export: [findings, stix, timesketch]
 ```
 
 **Carpeta vigilada**: `sabueso vigilar D:\Entrada -w D:\Casos` crea un caso por cada archivo o carpeta que se deje en
@@ -701,7 +701,9 @@ regresión. Resultados actuales ([detalle y método](docs/VALIDACION.md)):
 - **Caché RDP**: los tiles se extraen como BMP, pero el contenedor no guarda marcas de tiempo: evidencian la
   actividad del escritorio remoto, no cuándo ocurrió.
 - **Heurísticas**: las reglas de detección son indicios para priorizar el trabajo, no veredictos.
-- La interfaz web usa el servidor integrado de Flask, pensado para uso local por un analista o un equipo pequeño.
+- La interfaz web se sirve con [waitress](https://pypi.org/project/waitress/) (servidor WSGI de producción), pero tiene
+  una única contraseña compartida y no gestiona usuarios ni bloqueos entre analistas: pensada para un analista o un
+  equipo pequeño.
 
 ## Hoja de ruta
 
@@ -727,5 +729,5 @@ la demo y un PDF) y la imagen Docker en GitHub Container Registry, y los adjunta
 ## Licencia
 
 [Apache License 2.0](LICENSE). Las dependencias conservan sus licencias: libewf, libscca y libesedb (LGPL-3.0+),
-The Sleuth Kit (IPL-1.0 / CPL-1.0) y pytsk3 (Apache-2.0), YARA-X (BSD-3-Clause), evtx (MIT/Apache-2.0), Flask (BSD-3-Clause).
+The Sleuth Kit (IPL-1.0 / CPL-1.0) y pytsk3 (Apache-2.0), YARA-X (BSD-3-Clause), evtx (MIT/Apache-2.0), Flask (BSD-3-Clause), waitress (ZPL-2.1).
 Volatility 3 es opcional, se ejecuta como proceso aparte y se distribuye bajo la Volatility Software License.
