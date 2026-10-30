@@ -1,6 +1,6 @@
 """Sabueso-Framework: framework modular de análisis forense digital."""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 import os as _os
 

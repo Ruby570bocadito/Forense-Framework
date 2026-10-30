@@ -9,7 +9,44 @@ flujo `release`).
 
 ## [Sin publicar]
 
+## [0.4.1] - 2026-10-30
+
+### Cambiado
+- El proyecto pasa a llamarse **Sabueso-Framework**: orden `sabueso`, paquete `sabueso-framework`, variables
+  `SABUESO_*` y logo con huella. Los casos (`forense.db`), la configuración y las variables `FORENSE_*` anteriores
+  siguen funcionando (ad887c2).
+- La interfaz web se sirve con waitress, un servidor WSGI de producción, en lugar del de desarrollo de Flask.
+- El plan vigente es `TODO.md`; la documentación de los agentes y la hoja de ruta extensa pasan a `docs/archivo/`.
+
 ### Añadido
+- Informe pericial (`informe --pericial [--objeto]`, también en la web): objeto y alcance, declaración del perito
+  del art. 335.2 LEC y referencia a UNE 71506. Todos los informes incluyen ahora una sección de **limitaciones**
+  generada a partir del propio caso, y cada hallazgo muestra el archivo del que procede.
+- Exportación para Timesketch (`exportar timesketch`, JSONL) con la línea temporal, los hallazgos etiquetados y
+  los eventos destacados.
+- Validación con casos reales públicos (`docs/VALIDACION.md`, `scripts/validar_evtx.py`): 261 ataques de
+  EVTX-ATTACK-SAMPLES, 599 registros de Hayabusa y el disco del NIST «Hacking Case».
+- Alerta de herramienta ofensiva instalada y reconocimiento de Cain & Abel, Ethereal/Wireshark, NetStumbler,
+  Look@LAN y 123WASP, con sus técnicas ATT&CK (T1040, T1046, T1555).
+- Perfil de triaje para Windows XP (`Documents and Settings`, `RECYCLER`, `.evt`).
+
+### Rendimiento
+- Reglas Sigma: carga de SigmaHQ de 27 s a 3,7 s (caché en memoria y cargador YAML en C) y evaluación indexada por
+  EventID con prefiltro de cadenas obligatorias: 599 registros de 265 s a 108 s con resultados idénticos.
+
+### Corregido
+- La línea temporal de un disco extraído mezclaba la fecha de extracción con las del incidente (240 eventos
+  falsos en el caso NIST): se usan las fechas MACB originales de la imagen.
+- Falsos positivos vistos en datos reales: la clave IFEO de ejemplo de Windows XP, archivos descomprimidos por el
+  Explorador marcados como timestomping, `.LOG` del registro como archivos camuflados e `iexplore.exe` (y otros
+  binarios legítimos) como imitación de un binario del sistema.
+- Las técnicas de reglas Sigma ausentes de la tabla ATT&CK interna ya aparecen en su táctica.
+- Los tests renombraban el `sabueso.exe` del entorno al simular `sabueso update` y lo dejaban sin lanzador.
+- Los tests fallaban en un Windows configurado en español.
+
+Incluye además lo desarrollado desde la 0.4.0 hasta el 2026-10-25:
+
+#### Añadido
 - Inteligencia de amenazas: `forense intel misp` importa exportaciones MISP a las watchlists de
   `ioc` (2b1fb2f) y se admiten bundles STIX de OpenCTI (ad00865), conectadas a la correlación.
 - Firma digital de informes: Ed25519 con `.sig` desacoplada y anclada a la custodia (3e1671f),
@@ -32,7 +69,7 @@ flujo `release`).
 - Gate central `read_capped()` para las lecturas de los módulos (0221fdc) y tope adicional para la
   lectura íntegra de contenedores customDestinations (2911d42).
 
-### Corregido
+#### Corregido
 - Las rutas relativas de `disk_path` quedan contenidas en la carpeta del caso (f5281b5).
 - Las rutas de evidencia se re-referen a la carpeta del caso para que las copias se verifiquen a sí
   mismas (dfe9cde).
@@ -48,10 +85,10 @@ flujo `release`).
 - Retirada la referencia a la rama de desarrollo heredada en `forense update` (14305d5) y en los
   instaladores (58bf1e6).
 
-### Seguridad
+#### Seguridad
 - Guardia estructural ReDoS en los patrones `|re` de Sigma antes de compilarlos (65dd311).
 
-### Documentación
+#### Documentación
 - README es/en sincronizados con el código: inteligencia MISP/OpenCTI, $LogFile y sus operaciones
   de atributo, firma de informes, consumo acotado, ejemplo de módulo neutro, hoja de ruta ligada a
   docs/ROADMAP.md y badges de CI, licencia y Python (14cd5c6, 83eb8ad, 4ac3a4f, 45e99a2, 70af8f0,
