@@ -191,12 +191,15 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     # -- workspace --------------------------------------------------------------------
     @app.route("/")
     def index():
+        from sabueso.core.guide import next_step
+
         cases = []
         for path in sorted(p for p in app.config["WORKSPACE"].iterdir() if p.is_dir()):
             if Case.is_case(path):
                 try:
                     with Case.open(path) as case:
-                        cases.append({"slug": path.name, "info": case.info, "stats": case.stats()})
+                        cases.append({"slug": path.name, "info": case.info, "stats": case.stats(),
+                                      "step": next_step(case)})
                 except Exception:  # noqa: BLE001 - a broken case must not hide the others
                     cases.append({"slug": path.name, "info": {"name": path.name}, "stats": None})
         return render_template("index.html", cases=cases, workspace=app.config["WORKSPACE"])
@@ -265,6 +268,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
     def dashboard(slug: str):
         from sabueso.charts import activity_chart, severity_bar, tactic_bars
         from sabueso.core.execution import execution_overview
+        from sabueso.core.guide import next_step
         from sabueso.core.overview import case_overview
 
         with open_case(slug) as case:
@@ -285,7 +289,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
                 findings=[f for f in overview["findings"] if f["severity"] in ("medium", "high", "critical")][:10],
                 progress=case.review_progress(), overview=overview, charts=charts,
                 suspicious_programs=len(execution_overview(case, suspicious=True)),
-                shared=_shared_with_other_cases(slug))
+                shared=_shared_with_other_cases(slug), step=next_step(case))
 
     @app.route("/c/<slug>/attack")
     def attack(slug: str):

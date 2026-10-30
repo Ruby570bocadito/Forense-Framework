@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import sevbadge, icon with context %}
-{% block title %}{{ case.name }} · Sabueso-Framework{% endblock %}
+{% block title %}{{ case.name }} · Sabueso{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
@@ -14,6 +14,12 @@
       <button type="submit">{{ icon('reports') }}{{ _('web.generate_report') }}</button>
     </form>
   </div>
+</div>
+
+<div class="next-step" role="status">
+  <img src="{{ url_for('static', filename='logo.svg') }}" alt="">
+  <div><b>{{ _('guide.title') }}</b><p>{{ step.text('web', slug, lang) }}</p></div>
+  <a class="button" href="{{ url_for(step.endpoint, slug=slug) }}{{ '#case-evidence' if step.code == 'analyse' else '' }}">{{ _('guide.go.' + step.code) }}</a>
 </div>
 
 <div class="kpis">
@@ -69,7 +75,7 @@
       </ul>
     </section>
     {% endif %}
-    <section class="panel">
+    <section class="panel" id="case-evidence">
       <div class="panel-head"><h2>{{ _('nav.evidence') }}</h2><a href="{{ url_for('evidence', slug=slug) }}">{{ _('web.add_evidence') }} →</a></div>
       {% for ev in evidence %}
       <div class="evidence-row">

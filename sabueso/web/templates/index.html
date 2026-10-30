@@ -9,7 +9,7 @@
 
 {% if cases %}
 <div class="table-wrap"><table>
-  <thead><tr><th scope="col">{{ _('case.name') }}</th><th scope="col">{{ _('case.id') }}</th><th scope="col">{{ _('case.investigator') }}</th><th scope="col">{{ _('case.created') }}</th><th scope="col">{{ _('nav.evidence') }}</th><th scope="col">{{ _('nav.findings') }}</th></tr></thead>
+  <thead><tr><th scope="col">{{ _('case.name') }}</th><th scope="col">{{ _('case.id') }}</th><th scope="col">{{ _('case.investigator') }}</th><th scope="col">{{ _('case.created') }}</th><th scope="col">{{ _('nav.evidence') }}</th><th scope="col">{{ _('nav.findings') }}</th><th scope="col">{{ _('guide.title') }}</th></tr></thead>
   {% for c in cases %}
   <tr>
     <td><a href="{{ url_for('dashboard', slug=c.slug) }}"><b>{{ c.info.name }}</b></a><div class="muted mono">{{ c.slug }}</div></td>
@@ -18,6 +18,7 @@
     <td>{{ c.info.created | ts }}</td>
     <td>{{ c.stats.evidence if c.stats else '—' }}</td>
     <td>{% if c.stats %}{% for s in ['critical', 'high', 'medium'] %}{% if c.stats.findings_by_severity.get(s) %}{{ sevbadge(s) }} {{ c.stats.findings_by_severity[s] }} {% endif %}{% endfor %}{% if not c.stats.findings %}0{% endif %}{% endif %}</td>
+    <td>{% if c.step %}<a href="{{ url_for(c.step.endpoint, slug=c.slug) }}">{{ _('guide.go.' + c.step.code) }}</a>{% if c.step.code == 'review' %} <span class="muted">({{ c.step.params.pending }})</span>{% endif %}{% endif %}</td>
   </tr>
   {% endfor %}
 </table></div>

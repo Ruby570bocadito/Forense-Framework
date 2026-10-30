@@ -101,6 +101,33 @@ class _Progress:
             sys.stderr.flush()
 
 
+def _next_step(case: Case, args: argparse.Namespace) -> None:
+    """What to do next with this case (sabueso.core.guide), with the command to run."""
+    from sabueso.core.guide import next_step
+
+    shown = str(args.case) if getattr(args, "case_explicit", False) else str(case.root)
+    _out()
+    _out(next_step(case).text("cli", shown))
+
+
+WELCOME_ART = r"""     __
+(___()'`;
+/,    /`
+\\"--\\"""
+
+
+def _welcome() -> int:
+    """`sabueso` alone: who it is and how to start, instead of an argparse error."""
+    art = WELCOME_ART.splitlines()
+    side = [f"Sabueso {__version__}", t("cli.welcome_tagline"), t("cli.welcome_motto")]
+    for i in range(max(len(art), len(side))):
+        left = art[i] if i < len(art) else ""
+        _out(f"  {left:<12} {side[i] if i < len(side) else ''}".rstrip())
+    _out()
+    _out(t("cli.welcome_body"))
+    return EXIT_OK
+
+
 def _open_case(args: argparse.Namespace) -> Case:
     return Case.open(Path(args.case))
 
@@ -121,7 +148,8 @@ def cmd_new(args: argparse.Namespace) -> int:
                      args.reference or "", args.organization or "") as case:
         info = case.info
         _out(t("cli.case_created", name=info["name"], id=info["id"], path=str(case.root)))
-        _out(t("cli.case_next_steps", path=str(case.root)))
+        args.case_explicit = False
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -143,6 +171,7 @@ def cmd_info(args: argparse.Namespace) -> int:
         if stats["first_event"]:
             _out(t("report.activity_span", first=display_ts(stats["first_event"]),
                    last=display_ts(stats["last_event"])))
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -159,6 +188,7 @@ def cmd_evidence_add(args: argparse.Namespace) -> int:
         if evidence.duplicate_of:  # H-005: the analyst learns it now, not by comparing hashes by hand
             _err(t("cli.evidence_duplicate", id=evidence.duplicate_of,
                    hash=evidence.hashes.get("sha256", "")))
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -249,6 +279,7 @@ def cmd_triage(args: argparse.Namespace) -> int:
                rows)
         _out()
         _findings_brief(case, None, min_severity="medium")
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -281,7 +312,8 @@ def cmd_image(args: argparse.Namespace) -> int:
             args.evidence = derived.id
     if args.triage:
         return cmd_triage(args)
-    _out(t("cli.image_next", id=derived.id))
+    with _open_case(args) as case:
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -367,6 +399,7 @@ def cmd_review(args: argparse.Namespace) -> int:
     with _open_case(args) as case:
         review = case.review_finding(args.finding, args.status, args.note or "", args.analyst)
         _out(t("cli.review_saved", id=args.finding, status=t("review." + review["status"])))
+        _next_step(case, args)
     return EXIT_OK
 
 
@@ -395,6 +428,7 @@ def cmd_conclusions(args: argparse.Namespace) -> int:
                 raise SabuesoError("error.conclusions_empty")
             saved = case.set_conclusions(text, args.analyst)
             _out(t("cli.conclusions_saved", version=saved["version"], sha256=saved["sha256"]))
+            _next_step(case, args)
             return EXIT_OK
         current = case.conclusions()
         if current is None:
@@ -1070,6 +1104,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 stream.reconfigure(errors="replace")
             except (ValueError, OSError):
                 pass
+    if not argv:
+        return _welcome()
     parser = build_parser()
     args = parser.parse_args(argv)
     args.case_explicit = bool(getattr(args, "case", None) or args.global_case)

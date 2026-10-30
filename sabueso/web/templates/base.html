@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Sabueso-Framework{% endblock %}</title>
+<title>{% block title %}Sabueso{% endblock %}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
 </head>
@@ -12,7 +12,8 @@
 {% if not auth_enabled %}<div class="auth-warning" role="status">{{ _('web.no_auth_warning') }}</div>{% endif %}
 {% from "_macros.html" import icon with context %}
 <header class="topbar">
-  <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Sabueso<span>-Framework</span></span></a>
+  <a class="brand" href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""><span class="brand-name">Sabueso</span></a>
+  {% if slug is not defined %}<span class="brand-motto">{{ _('cli.welcome_motto') }}</span>{% endif %}
   {% if slug is defined %}<span class="case-name">/ {{ case.name }} <span class="mono">({{ case.id }})</span></span>{% endif %}
   <span class="spacer"></span>
   {% if slug is defined %}
@@ -60,6 +61,7 @@
     </div>
     {% endif %}
     {% block content %}{% endblock %}
+    <footer class="site-foot">Sabueso {{ version }} · {{ _('web.footer') }}</footer>
   </main>
 </div>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
