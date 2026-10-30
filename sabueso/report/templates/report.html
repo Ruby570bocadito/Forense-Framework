@@ -162,6 +162,7 @@
     <div><span>{{ _("case.id") }}</span><b>{{ case.id }}</b></div>
     {% if case.reference %}<div><span>{{ _("case.reference") }}</span><b>{{ case.reference }}</b></div>{% endif %}
     {% if case.organization %}<div><span>{{ _("case.organization") }}</span><b>{{ case.organization }}</b></div>{% endif %}
+    {% for key in ("court", "number", "requester") %}{% if proceeding and proceeding[key] %}<div><span>{{ _("report.proceeding." + key) }}</span><b>{{ proceeding[key] }}</b></div>{% endif %}{% endfor %}
     <div><span>{{ _("case.investigator") }}</span><b>{{ case.investigator }}</b></div>
     <div><span>{{ _("case.created") }}</span><b>{{ case.created | ts }} UTC</b></div>
     <div><span>{{ _("report.generated") }}</span><b>{{ generated | ts }} UTC</b><div>{{ analyst }}</div></div>

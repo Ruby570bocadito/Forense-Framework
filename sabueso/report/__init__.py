@@ -162,11 +162,15 @@ def _charts(overview: dict, lang: str) -> dict:
 def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Path] = None, verify: bool = False,
                     actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300,
                     sign: bool = False, include: Optional[set[str]] = None, confirmed_only: bool = False,
-                    max_findings: int = 0, expert: bool = False, scope: Optional[str] = None) -> Path:
+                    max_findings: int = 0, expert: bool = False, scope: Optional[str] = None,
+                    proceeding: Optional[dict] = None) -> Path:
     """Write the HTML report and record it in the chain of custody.
 
     ``expert`` turns it into an expert witness report (dictamen pericial, UNE 71506): it adds the purpose and
-    scope (``scope``, or the case description) and the expert's declaration of article 335.2 LEC."""
+    scope (``scope``, or the case description) and the expert's declaration of article 335.2 LEC; ``proceeding``
+    (``requester``, ``court``, ``number``) goes on the cover."""
+    proceeding = {k: str(v).strip() for k, v in (proceeding or {}).items()
+                  if k in ("requester", "court", "number") and v and str(v).strip()} if expert else {}
     from sabueso.core.attack import attack_matrix, storyline
     from sabueso.core.overview import case_overview
     from sabueso.core.stix import collect_indicators
@@ -211,7 +215,7 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution, shared=shared,
                            include=include, expert=expert),
         limitations=_limitations(evidence, verifications, analyses, results_ok, lang),
-        expert=expert, scope=(scope or "").strip() or info.get("description") or "",
+        expert=expert, scope=(scope or "").strip() or info.get("description") or "", proceeding=proceeding,
         shared=shared, case_slug=info.get("slug") or case.root.name, include=include,
         logo=Markup(LOGO.read_text(encoding="utf-8")) if LOGO.is_file() else "",
         page_label=re.sub(r"[^A-Za-z0-9 ._-]", "", f"{info.get('id', '')}")[:60],
@@ -227,8 +231,8 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         "custody_head": entries[-1].hash if entries else None,
         "sections": sorted(include) if include is not None else "all",
         "detail": {"confirmed_only": confirmed_only, "max_findings": max_findings or None},
-        **({"expert": True, "scope_sha256": hashlib.sha256((scope or "").encode("utf-8")).hexdigest()}
-           if expert else {}),
+        **({"expert": True, "scope_sha256": hashlib.sha256((scope or "").encode("utf-8")).hexdigest(),
+            "proceeding": proceeding} if expert else {}),
     })
     if sign:
         from sabueso.report.signing import sign_into_custody

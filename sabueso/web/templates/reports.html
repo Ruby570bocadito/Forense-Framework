@@ -33,6 +33,11 @@
   <div class="row">
     <div><label>{{ _('web.report_scope') }}<textarea name="scope" rows="2" maxlength="4000"></textarea></label></div>
   </div>
+  <div class="row">
+    <div><label>{{ _('report.proceeding.court') }}<input name="court" maxlength="300"></label></div>
+    <div><label>{{ _('report.proceeding.number') }}<input name="number" maxlength="300"></label></div>
+    <div><label>{{ _('report.proceeding.requester') }}<input name="requester" maxlength="300"></label></div>
+  </div>
   <p class="muted">{{ _('web.report_help') }}</p>
   {% if not sign_available %}<p class="muted small">{{ _('web.report_sign_help') }}</p>{% endif %}
 </form>

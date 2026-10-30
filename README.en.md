@@ -1,31 +1,92 @@
-<p align="center"><img src="sabueso/web/static/logo.svg" width="96" alt=""></p>
+<p align="center"><img src="docs/assets/banner-en.svg" alt="Sabueso — Follow the trail. The conclusions are yours." width="100%"></p>
 
-# Sabueso-Framework
+<p align="center">
+  <a href="https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml"><img src="https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Ruby570bocadito/Sabueso-Framework/releases/latest"><img src="https://img.shields.io/github/v/release/Ruby570bocadito/Sabueso-Framework" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Ruby570bocadito/Sabueso-Framework" alt="License"></a>
+  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.12-blue" alt="Python">
+  <img src="https://img.shields.io/badge/languages-en%20%7C%20es-informational" alt="English and Spanish">
+</p>
 
-> **Follow the trail. The conclusions are yours.**
-> Sabueso (Spanish for *bloodhound*) sniffs through the evidence of a compromised Windows machine and brings back
-> leads —each with the rule that fired it and its chain of custody—; the expert signs the verdict.
+<p align="center">
+  <b>Windows forensics for expert witnesses</b>: from the disk image to the signed expert report,<br>
+  with a chain of custody you can prove and a bloodhound that tells you what to do next.
+  <br><br>
+  <a href="#try-it-in-a-minute">Try it</a> ·
+  <a href="docs/MANUAL.en.md">Manual</a> ·
+  <a href="docs/VALIDACION.md">Validation</a> ·
+  <a href="TODO.md">Roadmap</a> ·
+  <a href="README.md">Español</a>
+</p>
 
-[![CI](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml)
-[![License](https://img.shields.io/github/license/Ruby570bocadito/Sabueso-Framework)](LICENSE)
-![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)
-[![Release](https://img.shields.io/github/v/release/Ruby570bocadito/Sabueso-Framework)](https://github.com/Ruby570bocadito/Sabueso-Framework/releases/latest)
+---
 
-**Windows-focused digital forensics framework**: case management, verifiable chain of custody, disk images (E01, raw,
-VHD/VHDX, VMDK, QCOW2) with VSS shadow copies and BitLocker, live collection, more than 20 Windows artifact modules
-plus memory analysis, Sigma and YARA rules, super timeline, program execution overview, **MITRE ATT&CK map with an
-incident storyline**, **STIX 2.1** indicators, **automated** analysis (from evidence to report in one command, or by
-dropping evidence into a folder), analyst review, web UI with a graphical dashboard and CLI, and expert reports in
-HTML and **PDF** in **English and Spanish**.
+<p align="center"><img src="docs/assets/terminal-en.svg" alt="Terminal session: Sabueso's welcome, demo case, critical findings, ATT&CK storyline and next step" width="92%"></p>
 
-> 🇪🇸 Versión en español: [README.md](README.md)
+## What it is
 
+**Sabueso** (Spanish for *bloodhound*) is a free tool (Apache 2.0) to investigate compromised Windows computers and
+present what was found, with guarantees, to a client or a court. It opens disk images without mounting them, analyses
+more than 25 kinds of artifacts, flags **leads** together with the rule that fired them and lets the examiner confirm
+or dismiss each one. Everything goes into a SHA-256 chained custody log and ends in a report in English or Spanish.
+
+> Findings ≠ conclusions. Sabueso shows where to look; **the examiner signs the verdict**.
+
+## Why Sabueso
+
+| | |
+|---|---|
+| ⚖️ **Built for expert witnesses** | Expert report (UNE 71506) with purpose, limitations derived from the case itself, the expert's declaration, proceedings on the cover and an Ed25519 signature. |
+| 🔗 **Custody you can prove** | Evidence is never modified; every action, report and export goes into a hash-chained log, and extracted files keep their original timestamps. |
+| 🧭 **It guides you** | Every case knows where it stands: the CLI and the web tell you the next step and the exact command. |
+| 📊 **Validated on real cases** | Tested on 261 real attacks, 599 Hayabusa logs and the NIST "Hacking Case" disk; the figures, the bugs found and their fixes are [public](docs/VALIDACION.md). |
+| 🧰 **All in one, no cloud** | E01, VHDX, VMDK, QCOW2, VSS and BitLocker; registry, EVTX + Sigma, $MFT, Prefetch, SRUM, recycle bin, browsers, memory with Volatility, YARA, MITRE ATT&CK, STIX 2.1 and Timesketch. Works in an air-gapped lab. |
+| 🌍 **Truly bilingual** | The same case is reviewed and reported in English or Spanish. |
+
+## Try it in a minute
+
+```bash
+sabueso demo ./lab -L en            # builds a fictitious intrusion case and analyses it
+sabueso web -w ./lab --open         # opens it in the browser
 ```
-sabueso demo ./lab          # creates a fictitious intrusion scenario and analyses it
-sabueso web -w ./lab        # open http://127.0.0.1:8765
+
+To install it, pick one way (all of them end with `sabueso doctor`, which checks that everything works):
+
+| Way | How |
+|---|---|
+| **Windows, no Python** | Download `sabueso-<version>-windows-x64.zip` from [Releases](https://github.com/Ruby570bocadito/Sabueso-Framework/releases/latest), unzip it and run `sabueso\sabueso.exe`. Fits on a USB stick. |
+| **Windows installer** | `irm https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.ps1 \| iex` |
+| **Linux and macOS** | `curl -fsSL https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.sh \| sh` |
+| **Docker** | `docker compose up -d` (web at `http://127.0.0.1:8765`) |
+| **pip** | `pip install https://github.com/Ruby570bocadito/Sabueso-Framework/archive/refs/heads/main.zip` |
+
+Details and options in the [manual](docs/MANUAL.en.md#installation).
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Evidence<br>disk, RAM, triage] -->|hash + custody| B[Extraction<br>no mounting]
+    B --> C[25 modules<br>+ Sigma + YARA]
+    C --> D[Findings<br>with their rule]
+    D -->|the examiner| E[Review<br>confirm / dismiss]
+    E --> F[Conclusions]
+    F --> G[Expert report<br>signed HTML / PDF]
+    D --> H[ATT&CK · STIX · Timesketch]
 ```
 
-### At a glance
+In practice, one command does the automatic part and you do the part that is yours:
+
+```bash
+sabueso auto disk.E01 --new ./case-2026-017 -i "R. Garcia"     # extracts, analyses, reports and exports
+sabueso -c ./case-2026-017 findings -L en                       # review the leads
+sabueso -c ./case-2026-017 review 12 confirmed -n "Matches the DC's 4688"
+sabueso -c ./case-2026-017 report --expert --court "Court of First Instance no. 3" --pdf --sign -L en
+```
+
+## At a glance
+
+<p align="center"><img src="docs/assets/recorrido-web.gif" alt="Tour of the web interface: cases, summary, findings, ATT&CK, timeline, execution and reports" width="92%"></p>
 
 | Case summary, with the next step | MITRE ATT&CK techniques observed |
 |---|---|
@@ -33,723 +94,52 @@ sabueso web -w ./lab        # open http://127.0.0.1:8765
 | **Findings and their review** | **Dark mode** (follows the system) |
 | ![Findings of the demo case](docs/assets/hallazgos.png) | ![Summary in dark mode](docs/assets/resumen-oscuro.png) |
 
-(Screenshots in Spanish; switch the interface to English with the ES/EN selector or `-L en`.) In the terminal,
-Sabueso introduces itself and every command ends by telling you what to do next:
+Screenshots in Spanish; the interface switches to English with its ES/EN selector or `-L en`.
 
-```
-       __      Sabueso 0.4.1
-  (___()'`;    Windows forensics with a chain of custody
-  /,    /`     Follow the trail. The conclusions are yours.
-  \\"--\\
+## Validated on real cases
 
-$ sabueso -c case info -L en
-…
-Next step: review the findings (57 of 62 pending).
-  sabueso -c "case" findings
-  sabueso -c "case" review N confirmed|false_positive
-```
-
-How it speaks and presents itself is described (in Spanish) in [docs/IDENTIDAD.md](docs/IDENTIDAD.md).
-
----
-
-## Contents
-
-1. [Principles](#principles)
-2. [Installation](#installation)
-3. [Configuration](#configuration)
-4. [Quick start](#quick-start)
-5. [CLI workflow](#cli-workflow)
-6. [Automation](#automation)
-7. [Disk images and live collection](#disk-images-and-live-collection)
-8. [Memory](#memory)
-9. [Program execution](#program-execution)
-10. [Analyst review](#analyst-review)
-11. [MITRE ATT&CK, storyline and indicators](#mitre-attck-storyline-and-indicators)
-12. [Reports](#reports)
-13. [Web interface](#web-interface)
-14. [Analysis modules](#analysis-modules)
-15. [Sigma and YARA rules](#sigma-and-yara-rules)
-16. [Integrity and chain of custody](#integrity-and-chain-of-custody)
-17. [Architecture and writing a module](#architecture-and-writing-a-module)
-18. [Validation with real cases](#validation-with-real-cases)
-19. [Known limitations](#known-limitations)
-20. [Roadmap](#roadmap)
-21. [Development](#development)
-22. [License](#license)
-
-## Principles
-
-| Principle | How it is enforced |
+| Public data set | Result |
 |---|---|
-| **Evidence is never modified** | Everything is opened read-only. With `--copy` the work is done on a hash-verified, read-only working copy. Disk images are read without mounting them. SQLite databases (browsers) are copied to a temporary folder before being opened. |
-| **Identification by hash** | Every evidence item is registered with MD5, SHA-1 and SHA-256. Directories are hashed through a sorted manifest of all their files, so any addition, removal, rename or change alters it. |
-| **Tamper-evident chain of custody** | Every action (evidence registration, derived evidence, verification, analysis, review, export, report, deletion) is written to a SHA-256 hash chain. Altering an entry breaks the chain. |
-| **Verifiable results** | Each analysis stores the SHA-256 of all its results. `sabueso verify` recomputes evidence, custody and result hashes. |
-| **Traceable derived data** | Whatever is extracted from an image is registered as derived evidence, with its own hash and linked to the image and to the analysis that produced it. |
-| **Reproducibility** | The module, options, evidence, analyst and time (UTC) of each run are recorded. The output of external tools (Volatility) is kept verbatim. |
-| **Findings ≠ conclusions** | Detections are leads that name the rule that fired. The analyst confirms or dismisses them and writes the report conclusions. |
+| 261 logs of real attacks ([EVTX-ATTACK-SAMPLES](https://github.com/sbousseaden/EVTX-ATTACK-SAMPLES)) | 24 % detected with the 15 built-in rules, **74 %** with SigmaHQ's; 0 read errors |
+| 599 [Hayabusa](https://github.com/Yamato-Security/hayabusa-sample-evtx) logs | 26,197 events and 2,888 findings without a single failure, in 108 s with 2,405 Sigma rules |
+| [NIST "Hacking Case"](https://cfreds-archive.nist.gov/Hacking_Case.html) disk (Windows XP) | **15 of 31** official questions fully answered and 9 partly, in 13 s |
 
-Methodological references: RFC 3227, ISO/IEC 27037, ISO/IEC 27042 and UNE 71506.
+Every bug found became a regression test. Method, figures and what is missing (in Spanish):
+[docs/VALIDACION.md](docs/VALIDACION.md).
 
-## Installation
+## When to use another tool
 
-Pick whichever suits you. In every case `sabueso doctor` then checks that everything works.
+Sabueso is honest about its limits (full list in the [manual](docs/MANUAL.en.md#known-limitations)):
 
-**1. Windows installer** (no administrator rights). Creates an isolated environment in `%LOCALAPPDATA%\Sabueso`, adds
-`sabueso` to the PATH, creates the `Documents\Sabueso` cases folder, the configuration and a Start menu shortcut that
-opens the web interface:
+- **Linux, macOS or mobile** as analysed systems: not yet.
+- **Hundreds of machines at once**: for hunting at scale, a platform such as Velociraptor; Sabueso can analyse its
+  collections afterwards.
+- **In-depth memory analysis**: Sabueso automates the usual Volatility 3 plugins; for complex investigations, use
+  Volatility directly.
+- **Event log detection**: minimal with the built-in rules; download SigmaHQ's (`sabueso sigma download`;
+  `sabueso doctor` reminds you).
 
-```powershell
-irm https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.ps1 | iex
-# or from a clone of the repository:
-powershell -ExecutionPolicy Bypass -File install\install.ps1 -WithMemory     # -WithMemory adds Volatility 3
-```
+## Documentation
 
-Options: `-Workspace D:\Cases`, `-InstallPython` (installs Python 3.12 with winget if missing), `-NoShortcut`,
-`-Uninstall` (cases are left untouched).
+- [Manual](docs/MANUAL.en.md): installation, configuration, every command, modules, reports, integrity and how to write
+  a module.
+- [Validation](docs/VALIDACION.md) (Spanish): how Sabueso is tested on real cases and with what results.
+- [Identity](docs/IDENTIDAD.md) (Spanish): how Sabueso speaks and why reports never carry its personality.
+- [Roadmap](TODO.md) (Spanish) and [CHANGELOG](CHANGELOG.md).
 
-**2. Linux and macOS installer** (in `~/.local/share/sabueso`, links `~/.local/bin/sabueso`):
+## Meet Sabu
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Ruby570bocadito/Sabueso-Framework/main/install/install.sh | sh
-sh install/install.sh --with-memory --workspace ~/Cases     # from a clone of the repository
-```
+<img src="docs/assets/sabu.svg" alt="Sabu, Sabueso's mascot" width="120" align="right">
 
-**3. Windows executable, no Python needed**: download `sabueso-<version>-windows-x64.zip` from
-[Releases](https://github.com/Ruby570bocadito/Sabueso-Framework/releases), unzip it and run `sabueso\sabueso.exe`.
-Handy on isolated lab machines (it can travel on a USB drive). Memory analysis additionally needs Python with
-`volatility3`, or the path of `vol.exe` (`-o vol_path=`).
+Sabu is the project's mascot: a bloodhound with a blue collar and a shield-shaped tag (the custody) bearing a paw
+print (the trail). It welcomes you in the terminal, keeps you company in the web interface and stays out of the
+reports, because a report is read in court.
 
-**4. Docker** (web interface, CLI and PDF with Chromium included):
+## Contributing and license
 
-```bash
-docker compose up -d                       # http://127.0.0.1:8765, password in SABUESO_WEB_PASSWORD
-docker run --rm -v "$PWD/cases:/cases" -v "/path/evidence:/evidence:ro" ghcr.io/ruby570bocadito/sabueso-framework \
-       auto /evidence/laptop.E01 --new /cases/laptop
-```
+Contributions are welcome: a new artifact comes with a licensed real sample, English and Spanish texts and tests
+(details in the [manual](docs/MANUAL.en.md#architecture-and-writing-a-module)). To check a change:
+`python -m pytest -q` and `ruff check sabueso tests scripts`.
 
-Evidence is mounted read-only (`:ro`). `docker build --build-arg WITH_MEMORY=1 .` includes Volatility 3.
-
-**5. Manual, with pip** (Python 3.10 or later):
-
-```bash
-git clone https://github.com/Ruby570bocadito/Sabueso-Framework.git
-cd Sabueso-Framework
-python -m venv .venv && . .venv/bin/activate      # Windows: py -3 -m venv .venv; .\.venv\Scripts\Activate.ps1
-pip install -e ".[memory]"                         # without [memory] Volatility 3 is not installed
-sabueso doctor
-```
-
-Every dependency ships prebuilt binaries for Windows, Linux and macOS: `evtx` (EVTX), `Flask` (web and reports), `waitress` (web server),
-`PyYAML` (Sigma, configuration), `olefile` (Jump Lists), `libscca-python` (Prefetch), `libesedb-python` (SRUM),
-`libewf-python` (E01), `libvhdi-python`, `libvmdk-python` and `libqcow-python` (virtual disks), `libvshadow-python`
-(VSS), `libbde-python` (BitLocker), `pytsk3` (NTFS, The Sleuth Kit) and `yara-x` (YARA). PDFs use Microsoft Edge
-(present on every Windows 10/11), Chrome or Chromium; another browser can be set with `SABUESO_BROWSER`.
-
-To update: `sabueso update` checks the published version and, if there is a newer one, installs it in the same
-environment (`--check` only checks). The Windows executable tells you where to download the new version.
-
-`sabueso doctor` lists every component with its version and purpose, warns about what is missing (Volatility, a
-browser for PDF, intelligence lists that do not exist, a cases folder that cannot be written…) and exits with an
-error if something essential is missing; `--json` gives the result to scripts.
-
-The language is chosen with `-L en|es` (anywhere on the command line), the `SABUESO_LANG` variable, the configuration
-or, failing all of them, the system locale.
-
-## Configuration
-
-`sabueso config init` creates a commented file (`%APPDATA%\Sabueso\config.yaml` on Windows,
-`~/.config/sabueso/config.yaml` on Linux/macOS, or the one in `SABUESO_CONFIG` / `--config`). Command-line options
-always take precedence.
-
-```yaml
-analyst: "R. Garcia"            # default name in the chain of custody
-language: en
-organization: "Example CERT"
-workspace: 'D:\Cases'           # cases folder for the web, sabueso auto and sabueso watch
-intel:
-  hash_lists: ['D:\intel\malware_sha256.txt']
-  watchlists: ['D:\intel\iocs.txt']
-  yara_rules: ['D:\intel\yara']
-  sigma_rules: 'D:\intel\sigma'  # sabueso sigma download D:\intel\sigma
-  sigma_min_level: medium
-image: {vss: true}               # also extract from volume shadow copies
-memory: {symbols: 'D:\symbols', offline: false}
-report: {languages: [en, es], pdf: true}
-automation: {playbook: full}
-notify: {webhook: 'https://hooks.slack.com/services/…', min_severity: high}
-web: {host: 127.0.0.1, port: 8765}
-```
-
-`sabueso config show` prints the effective configuration and `sabueso config path` where it lives.
-
-## Quick start
-
-```bash
-sabueso demo ./lab -a "Your name"
-```
-
-This generates a **fictitious** scenario: the compromised workstation `WS-CONTAB01`. It contains a triage collection
-(hives, `$MFT`, `$LogFile`, `$UsnJrnl`, Prefetch, ShellBags, scheduled tasks, WMI repository, PowerShell history, Windows
-Timeline, `setupapi`, shell links, Recycle Bin, Chrome/Firefox history, Windows notifications and the RDP cache…), a
-raw image for carving, the workstation memory (Volatility 3 outputs), a known-bad hash list, an IOC list and a YARA
-rule. It then creates the
-case `lab/case_demo`, registers the three evidence items, runs triage and the intelligence modules and produces more
-than 50 findings: an IFEO debugger on `sethc.exe`, timestomping, persistence in a `Run` key, a hidden task and a WMI
-subscription, a service in `C:\Windows\Temp`, mimikatz and rclone execution (and their deletion according to the
-USN journal), a fake `svchost.exe` talking to the Internet, a hidden process, code injected into `explorer.exe`, an
-encoded command in the clipboard, a USB drive, deleted files and, recovered from the free space of the registry,
-the PsExec service and a `Run` value the attacker removed.
-
-```bash
-sabueso -c lab/case_demo findings
-sabueso -c lab/case_demo timeline --from 2026-09-14T02:00 --to 2026-09-14T05:00
-sabueso -c lab/case_demo attack --summary        # ATT&CK tactics and a draft storyline
-sabueso -c lab/case_demo report --pdf -L en
-sabueso web -w lab --open
-```
-
-## CLI workflow
-
-Every command has an English name and a Spanish alias.
-
-| English | Spanish | Purpose |
-|---|---|---|
-| `sabueso new DIR -n NAME -i INVESTIGATOR [-r REFERENCE] [-o ORGANIZATION]` | `nuevo` | Create a case |
-| `sabueso -c CASE info` | `info` | Case summary |
-| `sabueso -c CASE evidence add PATH [--copy] [-d DESCRIPTION]` | `evidencia agregar` | Register evidence (computes hashes) |
-| `sabueso -c CASE evidence list` / `verify [ID]` | `listar` / `verificar` | List evidence or verify its integrity |
-| `sabueso modules` | `modulos` | Available modules and their options |
-| `sabueso -c CASE triage EV-001` | `triaje` | Run every module that finds artifacts (images are extracted first) |
-| `sabueso -c CASE image EV-001 [--verify] [--vss] [--bitlocker-recovery -] [-p PATTERN] [--all-files] [--triage]` | `imagen` | Extract the artifacts of an image as derived evidence |
-| `sabueso collect DEST [--source \\.\C:] [--volatile] [--add-to-case]` | `recolectar` | Live collection on Windows |
-| `sabueso -c CASE analyze MODULE EV-001 [-o key=value]` | `analizar` | Run one module (`all` = every evidence item) |
-| `sabueso -c CASE analyses` / `show N [--artifact X]` | `analisis` / `mostrar` | Analyses and their records |
-| `sabueso -c CASE findings [--min-severity high] [--status confirmed]` | `hallazgos` | Findings sorted by severity, with their review status |
-| `sabueso -c CASE review N confirmed\|false_positive\|needs_review [-n NOTE]` | `revisar` | Review a finding |
-| `sabueso -c CASE bookmark N [-n NOTE] [--remove]` | `destacar` | Bookmark a timeline event |
-| `sabueso -c CASE conclusions [--text T \| --file F]` | `conclusiones` | Show or write the (versioned) conclusions; `--file` reads an existing file |
-| `sabueso -c CASE timeline [--from] [--to] [--search] [--source] [--bookmarked]` | `cronologia` | Super timeline |
-| `sabueso -c CASE execution [--search X] [--suspicious]` | `ejecucion` | Programs executed according to every source |
-| `sabueso -c CASE export {analysis N,timeline,findings,execution,stix,timesketch,custody} -o FILE` | `exportar` | CSV (Excel friendly), JSON, STIX 2.1 or JSONL for [Timesketch](https://timesketch.org) (timeline + tagged findings); target names accepted in English and Spanish |
-| `sabueso -c CASE attack [--summary]` | `mitre` | MITRE ATT&CK techniques observed or a draft incident storyline |
-| `sabueso -c CASE custody [--verify]` | `custodia` | Chain of custody |
-| `sabueso -c CASE verify` | `verificar` | Full verification (exit code 2 if anything fails) |
-| `sabueso -c CASE report [--verify] [--pdf] [--sign] [--expert [--scope T]] [-L es]` | `informe` | Self-contained HTML report (and PDF), optional Ed25519 signature (`--sign`); `--expert` makes it an expert witness report (UNE 71506) with purpose, limitations and the expert's declaration |
-| `sabueso auto EVIDENCE… [--new DIR] [-p PLAYBOOK]` | `auto` | From evidence to report in one command |
-| `sabueso watch FOLDER [-w WORKSPACE] [--once]` | `vigilar` | Automatically process whatever is dropped into a folder |
-| `sabueso config [show\|init\|path]` | `configuracion` | Configuration |
-| `sabueso correlate [-w WORKSPACE] [--type T] [--json]` | `correlacionar` | Items shared between cases |
-| `sabueso intel misp EXPORT.json [-o FILE]` | `inteligencia` | Convert a MISP JSON export into a watchlist for the `ioc` module and correlation |
-| `sabueso doctor` | `diagnostico` | Check the installation |
-| `sabueso update [--check]` | `actualizar` | Check for and install a new version |
-| `sabueso -c CASE notify` | `notificar` | Send the summary to the configured webhook |
-| `sabueso sigma check PATH` / `sigma download DIR` | `sigma` | Validate Sigma rules or download SigmaHQ's |
-| `sabueso web [-w WORKSPACE] [--port 8765] [--password X] [--open]` | `web` | Web interface |
-
-Common options: `-c/--case` (or the `SABUESO_CASE` variable), `-a/--analyst` (who appears in the custody log; the
-configured one by default), `-L/--lang` and `--config FILE`. In `timeline`, `--to 2026-09-14` includes the whole day.
-
-Full example (PowerShell):
-
-```powershell
-sabueso new ./2026-017 -n "File server intrusion" -i "R. Garcia" -r "CASE-2026/017"
-sabueso -c ./2026-017 evidence add E:\acquisitions\FS01.E01 -d "FS01 disk (FTK Imager)"
-sabueso -c ./2026-017 image EV-001 --verify --triage
-sabueso -c ./2026-017 evidence add E:\acquisitions\FS01.mem -d "FS01 memory"
-sabueso -c ./2026-017 analyze memory EV-003
-sabueso -c ./2026-017 analyze hashset EV-002 -o hash_list=C:\intel\malware_sha256.txt
-sabueso -c ./2026-017 analyze yara EV-002 -o rules=C:\intel\yara
-sabueso -c ./2026-017 findings --min-severity medium
-sabueso -c ./2026-017 review 12 confirmed -n "Matches 4688 on the domain controller"
-notepad conclusions.md   # write the conclusions first; --file reads them as input
-sabueso -c ./2026-017 conclusions --file conclusions.md
-sabueso -c ./2026-017 report --verify
-```
-
-## Automation
-
-`sabueso auto` registers the evidence (in an existing case with `-c`, a new one with `--new`, or the configured cases
-folder), runs a **playbook** and leaves the report and exports ready:
-
-```powershell
-sabueso auto E:\acquisitions\PC-042.E01 --new D:\Cases\PC-042 -i "R. Garcia"
-sabueso -c D:\Cases\2026-017 auto E:\acquisitions\FS01.mem          # add to the case and analyse
-```
-
-| Playbook | Steps |
-|---|---|
-| `triage` | triage (images are extracted first; memory goes to Volatility) → report |
-| `quick` | registry, Prefetch, EVTX, tasks, PowerShell and `$MFT` → report |
-| `full` (default) | triage → intelligence from the configuration (hashes, IOCs, YARA, Sigma) → report → exports (findings, timeline, execution and STIX) |
-
-A custom playbook is a YAML file with `steps:`; each step is `triage`, `memory`, `intel`, `modules` (with per-module
-options), `report` (languages, PDF) or `export`:
-
-```yaml
-steps:
-  - triage
-  - modules: {evtx: {sigma_rules: 'D:\intel\sigma', sigma_min_level: high}}
-  - intel
-  - report: {languages: [en, es], pdf: true}
-  - export: [findings, stix, timesketch]
-```
-
-**Watched folder**: `sabueso watch D:\Inbox -w D:\Cases` creates a case for every file or folder dropped into
-`D:\Inbox` and processes it with the playbook. It waits until the copy has finished (size and time stable between two
-polls), ignores `.part`/`.tmp`, remembers what was processed in `D:\Cases\.sabueso-watch.json`, and an item that fails
-does not stop the others. `--once` processes what is there and exits (handy in a scheduled task).
-
-In the web interface, the **Automatic** button of each evidence item runs the playbook in the background.
-
-**Notifications**: with `notify.webhook` in the configuration, every automated analysis (`auto`, `watch` or the web
-button) ends by sending a summary —case, failed steps, most severe findings and report— to Microsoft Teams, Slack,
-Mattermost, Discord or any service that accepts JSON (the format is inferred from the URL or set with
-`notify.format`). Each message is logged in the chain of custody with its destination host (not the URL, which
-usually carries a token). `sabueso -c CASE notify` sends a test one; a failing webhook never affects the analysis.
-
-## Disk images and live collection
-
-### Images
-
-Formats: **E01/Ex01** (EnCase, FTK Imager, ewfacquire), **raw/dd**, **split raw** (`.001`, `.002`…), fixed, dynamic
-and differencing **VHD and VHDX** (the parent disk is looked up in the same folder), **VMDK** and **QCOW2**. MBR/GPT
-partitions and file systems are read with The Sleuth Kit **without mounting anything**, so locked files (`$MFT`, hives,
-SRUM, EVTX) and alternate data streams such as `$UsnJrnl:$J` are obtained as well.
-
-```bash
-sabueso -c CASE evidence add laptop.E01
-sabueso -c CASE image EV-001 --verify          # checks the acquisition MD5/SHA-1, then extracts
-sabueso -c CASE triage EV-002                  # EV-002 = extracted artifacts (derived evidence)
-```
-
-- `--verify` recomputes the media hashes and compares them with those stored in the E01; a mismatch is a critical
-  finding.
-- By default the **Windows triage profile** is extracted (hives and their `.LOG` files, `$MFT`, EVTX, SRUM, tasks,
-  Prefetch, Amcache, `setupapi`, NTUSER/UsrClass, Recent, Startup, PowerShell and browser history, `$Recycle.Bin`,
-  executables in temporary folders). `-p "Users/*/Desktop/**"` adds patterns and `--all-files` extracts everything.
-- Every NTFS volume is written to `C/`, `D/`… keeping modification times, and each extracted file is recorded with
-  its original path, size, MD5, SHA-256, MACB times and MFT entry number.
-- `triage` on an image does the extraction automatically.
-- **Volume shadow copies (VSS)** are always listed (with their creation time, also on the timeline). With `--vss` the
-  triage profile is also extracted from every shadow copy, keeping only the files that differ from the live volume
-  (`C_vss1/`, `C_vss2/`…): older hive versions, deleted event logs or removed tools.
-- **BitLocker** (BitLocker To Go included) is decrypted with the 48-digit recovery password (`--bitlocker-recovery -`
-  asks for it without echo), the password or the `.BEK` startup key. Keys are **never stored** in the case: the
-  custody log only keeps a SHA-256 fingerprint that proves which key was used. A volume that cannot be decrypted
-  raises a finding explaining what is missing.
-
-### Live collection
-
-On a running Windows system (as administrator), `collect` reads the **raw volume** (`\\.\C:`) with The Sleuth Kit to
-copy locked artifacts, without relying on VSS or external tools:
-
-```powershell
-sabueso collect E:\collection_PC01 --volatile
-sabueso -c E:\case collect E:\collection_PC01 --add-to-case --copy
-```
-
-- It copies the same triage profile to `DEST\C\…` and writes `manifest.csv` (path, size, SHA-256, MD5, times and MFT
-  entry of every file) and `collection.json` (host, user, tool, start and end, manifest SHA-256 and errors).
-- `--volatile` also saves processes, services, connections (`netstat -anob`), network configuration, DNS cache, ARP,
-  routes, sessions, shares, scheduled tasks and `systeminfo`.
-- `--source` accepts another volume or an image. Capture RAM with a dedicated tool (WinPmem, DumpIt, Magnet RAM
-  Capture) **before** collecting from disk, following the order of volatility.
-
-## Memory
-
-The `memory` module analyses Windows memory dumps with **Volatility 3**: `info`, `pslist`, `psscan`, `pstree`,
-`cmdline`, `netscan`, `malfind` and `svcscan`.
-
-```bash
-pip install -e ".[memory]"
-sabueso -c CASE evidence add PC01.raw
-sabueso -c CASE analyze memory EV-003                        # downloads Microsoft symbols when needed
-sabueso -c CASE analyze memory EV-003 -o symbols=D:\symbols -o offline=yes -o plugins=pslist,psscan,netscan
-```
-
-- Volatility runs as a separate process and its JSON output is kept verbatim in the analysis folder.
-- If you already ran Volatility (`vol -r json -f mem.raw windows.pslist > pslist.json`), register the folder with the
-  JSON files and they are **imported** directly (the file name must contain the plugin name).
-- Detects: **hidden processes** (in `psscan` but not in `pslist`), **unexpected parents** of system processes
-  (`lsass.exe`, `services.exe`, `svchost.exe`…), duplicated instances, interpreters spawned by Office or services
-  (WMI, IIS, SQL Server), **impersonation** (`svchost.exe` outside `System32`) and look-alike names (`scvhost.exe`),
-  offensive and remote-access tools (also with the name truncated to 15 characters), suspicious command lines,
-  **external connections** from interpreters or processes in suspicious locations, **injected code** (`malfind`,
-  more severe with a PE header and less in JIT processes) and suspicious services.
-
-## Program execution
-
-`sabueso -c CASE execution` (and the **Execution** web page) gathers in one row per program everything Prefetch,
-Amcache, ShimCache, BAM, UserAssist, SRUM, the Windows Timeline, 4688/Sysmon 1 events, RunMRU, Microsoft Defender and
-memory say about it.
-Each source writes paths its own way (`\VOLUME{…}\USERS\…`, `\Device\HarddiskVolume3\…`, `%ProgramFiles%`,
-known-folder GUIDs…); they are normalised to join them, giving first and last execution, run count, users, SHA-1,
-command lines and the supporting sources. Offensive and remote-access tools, names imitating system binaries
-(`scvhost.exe`) and suspicious locations are flagged. ShimCache and Amcache prove presence, not execution, and are
-treated as such. The table can be exported (`export execution`) and is part of the report.
-
-## Analyst review
-
-Findings are leads. Each one can be marked **confirmed**, **false positive** or **needs review** with a note, and key
-timeline events can be **bookmarked**. Everything is kept in an append-only history and in the chain of custody,
-with who and when.
-
-The case **conclusions** are written by the analyst (free text, versioned). The report includes them together with
-the findings grouped by review status and the bookmarked events.
-
-## MITRE ATT&CK, storyline and indicators
-
-Each finding is mapped to **MITRE ATT&CK** techniques by its kind (persistence in `Run` → T1547.001, timestomping →
-T1070.006…), by the rules that fired (encoded PowerShell, `ExecutionPolicy Bypass`…), by the tools it names
-(mimikatz → T1003, rclone → T1567.002, AnyDesk → T1219) and by the tags of Sigma rules. With that:
-
-- `sabueso attack` and the **ATT&CK** page show the matrix of tactics and techniques observed, when each was first
-  seen and the findings that support it (linked). Low-severity or dismissed findings do not count; confirmed ones
-  always do.
-- **Incident storyline**: the phases in kill-chain order and a **draft** narrative (`attack --summary`, or the button
-  on the ATT&CK page that takes it to the conclusions) for the analyst to review and complete.
-- **Indicators of compromise**: `export stix` produces a **STIX 2.1** bundle with the hashes, IPs, domains, URLs and
-  e-mail addresses from the findings (hash lists, YARA, watchlists, memory connections, downloads) and from flagged
-  programs, plus the ATT&CK techniques, ready for MISP, OpenCTI or a SIEM. Legitimate domains (downloads from
-  7-zip.org, for instance) are left out.
-
-### Cross-case correlation
-
-`sabueso correlate -w WORKSPACE` (and the **Cross-case correlation** page of the web interface, linked from the list
-of cases) finds what the cases of a workspace share: indicators of compromise, **USB devices by serial number** (the
-same stick on two computers), IP addresses (memory connections, network and RDP logons, RDP destinations, UNC paths),
-computer names and domain accounts of remote logons. With `-c CASE` it shows only that case's items, and the case
-overview gets a **Seen in other cases** panel. The index of each case is kept in `WORKSPACE/.sabueso-correlation`
-and rebuilt only when its chain of custody changes; cases are never modified. Options: `--type usb`,
-`--min-cases 3`, `--json`.
-
-### Importing MISP intelligence
-
-`sabueso intel misp` converts a **MISP JSON export** —one event, the API's `response` set or a list of events— into a
-**watchlist** for the [`ioc`](#analysis-modules) module: one indicator per line, with the provenance of every source
-event kept as a `#` comment (UUID, title and date). The import **never touches the network**: you export the events
-from your MISP instance and hand the file to the command, so neither the instance URL nor the API key ever reaches
-the case.
-
-```powershell
-sabueso intel misp C:\intel\EXPORT.json -o C:\intel\misp.watchlist.txt
-sabueso -c CASE analyze ioc EV-002 -o watchlist=C:\intel\misp.watchlist.txt
-```
-
-- Supported MISP types: md5, sha1, sha256 and sha512 (also `filename|hash`: only the hash, the only safe part to
-  match), ip-src and ip-dst with or without `|port`, domain and hostname (and their `|ip` forms), url, uri, link,
-  e-mail (source and destination), filename, regkey and user-agent. Deleted attributes are left out, duplicates are
-  dropped and unknown types are counted and reported as skipped: never guessed.
-- The resulting list also serves `sabueso auto` and `sabueso watch` through the `intel.watchlists` key of the
-  [configuration](#configuration), and its `ioc.watchlist_match` findings feed cross-case correlation.
-- An export with no usable indicators is a localized error (and the output can never overwrite the input file).
-
-## Reports
-
-`sabueso report` writes a self-contained HTML file (no scripts or external resources) and `--pdf` also the PDF, both
-with their SHA-256 in the chain of custody. Structure:
-
-1. Cover page with the case data and a confidentiality notice, and contents.
-2. **Executive summary**: key figures, incident period, findings-by-severity and activity charts, key findings and
-   the incident sequence by ATT&CK tactic.
-3. Analyst conclusions (versioned, with their hash).
-4. ATT&CK techniques observed, indicators of compromise and, when the workspace holds more than one case, the
-   **cross-case correlation** (shared observables, capped at 100 rows).
-5. Evidence with hashes and integrity, findings by review status (with their techniques), bookmarked events, program
-   execution, chronology, analyses performed (options and results hash), full chain of custody and methodology.
-
-The PDF is A4 with the case ID and "page x / y" in the footer and no table rows split across pages; the browser that
-prints it is launched headless with `--no-sandbox`. The **Reports** page of the web interface produces either one in
-the language you choose and, when the `SABUESO_SIGN_KEY` variable points to the analyst's private key (Ed25519 PEM),
-can **digitally sign** the report; on the CLI, `report --sign` does the same (with `--pdf` for the PDF too). Either
-way a detached `.sig` signature is stored next to the report and the chain of custody records the fingerprint of the
-public key (`SABUESO_SIGN_PUB`), which can be used to verify it later.
-
-## Web interface
-
-```bash
-sabueso web -w ./cases            # http://127.0.0.1:8765
-```
-
-- **Workspace**: list of cases and new-case form.
-- **Overview**: key figures, activity chart of the incident period with the findings at their time (each bar opens
-  the timeline of that interval), findings by severity, key findings, techniques per ATT&CK tactic, and evidence with
-  **Automatic** (full playbook) and **Triage** buttons. Charts come with a table view and tooltips and follow the
-  system light or dark theme.
-- **ATT&CK**: matrix of techniques observed, incident sequence and draft storyline.
-- **Case search** (box in the top bar): searches findings, timeline, records of every analysis, executed programs
-  and evidence at once; paths with `\` work and `%` and `_` are plain text.
-- **Timeline** with an activity chart of the selection: it follows the filters and each bar narrows down to its
-  interval (from months to 10-minute slots).
-- **Evidence**: registration by path (hashed in the background), hashes, origin of derived evidence and integrity
-  verification.
-- **Analyses**: per-module form with its options, automatic triage, paginated results with per-artifact search and
-  CSV export.
-- **Findings** with review (confirm, dismiss, note), **Timeline** (date, text, source, severity and bookmark filters),
-  **Conclusions**, **Chain of custody** and **Reports** (in the language you choose).
-- **ES/EN** selector and **Analyst** field: the name is recorded in every custody action.
-
-Security: listens on `127.0.0.1` by default, every form carries a CSRF token, security headers (CSP,
-`X-Frame-Options`) are sent and a password can be required with `--password` or `SABUESO_WEB_PASSWORD` (HTTP Basic);
-when it starts without one, the interface shows a permanent warning until a password is set.
-If you expose it on a network, put it behind HTTPS. `--open` opens the browser on start; `/healthz` answers without a
-password for container health checks.
-
-## Analysis modules
-
-| Module | Artifacts | Detects |
-|---|---|---|
-| `evtx` | `*.evtx` (Security, System, PowerShell, Sysmon, Defender, RDP, TaskScheduler, WMI, BITS) | Brute force and **logon after brute force**, log clearing (1102/104), new users and privileged group changes, services (7045/4697) and tasks created, suspicious commands (4688/Sysmon 1), malicious PowerShell (4104), Defender detections and tampering, WMI persistence, RDP from public IPs and **Sigma rules** |
-| `registry` | SYSTEM, SOFTWARE, SAM, NTUSER.DAT, Amcache.hve | Computer, time zone, network, **USB** (first/last connection), services, **ShimCache**, **BAM**, OS and install, Winlogon's last user and domain, network cards and DHCP leases, installed programs (flagging **offensive tools**), network profiles, **Run/RunOnce**, Winlogon, **IFEO**, AppInit_DLLs, SAM accounts, **UserAssist**, RecentDocs, RunMRU, TypedPaths, searches, RDP destinations, Amcache with SHA-1, **deleted keys and values** (removed services, tasks, IFEO entries and commands) |
-| `prefetch` | `*.pf` (XP to Windows 11, compressed format included) | Program execution: run count, last 8 run times, volume and loaded files; offensive tools and execution from suspicious locations |
-| `srum` | `SRUDB.dat` | Bytes sent and received per application and user, connectivity, CPU/disk usage; **possible exfiltration** |
-| `shellbags` | `UsrClass.dat`, `NTUSER.DAT` | Folders browsed, including USB, network and already deleted folders |
-| `jumplists` | `*.automaticDestinations-ms`, `*.customDestinations-ms` | Files opened per application, RDP connections, removable drives, suspicious arguments |
-| `lnk` | `*.lnk` | Opened files, network paths, **removable drives** (serial and label), source machine and **MAC**, Startup folder persistence |
-| `recyclebin` | `$Recycle.Bin\<SID>\$I*` and, on Windows XP, `RECYCLER\<SID>\INFO2` | Original path, size, deletion time, user and whether the content (`$R`, `D<drive><n>`) is recoverable |
-| `browsers` | Chrome, Edge, Brave, Opera (`History`), Firefox (`places.sqlite`) | History, downloads, **downloaded executables**, file-sharing and paste services |
-| `mft` | `$MFT` | $SI/$FN timeline, deleted entries, full paths, **Zone.Identifier** (download URL), **timestomping** |
-| `usnjrnl` | `$Extend\$UsnJrnl:$J` | File creation, deletion and renaming with full paths (through the `$MFT`); offensive tools, executables created and deleted, deleted Prefetch and EVTX, **mass renaming (ransomware)** and mass deletion |
-| `logfile` | `$Extend\$LogFile` | NTFS write-ahead journal: named operations on `$MFT` records, directory index entries and **open attributes** (the journal's attribute table is reconstructed to name them, e.g. a `$DATA` open or update), with LSN and transaction; the journal carries no timestamps |
-| `tasks` | `Windows\System32\Tasks` | Scheduled tasks: author, triggers, account, actions; **hidden tasks**, tasks running interpreters or binaries from suspicious locations, as SYSTEM |
-| `wmi` | `wbem\Repository\OBJECTS.DATA` | **WMI persistence** (filter + CommandLine/ActiveScript consumer), deleted subscriptions included |
-| `defender` | `Windows Defender\Support\MPLog-*`, `Scans\History\Service\DetectionHistory` | **Microsoft Defender**: detections (threat, resource, user), processes active according to its performance log (evidence of execution that survives clearing the EVTX) and files queried with SHA-1/SHA-256 |
-| `psreadline` | `ConsoleHost_history.txt` | Each user's PowerShell commands: downloads, encoded execution, Defender tampering, offensive tools |
-| `wintimeline` | `ActivitiesCache.db` | Applications and documents used, time in focus and **clipboard history** |
-| `notifications` | `wpndatabase.db` | **Windows notifications**: apps that sent each toast, arrival time and the text shown (title and body) |
-| `rdp_cache` | `Cache*.bin`, `bCache*.bin` | **RDP Bitmap Cache**: tiles of the remote desktop drawn by the RDP client, extracted as BMP files for the report; evidence of outgoing RDP sessions |
-| `setupapi` | `setupapi.dev.log` | First connection of USB and portable devices (vendor, model, serial number), converted to UTC |
-| `memory` | Memory dump or Volatility 3 JSON outputs | See [Memory](#memory) |
-| `image` | E01/Ex01, raw, VHD/VHDX, VMDK, QCOW2 | See [Disk images](#disk-images-and-live-collection) |
-| `inventory` | Any folder | Metadata, hashes, real type by signature, **disguised files**, timeline and Sleuth Kit compatible *bodyfile* (`mactime`) |
-| `ioc` | Any file | ASCII/UTF-16 strings, URLs, IPs, e-mails, registry keys and watchlist (`-o watchlist=`) |
-| `hashset` | Any folder | Matches against MD5/SHA-1/SHA-256 hash lists (`-o hash_list=`) |
-| `yara` | Any folder | YARA rule matches (`-o rules=`), with the severity given by the rule |
-| `carving` | Raw image / unallocated space | Recovers JPEG, PNG, GIF, PDF and ZIP, validating their internal structure |
-
-The Windows modules and `inventory` run during **triage** when they find artifacts (`memory` does not, as it can be
-slow). Severities: critical, high, medium, low and info.
-
-What can be registered as evidence:
-
-- **Disk images** (E01, raw, VHD/VHDX, VMDK, QCOW2) and **memory dumps**.
-- **Triage collections**: the one made by `sabueso collect`, [KAPE](https://www.kroll.com/kape) (`KapeTriage`
-  target), Velociraptor or CyLR. Register the whole folder.
-- **Images mounted read-only** (Arsenal Image Mounter, `ewfmount`).
-- **Loose artifacts**: an `.evtx`, a hive, an `$MFT`, an `SRUDB.dat`, a Prefetch folder…
-
-## Sigma and YARA rules
-
-**Sigma**: the `evtx` module applies 15 built-in rules (Office spawning a shell, LSASS access, Kerberoasting, DCSync,
-PsExec, pass-the-hash, shadow copy deletion…) plus the ones you provide. The built-in rules are a minimal baseline:
-on real attacks they detect 24 %, and SigmaHQ's rules 74 % ([validation](docs/VALIDACION.md)), so for event logs
-**download SigmaHQ's rules** and point `intel.sigma_rules` in the configuration at them:
-
-```bash
-sabueso sigma download ./sigma                 # SigmaHQ Windows rules
-sabueso sigma check ./sigma                    # how many are supported
-sabueso -c CASE analyze evtx EV-001 -o sigma_rules=./sigma -o sigma_min_level=high
-```
-
-The engine supports selections, keywords, wildcards, the usual modifiers (`contains`, `startswith`, `endswith`,
-`all`, `re`, `windash`, `cidr`, `base64`, `base64offset`, `wide`, `exists`, comparisons, `fieldref`) and conditions
-(`and`, `or`, `not`, parentheses, `1 of`, `all of`, `them`). `process_creation` is evaluated on Sysmon 1 and on
-Security 4688.
-
-**YARA** (YARA-X engine): `sabueso -c CASE analyze yara EV-002 -o rules=C:\intel\yara`. The finding severity comes
-from the rule's `severity` metadata.
-
-## Integrity and chain of custody
-
-```
-custody(seq, timestamp, action, actor, details, prev_hash, hash)
-hash = SHA-256(canonical JSON of {seq, timestamp, action, actor, details, prev_hash})
-```
-
-- `sabueso -c CASE custody --verify` detects modified, deleted or reordered entries.
-- The **head hash** (that of the last entry) is shown in the report and by `custody`. Write it down outside the case
-  (in the minutes, an e-mail or the case file) to anchor the chain: not even someone rewriting the whole database can
-  then hide tampering.
-- Every report and export records its own SHA-256 in the chain.
-- Derived evidence records which evidence and which analysis it comes from.
-- Evidence paths are stored relative to the case folder, so you can **move, copy or archive the case** (another disk
-  or machine) and `verify` keeps checking the hashes against the files inside that folder. Entries registered with an
-  absolute path are verified where they were or, once the case has moved, against the copy kept inside the case; the
-  custody chain records that re-basing.
-
-Case layout:
-
-```
-case/
-├── sabueso.db     SQLite (WAL): case, evidence, custody, results, events, findings and reviews
-├── evidence/      verified read-only working copies (--copy)
-├── analyses/      generated files (extracted artifacts, Volatility outputs, carving, bodyfile…)
-├── reports/       HTML and PDF reports
-└── exports/       CSV/JSON/STIX exports
-```
-
-### Security model
-
-- **Immutable evidence**: nothing is opened for writing; disk images are read without mounting and third-party SQLite
-  databases are copied to a temporary folder before being opened. With `--copy` you work on a hash-verified,
-  read-only copy.
-- **Contained extraction**: paths found inside a container are validated before extraction (`..` traversal, absolute
-  paths, symbolic links), with regression tests.
-- **External processes without a shell**: Volatility 3 and the browser that prints the PDF run as separate processes,
-  no shell, controlled arguments and captured output.
-- **Structured inputs**: configuration and playbooks load with YAML `safe_load`; YAML never executes code.
-- **Bounded consumption**: artifacts are read whole through one central gate with a size cap per artifact type
-  (from 64 KB for Recycle Bin `$I` files to 256 MB for the largest containers); a file above its cap is reported as
-  an analysis error instead of being read whole, so huge or hostile evidence cannot exhaust memory or disk.
-- **Bounded Sigma rules**: `|re` patterns are validated before compilation (structural and branching limits against
-  ReDoS); a hostile rule is a load error, never a hung scan.
-- **Web interface**: listens on `127.0.0.1` by default, forms carry a CSRF token, CSP and `X-Frame-Options` headers,
-  optional password (HTTP Basic) with a permanent warning when missing, and request bodies over 1 MiB are rejected
-  before parsing. `/healthz` answers without a password and without case data.
-- **Dependencies**: from the official PyPI registry only, with prebuilt binaries, audited with `pip-audit`.
-
-## Architecture and writing a module
-
-```
-sabueso/
-├── core/        case (SQLite), review, custody, hashing, signatures, heuristics, time zones, execution, exports, correlation, STIX indicators and intelligence import
-├── parsers/     regf (+ transaction logs and deleted cells), lnk, $I, $MFT, $LogFile, $UsnJrnl, ShimCache, EVTX, SRUM,
-│                Defender, shell items, Jump Lists, Volatility
-├── image/       containers (libewf, libvhdi, libvmdk, libqcow), BitLocker, VSS, The Sleuth Kit and extractor
-├── sigma/       Sigma engine and built-in rules
-├── modules/     windows/ (evtx, registry, prefetch, srum, shellbags, jumplists, lnk, recyclebin, browsers, mft,
-│                usnjrnl, logfile, tasks, wmi, defender, psreadline, wintimeline, notifications, rdp_cache,
-│                setupapi, memory)
-│                generic/ (image, inventory, ioc, hashset, yara, carving)
-├── collector.py live collection
-├── automation.py  auto and watch (playbooks)
-├── notify.py      notifications when automated analysis finishes
-├── update.py      sabueso update: check for and install a newer version
-├── doctor.py      sabueso doctor: installation diagnostics
-├── i18n.py        es/en texts
-├── charts.py      server-side SVG charts for web and report (no JavaScript)
-├── presentation.py  output rendering shared by CLI, web and report
-├── report/      HTML report (Jinja2), PDF and Ed25519 digital signing
-├── web/         Flask interface (templates, static files, background jobs)
-├── demo/        demo scenario and synthetic artifact builders
-├── locales/     es.json / en.json
-└── cli.py
-```
-
-Data is stored with language-neutral codes (`evtx.log_cleared`, `usb_device`, `program_executed`…) and translated
-when displayed, so the same case can be reviewed or reported in either language.
-
-A new module:
-
-```python
-from sabueso.core.utils import find_files, read_capped, relative_name
-from sabueso.modules.base import AnalysisContext, Module, Option, register
-
-MAX_EXAMPLE_SIZE = 64 * 1024 * 1024  # this example's cap, like every other module
-
-
-@register
-class ExampleModule(Module):
-    name = "example"
-    category = "generic"
-    triage = False                 # True to have triage run it when it finds artifacts
-    options = (Option("max_files", 1000, "int"),)
-
-    def discover(self, target):
-        return find_files(target, lambda p: p.suffix.lower() == ".dat")
-
-    def analyze(self, ctx: AnalysisContext) -> None:
-        n = 0
-        for path in self.discover(ctx.target)[: ctx.options["max_files"]]:
-            rel = relative_name(path, ctx.target)
-            try:
-                data = read_capped(path, MAX_EXAMPLE_SIZE)
-            except (OSError, ValueError) as exc:  # FileTooLarge included: a huge file cannot take the analysis down
-                ctx.error(rel, exc)
-                continue
-            ...                             # parse the artifact and derive value, created and suspicious
-            ctx.record("example_entry", {"file": rel, "value": value})
-            ctx.event(created, "example_entry", f"Example: {value}", rel)
-            if suspicious:
-                ctx.finding("example.suspicious", "high", created, value=value)
-            n += 1
-        ctx.summary["entries"] = n
-```
-
-Then import it in `sabueso/modules/__init__.py` and add its texts to `locales/es.json` and `locales/en.json`
-(`module.example.title`, `.description`, `.opt.*`, `finding.example.suspicious.title/.description`,
-`artifact.example_entry`, `etype.example_entry`). `tests/test_i18n.py` reports any missing translation.
-
-## Validation with real cases
-
-Sabueso is tested against public evidence with a known answer, and every bug found becomes a regression test.
-Current results ([details and method](docs/VALIDACION.md), in Spanish):
-
-| Data set | Result |
-|---|---|
-| 261 logs of real attacks (EVTX-ATTACK-SAMPLES) | 24 % detected with the built-in rules, **74 %** with SigmaHQ; 0 read errors |
-| 599 Hayabusa logs | 26,197 events and 2,888 findings without failures, in 108 s with 2,405 Sigma rules |
-| NIST "Hacking Case" disk (Windows XP) | 15 of 31 official questions fully answered and 9 partly, in 13 s |
-
-`python scripts/validar_evtx.py PATH/EVTX-ATTACK-SAMPLES [--sigma PATH/sigma]` repeats the first measurement.
-
-## Known limitations
-
-- **Hives with pending changes** are recovered in memory by replaying their transaction logs (`.LOG`, `.LOG1`,
-  `.LOG2`, old and new formats, Marvin32 hashes validated); when the logs were not collected a finding warns that
-  recent data may be missing. **Deleted keys and values** are recovered from the free space of the hive (and from
-  cells left unlinked), with their full or partial path; their data are leads, since the data cell may have been
-  reused after the deletion.
-- **Images**: volumes encrypted with other systems (VeraCrypt, LUKS) and file systems The Sleuth Kit does not support
-  (ReFS, APFS) are not read.
-- **Live collection**: the volume is read while the system runs, so a file that changes during the copy may be
-  inconsistent (the recorded hash is that of the copy).
-- **Memory**: Volatility needs the symbols of the exact Windows build (downloaded from Microsoft or given with
-  `-o symbols=`). Only Windows dumps are analysed.
-- **Carving**: only contiguous (non-fragmented) files are recovered. A PDF ends at its first `%%EOF`.
-- **Local times** (network profiles, `setupapi`) are converted to UTC with the time zone rules of the SYSTEM hive of
-  the same evidence (daylight saving time included); without it they are kept as local time.
-- **WMI**: the repository is searched for strings (like PyWMIPersistenceFinder), not parsed as a full CIM database.
-- **$LogFile**: named operations on `$MFT` records, directory index entries and attributes (opcodes 0x05–0x09 and
-  0x0B, named by reconstructing the open-attribute table the journal itself records in 0x1C/0x1D); a broken table
-  entry only invalidates the incremental part. The journal carries no timestamps, so these operations add no dates
-  of their own to the timeline.
-- **RDP cache**: tiles are extracted as BMP files, but the container carries no timestamps: they evidence remote
-  desktop activity, not when it happened.
-- **Heuristics**: detection rules are leads to prioritise work, not verdicts.
-- The web interface is served by [waitress](https://pypi.org/project/waitress/) (a production WSGI server), but it has
-  a single shared password and no user accounts or locking between analysts: meant for one analyst or a small team.
-
-## Roadmap
-
-The current plan, on one page, is in [TODO.md](TODO.md) (in Spanish). Coming next:
-
-- First published release (v0.4.1) with wheel, Windows executable, Docker image and PyPI.
-- What the [validation with real cases](docs/VALIDACION.md) left open: Windows XP recycle bin and `.evt` logs,
-  network settings from the registry, mail and IRC clients, and a modern Windows 10/11 image.
-- Sigma performance with large rule packs.
-
-The original long roadmap is archived in [docs/archivo/ROADMAP.md](docs/archivo/ROADMAP.md).
-
-## Development
-
-```bash
-pip install -e ".[dev]"
-python -m pytest -q        # tests (real artifacts in tests/data; everything else is generated synthetically)
-ruff check sabueso tests   # style
-```
-
-CI runs the tests on Linux and Windows with Python 3.10 and 3.12, a full run of the demo scenario and both installers
-(install, run and uninstall). Pushing a `v*` tag runs the `release` workflow, which builds the wheel and sdist, the
-Windows executable (PyInstaller, `packaging/sabueso.spec`, tested with the demo and a PDF) and the Docker image on
-GitHub Container Registry, and attaches them to the release. The origin and
-license of the test data are listed in [tests/data/README.md](tests/data/README.md).
-
-## License
-
-[Apache License 2.0](LICENSE). Dependencies keep their own licenses: libewf, libscca and libesedb (LGPL-3.0+),
-The Sleuth Kit (IPL-1.0 / CPL-1.0) and pytsk3 (Apache-2.0), YARA-X (BSD-3-Clause), evtx (MIT/Apache-2.0), Flask
-(BSD-3-Clause), waitress (ZPL-2.1). Volatility 3 is optional, runs as a separate process and is distributed under the Volatility Software
-License.
+[Apache License 2.0](LICENSE). Dependencies keep their own licenses (details in the
+[manual](docs/MANUAL.en.md#license)).

@@ -433,3 +433,17 @@ def test_cli_expert_report(demo_case, tmp_path, capsys):
     out = tmp_path / "cli.html"
     assert main(["-c", str(demo_case), "informe", "--pericial", "--objeto", "Alcance", "-o", str(out)]) == EXIT_OK
     assert "Alcance" in out.read_text(encoding="utf-8")
+
+
+def test_expert_report_cover_carries_the_proceeding(demo_case, tmp_path):
+    proceeding = {"court": "Juzgado de Instrucción n.º 3", "number": "DP 123/2026", "requester": "<Fiscalía>"}
+    with Case.open(demo_case) as case:
+        path = generate_report(case, "es", tmp_path / "cover.html", expert=True, proceeding=proceeding)
+        entry = case.custody.entries()[-1]
+        plain = generate_report(case, "es", tmp_path / "plain.html", proceeding=proceeding)  # not an expert report
+    cover = re.search(r'<header class="cover">.*?</header>', path.read_text(encoding="utf-8"), re.S).group(0)
+    assert "Juzgado de Instrucción n.º 3" in cover and "DP 123/2026" in cover and "&lt;Fiscalía&gt;" in cover
+    assert entry.details["proceeding"]["number"] == "DP 123/2026"
+    plain_cover = re.search(r'<header class="cover">.*?</header>', plain.read_text(encoding="utf-8"), re.S).group(0)
+    assert "DP 123/2026" not in plain_cover
+

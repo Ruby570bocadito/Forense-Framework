@@ -675,6 +675,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         confirmed_only = request.form.get("confirmed") == "on"
         expert = request.form.get("expert") == "on"
         scope = (request.form.get("scope") or "").strip()[:4000]
+        proceeding = {key: (request.form.get(key) or "").strip()[:300] for key in ("requester", "court", "number")}
         try:
             max_findings = min(max(0, int(request.form.get("max_findings") or 0)), 1_000_000)
         except ValueError:
@@ -687,7 +688,7 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
             progress(t("web.job.report"))
             path = generate_report(case, report_lang, verify=verify, actor=who, sign=sign, include=include,
                                    confirmed_only=confirmed_only, max_findings=max_findings, expert=expert,
-                                   scope=scope)
+                                   scope=scope, proceeding=proceeding)
             if pdf:
                 from sabueso.report.pdf import html_to_pdf
 

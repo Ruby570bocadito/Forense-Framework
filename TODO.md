@@ -7,9 +7,18 @@ El plan largo original, por ejes y versiones, está archivado en [docs/archivo/R
 defender ante un juez, custodia verificable e informe pericial en español. Cada mejora se valida con casos reales
 ([docs/VALIDACION.md](docs/VALIDACION.md)) antes de darla por buena.
 
-## Ahora — difusión de la v0.4.1 (publicada el 2026-10-30)
+## Ahora — imagen y difusión
 
-- [ ] Publicar en PyPI (`pipx install sabueso-framework`).
+Que quien llegue al repositorio entienda en 10 segundos qué es, lo vea funcionar y pueda probarlo.
+
+- [x] Mascota («Sabu», un sabueso con collar y placa-escudo) y banner del README.
+- [x] Demostraciones animadas: la CLI de punta a punta y un recorrido por la web.
+- [x] README profesional (qué es, por qué, pruébalo en un minuto, cómo trabaja, vistazo, validación, cuándo usar otra herramienta) y la referencia completa en `docs/MANUAL.md`.
+- [ ] Publicar en PyPI (`pipx install sabueso-framework`): configurar *trusted publishing* en pypi.org.
+- [ ] Imagen de vista previa social del repositorio (Settings → Social preview) con el banner.
+- [ ] `CONTRIBUTING.md`, `SECURITY.md` y plantillas de *issues* (fallo, artefacto nuevo, falso positivo).
+- [ ] Web de documentación (GitHub Pages) con la guía del perito paso a paso.
+- [ ] Publicar la validación: un artículo con las cifras de `docs/VALIDACION.md`.
 
 ## Siguiente — v0.5 «Perito»: lo que la validación con casos reales dejó pendiente
 
@@ -18,7 +27,9 @@ defender ante un juez, custodia verificable e informe pericial en español. Cada
 - [ ] Validar con una imagen moderna (Windows 10/11) con preguntas oficiales: SRUM, Amcache, EVTX, navegadores.
 - [ ] Rendimiento de Sigma con SigmaHQ (~150 eventos/s de creación de procesos): índice de cadenas común a todas
       las reglas.
-- [ ] Plantilla de informe pericial: campos de solicitante, juzgado y número de procedimiento en la portada.
+- [x] Portada del informe pericial con solicitante, juzgado y número de procedimiento.
+- [ ] Lista de comprobación del perito antes de entregar (evidencias verificadas, hallazgos revisados, conclusiones, firma).
+- [ ] Anexo de hashes de todos los archivos citados en los hallazgos.
 
 ## Después
 
@@ -30,7 +41,7 @@ defender ante un juez, custodia verificable e informe pericial en español. Cada
 ## Cómo comprobar un cambio
 
 ```bash
-python -m pytest -q                       # tests (458 en la última ejecución)
+python -m pytest -q                       # tests (más de 470)
 ruff check sabueso tests scripts          # estilo
 python scripts/validar_evtx.py RUTA/EVTX-ATTACK-SAMPLES --sigma RUTA/sigma   # detección con ataques reales
 ```

@@ -600,7 +600,8 @@ def cmd_report(args: argparse.Namespace) -> int:
         if pdf and output is not None and output.suffix.lower() == ".pdf":
             output = output.with_suffix(".html")
         path = generate_report(case, args.lang, output, args.verify, args.analyst, sign=args.sign,
-                               expert=args.expert, scope=args.scope)
+                               expert=args.expert, scope=args.scope,
+                               proceeding={"requester": args.requester, "court": args.court, "number": args.proceeding})
         _out(t("cli.report_written", path=str(path)))
         if pdf:
             from sabueso.report.pdf import html_to_pdf
@@ -1011,6 +1012,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sign", "--firmar", action="store_true", help=t("cli.opt.report_sign"))
     p.add_argument("--expert", "--pericial", action="store_true", help=t("cli.opt.report_expert"))
     p.add_argument("--scope", "--objeto", help=t("cli.opt.report_scope"))
+    p.add_argument("--requester", "--solicitante", help=t("cli.opt.report_requester"))
+    p.add_argument("--court", "--juzgado", help=t("cli.opt.report_court"))
+    p.add_argument("--proceeding", "--procedimiento", help=t("cli.opt.report_proceeding"))
 
     p = _add(sub, "sigma", "", "cli.cmd.sigma", cmd_sigma)
     p.add_argument("action", choices=("check", "download"), metavar="check|download")

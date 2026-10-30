@@ -19,10 +19,14 @@ flujo `release`).
 - Registro: tarjetas de red, concesiones DHCP y último usuario y dominio de Winlogon.
 - Herramientas de anonimato (Anonymizer) con gravedad baja y técnica T1090.
 - `sabueso doctor` recomienda las reglas de SigmaHQ si no hay ninguna configurada.
-- Capturas de la interfaz en el README.
+- README profesional con banner, demostraciones animadas (sesión real de la CLI en SVG y recorrido por la web en GIF), capturas y diagrama del flujo; la referencia completa pasa a `docs/MANUAL.md` / `docs/MANUAL.en.md`.
+- Sabu, la mascota (`docs/assets/sabu.svg`), e imagen para la vista previa social del repositorio.
+- Portada del informe pericial con juzgado, número de procedimiento y solicitante (`--juzgado`, `--procedimiento`, `--solicitante`, también en la web), registrados en la custodia.
+- `scripts/banner.py` y `scripts/terminal_demo.py` regeneran el banner y la demostración de la CLI.
 
 ### Cambiado
 - Acciones de GitHub en sus versiones con Node 24.
+- La portada de la CLI alinea sus columnas.
 - La interfaz web abre el puerto antes de anunciarse; si está ocupado o reservado por Windows, lo explica y propone
   otro en lugar de mostrar `WinError 10013`.
 
