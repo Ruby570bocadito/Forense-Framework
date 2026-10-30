@@ -9,6 +9,23 @@ flujo `release`).
 
 ## [Sin publicar]
 
+### Añadido
+- Personalidad de Sabueso (`docs/IDENTIDAD.md`): portada al ejecutar `sabueso` sin orden, lema en la web y pie con la
+  versión.
+- Guía de **siguiente paso** en cada caso: la CLI termina `nuevo`, `info`, `evidencia agregar`, `triaje`, `imagen`,
+  `revisar` y `conclusiones` con lo que toca hacer y la orden exacta; la web lo muestra como tarjeta en el resumen y
+  como columna en la lista de casos.
+- Papelera de Windows XP (`RECYCLER\<SID>\INFO2`) y extracción de su contenido (`D<unidad><n>`).
+- Registro: tarjetas de red, concesiones DHCP y último usuario y dominio de Winlogon.
+- Herramientas de anonimato (Anonymizer) con gravedad baja y técnica T1090.
+- `sabueso doctor` recomienda las reglas de SigmaHQ si no hay ninguna configurada.
+- Capturas de la interfaz en el README.
+
+### Cambiado
+- Acciones de GitHub en sus versiones con Node 24.
+- La interfaz web abre el puerto antes de anunciarse; si está ocupado o reservado por Windows, lo explica y propone
+  otro en lugar de mostrar `WinError 10013`.
+
 ## [0.4.1] - 2026-10-30
 
 ### Cambiado

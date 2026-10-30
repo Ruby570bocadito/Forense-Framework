@@ -9,6 +9,7 @@
 [![CI](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml)
 [![Licencia](https://img.shields.io/github/license/Ruby570bocadito/Sabueso-Framework)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)
+[![Versión](https://img.shields.io/github/v/release/Ruby570bocadito/Sabueso-Framework?label=versi%C3%B3n)](https://github.com/Ruby570bocadito/Sabueso-Framework/releases/latest)
 
 **Framework de análisis forense digital centrado en Windows**: gestión de casos, cadena de custodia verificable,
 imágenes de disco (E01, raw, VHD/VHDX, VMDK, QCOW2) con instantáneas VSS y BitLocker, recolección en vivo, más de 20
@@ -23,6 +24,31 @@ web con panel gráfico y CLI, e informes periciales en HTML y **PDF** en **espa�
 sabueso demo ./laboratorio          # crea un escenario de intrusión ficticio y lo analiza
 sabueso web -w ./laboratorio        # ábrelo en http://127.0.0.1:8765
 ```
+
+### Vistazo
+
+| Resumen del caso, con el siguiente paso | Técnicas MITRE ATT&CK observadas |
+|---|---|
+| ![Resumen del caso de demostración](docs/assets/resumen.png) | ![Matriz ATT&CK del caso de demostración](docs/assets/attack.png) |
+| **Hallazgos con su revisión** | **Modo oscuro** (sigue al del sistema) |
+| ![Hallazgos del caso de demostración](docs/assets/hallazgos.png) | ![Resumen en modo oscuro](docs/assets/resumen-oscuro.png) |
+
+En la terminal, Sabueso se presenta y cada orden termina diciéndote qué hacer después:
+
+```
+       __      Sabueso 0.4.1
+  (___()'`;    Análisis forense de Windows con cadena de custodia
+  /,    /`     Sigue el rastro. Las conclusiones, tuyas.
+  \\"--\\
+
+$ sabueso -c caso info
+…
+Siguiente paso: revisa los hallazgos (57 de 62 pendientes).
+  sabueso -c "caso" hallazgos
+  sabueso -c "caso" revisar N confirmado|falso_positivo
+```
+
+Su forma de hablar y de presentarse está descrita en [docs/IDENTIDAD.md](docs/IDENTIDAD.md).
 
 ---
 

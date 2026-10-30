@@ -399,6 +399,7 @@
  "error.update_failed": "pip no pudo actualizar (código {code})",
  "error.update_frozen": "Esta es la versión ejecutable: descargue la nueva desde {url} y sustituya la carpeta",
  "error.update_unreachable": "No se pudo consultar {repo}",
+ "error.web_port": "No se puede abrir la interfaz en {host}:{port}: el puerto está en uso o reservado por Windows. Prueba con otro, por ejemplo --puerto {alternative}.",
  "error.yara_compile": "Error al compilar {path}: {error}",
  "error.yara_no_rules": "No hay reglas YARA en {path}.",
  "etype.account_created": "Cuenta creada",

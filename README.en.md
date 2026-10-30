@@ -9,6 +9,7 @@
 [![CI](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml/badge.svg)](https://github.com/Ruby570bocadito/Sabueso-Framework/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/Ruby570bocadito/Sabueso-Framework)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)
+[![Release](https://img.shields.io/github/v/release/Ruby570bocadito/Sabueso-Framework)](https://github.com/Ruby570bocadito/Sabueso-Framework/releases/latest)
 
 **Windows-focused digital forensics framework**: case management, verifiable chain of custody, disk images (E01, raw,
 VHD/VHDX, VMDK, QCOW2) with VSS shadow copies and BitLocker, live collection, more than 20 Windows artifact modules
@@ -23,6 +24,32 @@ HTML and **PDF** in **English and Spanish**.
 sabueso demo ./lab          # creates a fictitious intrusion scenario and analyses it
 sabueso web -w ./lab        # open http://127.0.0.1:8765
 ```
+
+### At a glance
+
+| Case summary, with the next step | MITRE ATT&CK techniques observed |
+|---|---|
+| ![Demo case summary](docs/assets/resumen.png) | ![ATT&CK matrix of the demo case](docs/assets/attack.png) |
+| **Findings and their review** | **Dark mode** (follows the system) |
+| ![Findings of the demo case](docs/assets/hallazgos.png) | ![Summary in dark mode](docs/assets/resumen-oscuro.png) |
+
+(Screenshots in Spanish; switch the interface to English with the ES/EN selector or `-L en`.) In the terminal,
+Sabueso introduces itself and every command ends by telling you what to do next:
+
+```
+       __      Sabueso 0.4.1
+  (___()'`;    Windows forensics with a chain of custody
+  /,    /`     Follow the trail. The conclusions are yours.
+  \\"--\\
+
+$ sabueso -c case info -L en
+…
+Next step: review the findings (57 of 62 pending).
+  sabueso -c "case" findings
+  sabueso -c "case" review N confirmed|false_positive
+```
+
+How it speaks and presents itself is described (in Spanish) in [docs/IDENTIDAD.md](docs/IDENTIDAD.md).
 
 ---
 

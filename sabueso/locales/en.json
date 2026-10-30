@@ -399,6 +399,7 @@
  "error.update_failed": "pip could not update (code {code})",
  "error.update_frozen": "This is the standalone build: download the new one from {url} and replace the folder",
  "error.update_unreachable": "Could not reach {repo}",
+ "error.web_port": "Cannot open the interface on {host}:{port}: the port is in use or reserved by Windows. Try another one, for example --port {alternative}.",
  "error.yara_compile": "Error compiling {path}: {error}",
  "error.yara_no_rules": "No YARA rules found in {path}.",
  "etype.account_created": "Account created",

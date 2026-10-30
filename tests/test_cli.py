@@ -220,7 +220,13 @@ def test_web_is_served_by_waitress(monkeypatch, tmp_path):
     from sabueso.web import run_server
 
     calls = {}
-    monkeypatch.setattr(waitress, "serve", lambda app, **options: calls.update(app=app, **options))
+
+    def create_server(app, **options):
+        calls.update(app=app, **options)
+        return type("Server", (), {"run": lambda self: calls.update(ran=True)})()
+
+    monkeypatch.setattr(waitress, "create_server", create_server)
     run_server(tmp_path, "127.0.0.1", 9999, password="pw")
+    assert calls["ran"]
     assert calls["host"] == "127.0.0.1" and calls["port"] == 9999 and calls["threads"] >= 4
     assert calls["app"].name.startswith("sabueso")

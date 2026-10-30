@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import errno
 import getpass
 import os
 import shutil
@@ -753,7 +754,12 @@ def cmd_web(args: argparse.Namespace) -> int:
 
         host = "127.0.0.1" if args.host in ("0.0.0.0", "::") else args.host
         threading.Timer(1.0, webbrowser.open, (f"http://{host}:{args.port}/",)).start()
-    run_server(workspace, args.host, args.port, password)
+    try:
+        run_server(workspace, args.host, args.port, password)
+    except OSError as exc:  # port taken, or reserved by Windows (WinError 10013): say how to get past it
+        if exc.errno in (errno.EADDRINUSE, errno.EACCES) or getattr(exc, "winerror", None) in (10013, 10048):
+            raise SabuesoError("error.web_port", host=args.host, port=args.port, alternative=args.port + 10) from exc
+        raise
     return EXIT_OK
 
 

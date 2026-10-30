@@ -872,10 +872,13 @@ def _mark_interrupted(workspace: Path) -> None:
 
 def run_server(workspace: Path, host: str = "127.0.0.1", port: int = 8765, password: Optional[str] = None) -> None:
     app = create_app(workspace, password)
-    print(t("web.listening", url=f"http://{host}:{port}/", workspace=str(workspace)))
+    listening = t("web.listening", url=f"http://{host}:{port}/", workspace=str(workspace))
     try:
-        from waitress import serve
+        from waitress import create_server
     except ImportError:  # a source checkout without the dependency installed: Flask's own server still works
+        print(listening)
         app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
         return
-    serve(app, host=host, port=port, threads=8, ident="Sabueso")
+    server = create_server(app, host=host, port=port, threads=8, ident="Sabueso")  # binds: a busy port fails here
+    print(listening)
+    server.run()
