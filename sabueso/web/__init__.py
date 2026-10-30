@@ -669,6 +669,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
         else:  # callers without a section picker keep the full report
             include = None
         confirmed_only = request.form.get("confirmed") == "on"
+        expert = request.form.get("expert") == "on"
+        scope = (request.form.get("scope") or "").strip()[:4000]
         try:
             max_findings = min(max(0, int(request.form.get("max_findings") or 0)), 1_000_000)
         except ValueError:
@@ -680,7 +682,8 @@ def create_app(workspace: Path, password: Optional[str] = None) -> Flask:
 
             progress(t("web.job.report"))
             path = generate_report(case, report_lang, verify=verify, actor=who, sign=sign, include=include,
-                                   confirmed_only=confirmed_only, max_findings=max_findings)
+                                   confirmed_only=confirmed_only, max_findings=max_findings, expert=expert,
+                                   scope=scope)
             if pdf:
                 from sabueso.report.pdf import html_to_pdf
 

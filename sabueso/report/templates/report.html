@@ -174,6 +174,13 @@
 </div>
 
 <main>
+{% if expert %}
+<section id="s-scope">
+{{ heading("scope", _("report.scope")) }}
+{% if scope %}<p class="prose">{{ scope }}</p>{% else %}<p class="muted">{{ _("report.scope_missing") }}</p>{% endif %}
+<p>{{ _("report.scope_basis", evidence=stats.evidence, analyses=analyses | length) }}</p>
+</section>
+{% endif %}
 <section id="s-summary">
 {{ heading("summary", _("report.executive_summary")) }}
 <div class="kpis">
@@ -311,7 +318,8 @@
   <tbody>
   {% for f in items %}
   <tr id="f-{{ f.id }}"><td class="mono nowrap">{{ f.id }}</td><td>{{ sevbadge(f.severity) }}</td><td class="mono nowrap">{{ f.timestamp | ts }}</td>
-      <td><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}<div class="muted">{{ f.evidence_id }} · #{{ f.analysis_id }}{% for tech in techniques_for(f) %} <span class="tag">{{ tech }}</span>{% endfor %}</div></td>
+      {% set src = (f.params or {}).get("file") or (f.params or {}).get("path") %}
+      <td><b>{{ finding_title(f) }}</b><br>{{ finding_description(f) }}<div class="muted">{{ f.evidence_id }} · #{{ f.analysis_id }}{% if src %} · {{ _("report.source") }}: <span class="mono">{{ src }}</span>{% endif %}{% for tech in techniques_for(f) %} <span class="tag">{{ tech }}</span>{% endfor %}</div></td>
       <td>{{ _("review." + f.review.status) }}{% if f.review.note %}<div class="note">{{ f.review.note }}</div>{% endif %}{% if f.review.actor %}<div class="muted">{{ f.review.actor }} · {{ f.review.timestamp | ts }}</div>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
@@ -410,6 +418,14 @@
 </table>
 </section>
 
+<section id="s-limitations">
+{{ heading("limitations", _("report.limitations")) }}
+<ul>
+  {% for note in limitations %}<li>{{ note }}</li>{% endfor %}
+  <li>{{ _("report.limit.general") }}</li>
+</ul>
+</section>
+
 <section id="s-methodology">
 {{ heading("methodology", _("report.methodology")) }}
 <ul>
@@ -421,6 +437,13 @@
   <li>{{ _("report.method.attack") }}</li>
 </ul>
 </section>
+{% if expert %}
+<section id="s-declaration">
+{{ heading("declaration", _("report.declaration")) }}
+<p class="prose">{{ _("report.declaration_text") }}</p>
+<p>{{ _("report.declaration_signed", analyst=analyst, date=(generated | ts)) }}</p>
+</section>
+{% endif %}
 </main>
 <footer>{{ _("report.footer", version=version) }}</footer>
 </div>

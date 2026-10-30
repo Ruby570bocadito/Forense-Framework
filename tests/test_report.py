@@ -353,7 +353,7 @@ def test_report_sections_included(demo_case, tmp_path):
     assert entry.details["detail"] == {"confirmed_only": False, "max_findings": None}
     toc = re.search(r'<nav class="toc".*?</nav>', html, re.S).group(0)
     anchors = re.findall(r'href="#([a-z]+)"', toc)
-    assert anchors == ["summary", "evidence", "findings", "analyses", "custody", "methodology"]
+    assert anchors == ["summary", "evidence", "findings", "analyses", "custody", "limitations", "methodology"]
     assert 'id="s-attack"' not in html and 'id="s-iocs"' not in html and 'id="s-conclusions"' not in html
     assert 'id="s-findings"' in html and 'id="s-custody"' in html  # the core stays
 
@@ -365,7 +365,8 @@ def test_report_core_sections_only(demo_case, tmp_path):
         entry = case.custody.entries()[-1]
     assert entry.details["sections"] == []
     toc = re.search(r'<nav class="toc".*?</nav>', html, re.S).group(0)
-    assert re.findall(r'href="#([a-z]+)"', toc) == ["summary", "evidence", "analyses", "custody", "methodology"]
+    assert re.findall(r'href="#([a-z]+)"', toc) == ["summary", "evidence", "analyses", "custody", "limitations",
+                                                    "methodology"]
     assert 'id="s-findings"' not in html and 'id="s-chronology"' not in html
 
 
@@ -382,3 +383,53 @@ def test_report_confirmed_only_and_cap(demo_case, tmp_path):
     assert "Pending findings" not in html and "Discarded findings" not in html
     assert "Findings confirmed by the analyst (1)" in html
     assert 'id="s-attack"' in html  # the matrix follows the same verdict filter
+
+
+def test_report_states_its_limitations(demo_case, tmp_path):
+    """Every report lists what it cannot assert: unverified evidence, analyses with errors, built-in Sigma only."""
+    from types import SimpleNamespace
+
+    from sabueso.report import _limitations
+
+    with Case.open(demo_case) as case:
+        html = generate_report(case, "en", tmp_path / "limits.html").read_text(encoding="utf-8")
+    section = re.search(r'<section id="s-limitations">.*?</section>', html, re.S).group(0)
+    assert "has not been verified again" in section
+    assert 'id="scope"' not in html and 'id="declaration"' not in html  # expert sections are opt-in
+
+    def analysis(id, module, status="completed", errors=(), options=None):
+        return SimpleNamespace(id=id, module=module, status=status, errors=list(errors), options=options or {})
+    evidence = [SimpleNamespace(id="EV-001"), SimpleNamespace(id="EV-002")]
+    notes = _limitations(evidence, {"EV-001": {"result": "ok"}, "EV-002": {"result": "mismatch"}},
+                         [analysis(1, "evtx"), analysis(2, "registry", errors=[{"path": "x", "error": "y"}]),
+                          analysis(3, "mft", status="failed"), analysis(4, "prefetch")], {1: True, 2: True, 4: False},
+                         "en")
+    text = " ".join(notes)
+    assert "EV-001" not in text and "EV-002 does not match" in text and "could not process 1 item" in text
+    assert "did not finish" in text and "#4 do not match" in text and "15 built-in Sigma rules only" in text
+    assert "built-in" not in " ".join(_limitations([], {}, [analysis(1, "evtx", options={"sigma_rules": "d"})],
+                                                   {1: True}, "en"))
+
+
+def test_expert_report_adds_scope_and_declaration(demo_case, tmp_path):
+    with Case.open(demo_case) as case:
+        path = generate_report(case, "es", tmp_path / "pericial.html", expert=True, scope="Determinar <el> origen")
+        entry = case.custody.entries()[-1]
+    html = path.read_text(encoding="utf-8")
+    anchors = re.findall(r'href="#([a-z]+)"', re.search(r'<nav class="toc".*?</nav>', html, re.S).group(0))
+    assert anchors[0] == "scope" and anchors[-1] == "declaration" and "limitations" in anchors
+    assert "Determinar &lt;el&gt; origen" in html  # escaped
+    assert "artículo 335.2 de la Ley de Enjuiciamiento Civil" in html
+    assert entry.details["expert"] is True and len(entry.details["scope_sha256"]) == 64
+
+
+def test_findings_show_their_source_file(demo_case, tmp_path):
+    with Case.open(demo_case) as case:
+        html = generate_report(case, "en", tmp_path / "source.html").read_text(encoding="utf-8")
+    assert re.search(r'Source: <span class="mono">[^<]+</span>', html)
+
+
+def test_cli_expert_report(demo_case, tmp_path, capsys):
+    out = tmp_path / "cli.html"
+    assert main(["-c", str(demo_case), "informe", "--pericial", "--objeto", "Alcance", "-o", str(out)]) == EXIT_OK
+    assert "Alcance" in out.read_text(encoding="utf-8")

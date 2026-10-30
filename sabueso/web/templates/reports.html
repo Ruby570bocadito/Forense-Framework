@@ -27,6 +27,12 @@
     <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="confirmed" style="width:auto"> {{ _('web.report_confirmed_only') }}</label></div>
     <div><label>{{ _('web.report_max_findings') }} <input type="number" name="max_findings" value="0" min="0" max="1000000" step="50" style="width:110px"></label></div>
   </div>
+  <div class="row">
+    <div><label style="display:flex; gap:6px; align-items:center"><input type="checkbox" name="expert" style="width:auto"> {{ _('web.report_expert') }}</label></div>
+  </div>
+  <div class="row">
+    <div><label>{{ _('web.report_scope') }}<textarea name="scope" rows="2" maxlength="4000"></textarea></label></div>
+  </div>
   <p class="muted">{{ _('web.report_help') }}</p>
   {% if not sign_available %}<p class="muted small">{{ _('web.report_sign_help') }}</p>{% endif %}
 </form>

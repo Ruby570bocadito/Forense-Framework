@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 from typing import Optional
@@ -35,7 +36,9 @@ TEMPLATES = Path(__file__).parent / "templates"
 LOGO = Path(__file__).parent.parent / "web" / "static" / "logo.svg"
 
 # Sections every forensic report carries; the caller may drop any of the others.
-CORE_SECTIONS = frozenset({"summary", "evidence", "analyses", "custody", "methodology"})
+CORE_SECTIONS = frozenset({"summary", "evidence", "analyses", "custody", "limitations", "methodology",
+                           "scope", "declaration"})
+BUILTIN_SIGMA_RULES = 15  # rules shipped in sabueso/sigma/rules, measured in docs/VALIDACION.md
 OPTIONAL_SECTIONS = ("conclusions", "attack", "iocs", "correlation", "findings", "bookmarks",
                      "execution", "chronology")
 
@@ -66,14 +69,15 @@ def _module_title(name: str, lang: str) -> str:
 
 
 def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execution: list,
-              shared: list = (), include: Optional[set[str]] = None) -> list[tuple[str, str]]:
+              shared: list = (), include: Optional[set[str]] = None, expert: bool = False) -> list[tuple[str, str]]:
     """Numbered sections of the report (anchor, title); optional ones only when they have content.
 
     ``include`` (None = no restriction) lets the caller drop optional sections; the core ones
     (summary, evidence, analyses, custody, methodology) always stay: a forensic report without
     them would contradict its own chain of custody.
     """
-    items = [("summary", "report.executive_summary"), ("conclusions", "report.conclusions")]
+    items = [("scope", "report.scope")] if expert else []
+    items += [("summary", "report.executive_summary"), ("conclusions", "report.conclusions")]
     if matrix:
         items.append(("attack", "report.attack"))
     if indicators:
@@ -86,10 +90,40 @@ def _sections(lang: str, matrix: dict, indicators: dict, bookmarks: list, execut
     if execution:
         items.append(("execution", "nav.execution"))
     items += [("chronology", "report.chronology"), ("analyses", "report.analyses"), ("custody", "nav.custody"),
-              ("methodology", "report.methodology")]
+              ("limitations", "report.limitations"), ("methodology", "report.methodology")]
+    if expert:
+        items.append(("declaration", "report.declaration"))
     if include is not None:
         items = [(a, k) for a, k in items if a in CORE_SECTIONS or a in include]
     return [(anchor, t(key, lang)) for anchor, key in items]
+
+
+def _limitations(evidence: list, verifications: dict, analyses: list, results_ok: dict, lang: str) -> list[str]:
+    """What this case's report cannot assert, read from its own data (an expert report must state it)."""
+    notes = []
+    for item in evidence:
+        check = verifications.get(item.id)
+        if check is None:
+            notes.append(t("report.limit.not_verified", lang, id=item.id))
+        elif check.get("result") != "ok":
+            notes.append(t("report.limit.verify_failed", lang, id=item.id))
+    builtin_only = False
+    for analysis in analyses:
+        title = _module_title(analysis.module, lang)
+        if analysis.status != "completed":
+            notes.append(t("report.limit.analysis_failed", lang, id=analysis.id, module=title,
+                           status=status_label(analysis.status, lang)))
+            continue
+        if analysis.errors:
+            notes.append(t("report.limit.analysis_errors", lang, id=analysis.id, module=title,
+                           count=len(analysis.errors)))
+        if results_ok.get(analysis.id) is False:
+            notes.append(t("report.limit.results_changed", lang, id=analysis.id))
+        if analysis.module == "evtx" and not analysis.options.get("sigma_rules"):
+            builtin_only = True
+    if builtin_only:
+        notes.append(t("report.limit.sigma_builtin", lang, count=BUILTIN_SIGMA_RULES))
+    return notes
 
 
 def _correlations(case: Case) -> list:
@@ -128,7 +162,11 @@ def _charts(overview: dict, lang: str) -> dict:
 def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Path] = None, verify: bool = False,
                     actor: Optional[str] = None, max_events: int = 1000, max_programs: int = 300,
                     sign: bool = False, include: Optional[set[str]] = None, confirmed_only: bool = False,
-                    max_findings: int = 0) -> Path:
+                    max_findings: int = 0, expert: bool = False, scope: Optional[str] = None) -> Path:
+    """Write the HTML report and record it in the chain of custody.
+
+    ``expert`` turns it into an expert witness report (dictamen pericial, UNE 71506): it adds the purpose and
+    scope (``scope``, or the case description) and the expert's declaration of article 335.2 LEC."""
     from sabueso.core.attack import attack_matrix, storyline
     from sabueso.core.overview import case_overview
     from sabueso.core.stix import collect_indicators
@@ -171,7 +209,9 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         indicators=sorted(indicators.values(), key=lambda i: (i["first_seen"] or "9999", i["type"], i["value"])),
         charts=_charts(overview, lang),
         sections=_sections(lang, overview["matrix"], indicators, bookmarks, execution, shared=shared,
-                           include=include),
+                           include=include, expert=expert),
+        limitations=_limitations(evidence, verifications, analyses, results_ok, lang),
+        expert=expert, scope=(scope or "").strip() or info.get("description") or "",
         shared=shared, case_slug=info.get("slug") or case.root.name, include=include,
         logo=Markup(LOGO.read_text(encoding="utf-8")) if LOGO.is_file() else "",
         page_label=re.sub(r"[^A-Za-z0-9 ._-]", "", f"{info.get('id', '')}")[:60],
@@ -187,6 +227,8 @@ def generate_report(case: Case, lang: Optional[str] = None, output: Optional[Pat
         "custody_head": entries[-1].hash if entries else None,
         "sections": sorted(include) if include is not None else "all",
         "detail": {"confirmed_only": confirmed_only, "max_findings": max_findings or None},
+        **({"expert": True, "scope_sha256": hashlib.sha256((scope or "").encode("utf-8")).hexdigest()}
+           if expert else {}),
     })
     if sign:
         from sabueso.report.signing import sign_into_custody
